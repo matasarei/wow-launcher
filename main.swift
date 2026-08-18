@@ -476,11 +476,15 @@ final class Store: ObservableObject {
     }
 
     func removeRealm(_ addr: String) {
-        guard !(realms.first(where: { $0.addr == addr })?.active ?? false) else {
-            note = "Cannot remove the active server — select another one first."
+        var rest = realms.filter { $0.addr != addr }
+        guard !rest.isEmpty else {
+            note = "At least one server is required — add another before removing this one."
             return
         }
-        writeRealms(realms.filter { $0.addr != addr })
+        if !rest.contains(where: { $0.active }) {
+            rest[0] = Realm(addr: rest[0].addr, active: true)
+        }
+        writeRealms(rest)
     }
 
     // MARK: addons
@@ -736,13 +740,18 @@ struct GamesView: View {
                         if r.active {
                             Text("Active").font(.caption).foregroundStyle(.secondary)
                         }
+                        Button(action: { store.removeRealm(r.addr) }) {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                        .help("Remove this server")
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { store.selectRealm(r.addr) }
                     .contextMenu {
                         Button("Select") { store.selectRealm(r.addr) }
                         Button("Remove", role: .destructive) { store.removeRealm(r.addr) }
-                            .disabled(r.active)
                     }
                 }
                 HStack {
