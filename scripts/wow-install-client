@@ -13,7 +13,10 @@ DEST="$RES/games/$NAME"
 [ -n "$SRC" ] || { echo "usage: wow-install-client /path/to/client [Name]"; exit 1; }
 [ -f "$SRC/Wow.exe" ] || { echo "not a WoW client (no Wow.exe in $SRC)"; exit 1; }
 [ -d "$SRC/Data" ]   || { echo "not a WoW client (no Data folder in $SRC)"; exit 1; }
-[ -d "$DEST" ] && { echo "a game named '$NAME' already exists"; exit 1; }
+if [ -d "$DEST" ]; then
+  echo "replacing the existing game..."
+  rm -rf "$DEST"
+fi
 mkdir -p "$RES/games"
 echo "copying client (this can take a few minutes)..."
 ditto "$SRC" "$DEST"
