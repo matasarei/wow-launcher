@@ -8,8 +8,7 @@ KIT="$RES/patch-kit"
 LOADER="$RES/cxwine/CrossOver-Hosted Application/wineloader2"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
 SRC="$1"
-NAME="${2:-$(basename "$SRC")}"
-DEST="$RES/games/$NAME"
+DEST="$RES/games/main"
 [ -n "$SRC" ] || { echo "usage: wow-install-client /path/to/client [Name]"; exit 1; }
 # validate the source thoroughly BEFORE touching any existing install
 [ -f "$SRC/Wow.exe" ] || { echo "not a WoW client (no Wow.exe in $SRC)"; exit 1; }
@@ -25,9 +24,9 @@ GAMES_REAL="$(cd "$RES" && pwd -P)/games"
 case "$SRC_REAL/" in
   "$GAMES_REAL"/*) echo "the source is the installed game itself — choose the original client folder"; exit 1 ;;
 esac
-if [ -d "$DEST" ]; then
+if [ -n "$(ls "$RES/games" 2>/dev/null)" ]; then
   echo "replacing the existing game..."
-  rm -rf "$DEST"
+  rm -rf "$RES/games"/*
 fi
 mkdir -p "$RES/games"
 echo "copying client (this can take a few minutes)..."
@@ -109,5 +108,38 @@ seed gxFixLag 0
 seed movie 0                 # skip intro movies
 seed readTOS 1
 seed readEULA 1
+grep -qE '^GAME=main$' "$RES/launcher.conf" 2>/dev/null || {
+  grep -vE '^GAME=' "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
+  printf 'GAME=main\n' >> "$RES/launcher.conf.tmp"
+  mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
+}
 echo "display settings reset to defaults"
+# Fonts (the game loads Fonts/*.TTF over its MPQ fonts):
+# - Russian input mode (ruRU client, or CHAT_CP=1251): glyph-remapped fonts
+#   from the patch kit — the client inserts typed CP1251 bytes as Latin-1
+#   codepoints, and these fonts render those positions as Cyrillic (the
+#   classic community fix). Proper Unicode Cyrillic still renders normally.
+# - Otherwise: plain Arial from macOS so received Cyrillic isn't boxes.
+CHAT_CP="$(grep -sE '^CHAT_CP=' "$RES/launcher.conf" | cut -d= -f2)"
+SUP="/System/Library/Fonts/Supplemental"
+if [ "$SRC_LOCALE" = "ruRU" ] || [ "$CHAT_CP" = "1251" ]; then
+  mkdir -p "$DEST/Fonts"
+  if [ -n "$(ls "$KIT/fonts-client" 2>/dev/null)" ]; then
+    cp "$KIT/fonts-client/"* "$DEST/Fonts/"
+    echo "installed Cyrillic input fonts (original client fonts)"
+  elif python3 "$RES/bin/wow-client-fonts.py" "$DEST" "$DEST/Fonts" 2>/dev/null; then
+    mkdir -p "$KIT/fonts-client" && cp "$DEST/Fonts/"* "$KIT/fonts-client/"
+    echo "installed Cyrillic input fonts (extracted from the client's own fonts)"
+  elif [ -d "$KIT/fonts-cyr" ]; then
+    cp "$KIT/fonts-cyr/"*.TTF "$KIT/fonts-cyr/"*.ttf "$DEST/Fonts/" 2>/dev/null
+    echo "installed Cyrillic input fonts (fallback set)"
+  fi
+elif [ ! -d "$DEST/Fonts" ] && [ -f "$SUP/Arial.ttf" ]; then
+  mkdir -p "$DEST/Fonts"
+  cp "$SUP/Arial.ttf"        "$DEST/Fonts/FRIZQT__.TTF"
+  cp "$SUP/Arial Narrow.ttf" "$DEST/Fonts/ARIALN.TTF" 2>/dev/null || cp "$SUP/Arial.ttf" "$DEST/Fonts/ARIALN.TTF"
+  cp "$SUP/Arial Bold.ttf"   "$DEST/Fonts/MORPHEUS.TTF" 2>/dev/null || cp "$SUP/Arial.ttf" "$DEST/Fonts/MORPHEUS.TTF"
+  cp "$SUP/Arial Bold.ttf"   "$DEST/Fonts/skurri.ttf"   2>/dev/null || cp "$SUP/Arial.ttf" "$DEST/Fonts/skurri.ttf"
+  echo "installed Cyrillic-capable display fonts (delete the game's Fonts folder to restore the original look)"
+fi
 echo "installed '$NAME'"
