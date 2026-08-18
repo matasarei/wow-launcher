@@ -50,7 +50,8 @@ one misbehaves, try a clean original client first.
   <img src="assets/screenshots/westfall.jpg" width="32%" alt="Sentinel Hill inn at ~120 FPS">
 </p>
 
-> **What's not in this repo:** the game itself, the wine stack, and the prefix (≈18 GB) live only inside the app bundle. You need your own 3.3.5a client. This repo contains the launcher source that is installed into the bundle.
+> [!IMPORTANT]
+> **What's not in this repo:** the game itself, the wine stack, and the prefix live only inside the locally built app bundle. You need your own 3.3.5a client. This repo contains the launcher source and the build tooling.
 
 ## Using the launcher
 
