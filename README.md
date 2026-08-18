@@ -67,12 +67,18 @@ wow-launch
 ## Building the wrapper
 
 The app bundle is **built locally, not downloaded** — it embeds CrossOver's wine
-stack, which cannot be redistributed. With CrossOver and WoWSilicon present
-(see [docs/BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md) for the full manual):
+stack, which cannot be redistributed. The build harvests its dependencies from
+two apps you install first:
 
-```sh
-make wrapper        # assembles ~/Applications/WoW335.app from your local parts
-```
+1. Install [CrossOver](https://www.codeweavers.com/crossover) (free trial is fine)
+   into `/Applications` or `~/Applications` — source of the wine stack
+2. Install [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon/releases) next to
+   it — used only as a file source for the patch payloads, never launched
+3. ```sh
+   make wrapper        # assembles ~/Applications/WoW335.app
+   ```
+
+See [docs/BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md) for the full manual.
 
 ## Repo layout & building the launcher
 

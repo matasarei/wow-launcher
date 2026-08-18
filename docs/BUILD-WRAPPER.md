@@ -4,23 +4,44 @@ The wrapper is a self-contained app bundle: wine stack + prefix + patch kit + th
 manager GUI. It is **built on your machine from parts you obtain yourself** — it is
 not distributed, because it embeds CrossOver's commercial binaries.
 
+## Step 1 — install the prerequisites
+
+The build takes its dependencies from two apps that must be **downloaded and
+installed on your Mac first** (`make` will refuse to run and tell you what's
+missing otherwise):
+
+1. **Xcode Command Line Tools** — run `xcode-select --install` in Terminal
+   (skip if already installed). Compiles the SwiftUI manager; no full Xcode needed.
+2. **CrossOver** — download from
+   [codeweavers.com/crossover](https://www.codeweavers.com/crossover) and install
+   it into `/Applications` or `~/Applications`. The free 14-day trial is fine: the
+   wrapper calls wine directly and never touches CrossOver's licensing UI, so the
+   trial state doesn't matter to it. This supplies the whole wine + MoltenVK stack.
+   (If you find CrossOver useful, buy a license — CodeWeavers funds a large share
+   of Wine development.)
+3. **WoWSilicon** — download the app from
+   [github.com/WoWSilicon/WoWSilicon/releases](https://github.com/WoWSilicon/WoWSilicon/releases)
+   and drop `WoWSilicon.app` into `/Applications` or `~/Applications`.
+   **You never need to launch it** — the build only reads files from inside the
+   app bundle (the open-source patch payloads: winerosetta, rosettax87, DXVK
+   d3d9, libSiliconPatch, libDllLdr).
+
+You will also need **a WoW 3.3.5a client** (build 12340) — e.g.
+[chromiecraft.com](https://www.chromiecraft.com) has instructions — but that is
+installed later through the app's own GUI, not by make.
+
+## Step 2 — build
+
 ```sh
 make wrapper
 ```
 
-That's the whole build. Read on for what it needs and what it does.
+Both apps are auto-detected in `~/Applications` and `/Applications`; if you keep
+them elsewhere:
 
-## Prerequisites
-
-| What | Where to get it | Why |
-|---|---|---|
-| **Xcode Command Line Tools** | `xcode-select --install` | compiles the SwiftUI manager (no Xcode needed) |
-| **CrossOver** (25/26+) | [codeweavers.com/crossover](https://www.codeweavers.com/crossover) — the free 14-day trial is fine | supplies the wine + MoltenVK stack. The wrapper calls wine directly and never touches CrossOver's licensing UI, so the trial state is irrelevant to the wrapper. If you find CrossOver useful, buy a license — CodeWeavers funds a large share of Wine development. |
-| **WoWSilicon** | [github.com/WoWSilicon/WoWSilicon/releases](https://github.com/WoWSilicon/WoWSilicon/releases) | used **only as a file source** (it bundles the open-source patch payloads: winerosetta, rosettax87, DXVK d3d9, libSiliconPatch, libDllLdr). It is never launched — just drop the .app in `~/Applications` or `/Applications`. |
-| **A WoW 3.3.5a client** (build 12340) | e.g. [chromiecraft.com](https://www.chromiecraft.com) has instructions | installed later through the app's GUI, not by make |
-
-Both apps are auto-detected in `~/Applications` and `/Applications`; override with
-`make wrapper CROSSOVER=/path/to/CrossOver.app WOWSILICON=/path/to/WoWSilicon.app`.
+```sh
+make wrapper CROSSOVER=/path/to/CrossOver.app WOWSILICON=/path/to/WoWSilicon.app
+```
 
 ## What `make wrapper` does
 
