@@ -868,6 +868,8 @@ struct GamesView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .disabled(store.games.isEmpty)
+            .opacity(store.games.isEmpty ? 0.5 : 1)
             if !store.note.isEmpty {
                 Section {
                     Text(store.note).font(.caption).foregroundStyle(.secondary)
