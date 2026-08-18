@@ -70,15 +70,18 @@ The app bundle is **built locally, not downloaded** — it embeds CrossOver's wi
 stack, which cannot be redistributed. The build harvests its dependencies from
 two apps you install first:
 
-1. Install [CrossOver](https://www.codeweavers.com/crossover) (free trial is fine)
+1. Get this repo: **Code → Download ZIP**, double-click to unpack (no git needed)
+2. Install [CrossOver](https://www.codeweavers.com/crossover) (free trial is fine)
    into `/Applications` or `~/Applications` — source of the wine stack
-2. Install [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon/releases) next to
+3. Install [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon/releases) next to
    it — used only as a file source for the patch payloads, never launched
-3. ```sh
+4. In Terminal, `cd` into the unpacked folder and run:
+   ```sh
    make wrapper        # assembles ~/Applications/WoW335.app
    ```
 
-See [docs/BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md) for the full manual.
+New to the command line? [docs/BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md) walks
+through every step, Terminal included.
 
 ## Repo layout & building the launcher
 

@@ -4,14 +4,29 @@ The wrapper is a self-contained app bundle: wine stack + prefix + patch kit + th
 manager GUI. It is **built on your machine from parts you obtain yourself** — it is
 not distributed, because it embeds CrossOver's commercial binaries.
 
+## Step 0 — get this repo onto your Mac
+
+No git or programming knowledge needed:
+
+1. On the [repository page](https://github.com/matasarei/wow335-launcher), click
+   the green **Code** button → **Download ZIP**.
+2. Double-click the downloaded `wow335-launcher-main.zip` — macOS unpacks it into
+   a folder called `wow335-launcher-main` (usually in Downloads).
+
+That folder is all you need; you can move it anywhere you like.
+
 ## Step 1 — install the prerequisites
 
 The build takes its dependencies from two apps that must be **downloaded and
 installed on your Mac first** (`make` will refuse to run and tell you what's
 missing otherwise):
 
-1. **Xcode Command Line Tools** — run `xcode-select --install` in Terminal
-   (skip if already installed). Compiles the SwiftUI manager; no full Xcode needed.
+1. **Xcode Command Line Tools** — open the **Terminal** app (find it with
+   Spotlight: press Cmd+Space, type "Terminal", press Enter), then type
+   `xcode-select --install` and press Enter. A macOS dialog appears — click
+   **Install** and wait for it to finish. (If it says the tools are already
+   installed, you're done with this step.) This provides the compiler for the
+   manager app; the full Xcode is not needed.
 2. **CrossOver** — download from
    [codeweavers.com/crossover](https://www.codeweavers.com/crossover) and install
    it into `/Applications` or `~/Applications`. The free 14-day trial is fine: the
@@ -32,12 +47,32 @@ installed later through the app's own GUI, not by make.
 
 ## Step 2 — build
 
-```sh
-make wrapper
-```
+1. Open **Terminal** (Cmd+Space → "Terminal" → Enter).
+2. Type `cd ` (with a space after it), then **drag the unpacked
+   `wow335-launcher-main` folder from Finder into the Terminal window** — its
+   path appears automatically. Press Enter.
+3. Type:
 
-Both apps are auto-detected in `~/Applications` and `/Applications`; if you keep
-them elsewhere:
+   ```sh
+   make wrapper
+   ```
+
+   and press Enter. The build prints its progress and takes a few minutes
+   (copying the ~1 GB wine stack is the slow part). When it finishes you'll see:
+
+   ```
+   ==> Done: /Users/you/Applications/WoW335.app
+   ```
+
+   The finished app is in the `Applications` folder inside your home folder
+   (in Finder: Go → Home → Applications).
+
+If a prerequisite is missing, the build stops immediately and prints what to
+install and where to get it — fix that and run `make wrapper` again; it resumes
+where it left off.
+
+CrossOver and WoWSilicon are auto-detected in `~/Applications` and
+`/Applications`; if you keep them elsewhere:
 
 ```sh
 make wrapper CROSSOVER=/path/to/CrossOver.app WOWSILICON=/path/to/WoWSilicon.app
