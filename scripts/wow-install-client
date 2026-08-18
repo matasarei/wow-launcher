@@ -11,8 +11,20 @@ SRC="$1"
 NAME="${2:-$(basename "$SRC")}"
 DEST="$RES/games/$NAME"
 [ -n "$SRC" ] || { echo "usage: wow-install-client /path/to/client [Name]"; exit 1; }
+# validate the source thoroughly BEFORE touching any existing install
 [ -f "$SRC/Wow.exe" ] || { echo "not a WoW client (no Wow.exe in $SRC)"; exit 1; }
 [ -d "$SRC/Data" ]   || { echo "not a WoW client (no Data folder in $SRC)"; exit 1; }
+for mpq in common.MPQ common-2.MPQ expansion.MPQ lichking.MPQ patch.MPQ patch-2.MPQ; do
+  [ -f "$SRC/Data/$mpq" ] || { echo "incomplete client: Data/$mpq is missing — nothing was changed"; exit 1; }
+done
+SRC_LOCALE="$(basename "$(ls -d "$SRC"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null)"
+[ -n "$SRC_LOCALE" ] || { echo "incomplete client: no locale folder in Data — nothing was changed"; exit 1; }
+# never install from inside the wrapper itself (rm -rf below would destroy the source)
+SRC_REAL="$(cd "$SRC" && pwd -P)"
+GAMES_REAL="$(cd "$RES" && pwd -P)/games"
+case "$SRC_REAL/" in
+  "$GAMES_REAL"/*) echo "the source is the installed game itself — choose the original client folder"; exit 1 ;;
+esac
 if [ -d "$DEST" ]; then
   echo "replacing the existing game..."
   rm -rf "$DEST"
