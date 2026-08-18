@@ -23,7 +23,7 @@ Contents/Resources/
 |---|---|
 | `AUTO_RES=1\|0` | auto-match resolution/Retina to the main display at each launch |
 | `GAME=main` | active game folder under `games/` (installer sets it) |
-| `CHAT_CP=1251` | force the Russian input layer for any client (env locale, system codepage, remapped fonts) |
+| `CHAT_CP=1251` | Russian input layer for any client (env locale, system codepage, remapped fonts); auto-added by the installer when a Russian keyboard layout is present, `CHAT_CP=` empty opts out |
 | `GAME_DISPLAY=<name>` | show the game on this display (GUI writes it) |
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |
 

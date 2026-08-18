@@ -120,6 +120,13 @@ echo "display settings reset to defaults"
 #   codepoints, and these fonts render those positions as Cyrillic (the
 #   classic community fix). Proper Unicode Cyrillic still renders normally.
 # - Otherwise: plain Arial from macOS so received Cyrillic isn't boxes.
+# Auto-enable the Russian input layer when the Mac has a Russian keyboard
+# layout and CHAT_CP was not set explicitly (set CHAT_CP= empty to opt out).
+if ! grep -qsE '^CHAT_CP=' "$RES/launcher.conf" \
+   && defaults read ~/Library/Preferences/com.apple.HIToolbox.plist AppleEnabledInputSources 2>/dev/null | grep -qi russian; then
+  printf 'CHAT_CP=1251\n' >> "$RES/launcher.conf"
+  echo "Russian keyboard layout detected — Russian chat input enabled"
+fi
 CHAT_CP="$(grep -sE '^CHAT_CP=' "$RES/launcher.conf" | cut -d= -f2)"
 SUP="/System/Library/Fonts/Supplemental"
 if [ "$SRC_LOCALE" = "ruRU" ] || [ "$CHAT_CP" = "1251" ]; then
