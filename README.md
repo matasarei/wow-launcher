@@ -21,6 +21,11 @@
 
 ## About
 
+<p align="center">
+  <img src="assets/screenshots/launcher-play.png" width="49%" alt="Launcher — Play">
+  <img src="assets/screenshots/launcher-display.png" width="49%" alt="Launcher — Display settings">
+</p>
+
 Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — about the worst possible match for an ARM Mac. This project wraps everything needed to run it *fast* into one `WoW335.app` bundle and puts a native SwiftUI manager in front of it:
 
 | Layer | What it does |
