@@ -13,6 +13,10 @@ export MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS=1
 export DXVK_ASYNC=1
 export MTL_HUD_ENABLED=0
 export WINEDEBUG=-all
+# GUI-launched apps have no locale env; without a UTF-8 locale wine's ANSI
+# codepage falls back to ASCII and non-Latin keyboard input becomes "?".
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-$LANG}"
 cd "$GAME" || exit 1
 # Auto-match the game resolution to the current display, unless disabled in launcher.conf
 AUTO=$(grep -sE '^AUTO_RES=' "$RES/launcher.conf" | cut -d= -f2)
