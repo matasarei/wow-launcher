@@ -669,10 +669,17 @@ struct ContentView: View {
     @EnvironmentObject var store: Store
     @State private var pane: Pane? = .play
 
+    private func needsGame(_ p: Pane) -> Bool {
+        store.games.isEmpty && (p == .addons || p == .display)
+    }
+
     var body: some View {
         NavigationSplitView {
             List(Pane.allCases, selection: $pane) { p in
-                Label(p.rawValue, systemImage: p.icon).tag(p)
+                Label(p.rawValue, systemImage: p.icon)
+                    .tag(p)
+                    .selectionDisabled(needsGame(p))
+                    .foregroundStyle(needsGame(p) ? Color.secondary.opacity(0.5) : Color.primary)
             }
             .navigationSplitViewColumnWidth(min: 160, ideal: 180)
         } detail: {
@@ -684,6 +691,9 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 680, minHeight: 440)
+        .onChange(of: store.games.isEmpty) { empty in
+            if empty, pane == .addons || pane == .display { pane = .play }
+        }
     }
 }
 
