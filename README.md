@@ -129,7 +129,7 @@ Requires only the Xcode **Command Line Tools** (`swiftc` + macOS SDK). No Xcode,
   after a fix): reinstall — click **Install New Game…** and point it at your
   client folder again. Installing always replaces the previous game and
   re-applies every patch from scratch. Your AddOns live inside the game folder,
-  so re-add them after a reinstall; characters are server-side and unaffected.
+  so re-add them after a reinstall.
 - **Keyboard controls don't work / keybindings dead:** a Cyrillic keyboard
   layout is active — the game binds keys by character. Switch to a Latin
   layout for playing; switch to Russian only while typing in chat.
