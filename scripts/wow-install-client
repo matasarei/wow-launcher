@@ -5,6 +5,8 @@ set -e
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 KIT="$RES/patch-kit"
+LOADER="$RES/cxwine/CrossOver-Hosted Application/wineloader2"
+export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
 SRC="$1"
 NAME="${2:-$(basename "$SRC")}"
 DEST="$RES/games/$NAME"
@@ -20,17 +22,29 @@ mkdir -p "$DEST/mods"
 cp "$KIT/d3d9.dll" "$KIT/libDllLdr.dll" "$KIT/dlls.txt" "$DEST/"
 cp "$KIT/mods/"* "$DEST/mods/"
 ditto "$KIT/rosettax87" "$DEST/rosettax87"
-# DivxDecoder.dll is identical in all 3.3.5a-12340 clients -> swap in the patched one
-if cmp -s "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.orig"; then
+# DivxDecoder.dll: prefer the kit's patched copy (identical across all 3.3.5a-12340
+# clients); with a fresh kit, patch live via wine (libDllLdr's PatchDivxDecoder).
+if [ -f "$KIT/DivxDecoder.dll.patched" ] && cmp -s "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.orig"; then
   cp "$DEST/DivxDecoder.dll" "$DEST/DivxDecoder.dll.bak"
   cp "$KIT/DivxDecoder.dll.patched" "$DEST/DivxDecoder.dll"
-elif cmp -s "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
+elif [ -f "$KIT/DivxDecoder.dll.patched" ] && cmp -s "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
   echo "DivxDecoder.dll already patched"
 else
-  echo "WARNING: DivxDecoder.dll differs from the known 3.3.5a original — left unpatched, performance hooks will be INACTIVE"
+  echo "patching DivxDecoder.dll via wine..."
+  WDEST="$(cd "$DEST" && "$LOADER" winepath -w . 2>/dev/null | tr -d '\r')"
+  ( cd "$DEST" && "$LOADER" 'C:\windows\syswow64\rundll32.exe' "libDllLdr.dll,PatchDivxDecoder" "$WDEST" >/dev/null 2>&1 )
+  "$RES/cxwine/CrossOver-Hosted Application/wineserver" -w 2>/dev/null || true
+  if [ -f "$DEST/DivxDecoder.dll.bak" ] && ! cmp -s "$DEST/DivxDecoder.dll" "$DEST/DivxDecoder.dll.bak"; then
+    echo "DivxDecoder.dll patched"
+    # stash references so future installs/verifies are instant
+    [ -f "$KIT/DivxDecoder.dll.orig" ]    || cp "$DEST/DivxDecoder.dll.bak" "$KIT/DivxDecoder.dll.orig"
+    [ -f "$KIT/DivxDecoder.dll.patched" ] || cp "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"
+  else
+    echo "WARNING: DivxDecoder.dll patch did not apply — performance hooks will be INACTIVE"
+  fi
 fi
-# Wow.exe icon patch (cosmetic) — only if the binary matches the known original
-if cmp -s "$DEST/Wow.exe" "$KIT/Wow.exe.orig"; then
+# Wow.exe icon patch (cosmetic) — only if the kit has references and the binary matches
+if [ -f "$KIT/Wow.exe.orig" ] && cmp -s "$DEST/Wow.exe" "$KIT/Wow.exe.orig"; then
   cp "$DEST/Wow.exe" "$DEST/Wow.exe.icon-backup"
   cp "$KIT/Wow.exe.icon-patched" "$DEST/Wow.exe"
 fi

@@ -54,7 +54,9 @@ if [ -f "$G/Wow.exe" ]; then echo "ok: Wow.exe present"
 elif [ "$FIX" = 1 ]; then cp "$KIT/Wow.exe.icon-patched" "$G/Wow.exe" && echo "ok: Wow.exe present (restored)" || { echo "FAIL: Wow.exe missing"; fail=$((fail+1)); }
 else echo "FAIL: Wow.exe missing — repairable"; fail=$((fail+1)); canfix=1; fi
 step "Wow.exe build check"
-if cmp -s "$G/Wow.exe" "$KIT/Wow.exe.icon-patched" || cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig"; then
+if [ ! -f "$KIT/Wow.exe.orig" ] && [ ! -f "$KIT/Wow.exe.icon-patched" ]; then
+  echo "ok: Wow.exe (no reference build in kit to compare against)"
+elif cmp -s "$G/Wow.exe" "$KIT/Wow.exe.icon-patched" || cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig"; then
   echo "ok: Wow.exe is the known 3.3.5a (12340) build"
 else
   echo "WARN: Wow.exe differs from the known 3.3.5a build"; warn=$((warn+1))
@@ -67,7 +69,13 @@ done
 
 # --- Apple Silicon patch stack (all restorable) ---
 step "DivxDecoder.dll performance patch"
-if cmp -s "$G/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
+if [ ! -f "$KIT/DivxDecoder.dll.patched" ]; then
+  if [ -f "$G/DivxDecoder.dll.bak" ] && ! cmp -s "$G/DivxDecoder.dll" "$G/DivxDecoder.dll.bak"; then
+    echo "ok: DivxDecoder.dll performance patch (verified against local backup)"
+  else
+    echo "WARN: cannot verify DivxDecoder.dll patch (no reference; reinstall the game to apply it)"; warn=$((warn+1))
+  fi
+elif cmp -s "$G/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
   echo "ok: DivxDecoder.dll performance patch"
 elif [ "$FIX" = 1 ]; then
   [ -f "$G/DivxDecoder.dll" ] && cp "$G/DivxDecoder.dll" "$G/DivxDecoder.dll.bak" 2>/dev/null

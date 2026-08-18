@@ -14,7 +14,6 @@
   <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
   <img src="https://img.shields.io/badge/SwiftUI-native-blue" alt="SwiftUI">
   <img src="https://img.shields.io/badge/WoW-3.3.5a%20(12340)-gold" alt="WoW 3.3.5a">
-  <img src="https://img.shields.io/badge/%7E120-FPS-brightgreen" alt="~120 FPS">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license">
 </p>
 
@@ -54,7 +53,17 @@ wow-install-client /path/to/client [Name]
 wow-launch
 ```
 
-## Repo layout & building
+## Building the wrapper
+
+The app bundle is **built locally, not downloaded** — it embeds CrossOver's wine
+stack, which cannot be redistributed. With CrossOver and WoWSilicon present
+(see [docs/BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md) for the full manual):
+
+```sh
+make wrapper        # assembles ~/Applications/WoW335.app from your local parts
+```
+
+## Repo layout & building the launcher
 
 | File | Installs to (inside WoW335.app) | Role |
 |---|---|---|
@@ -67,6 +76,7 @@ wow-launch
 ```sh
 ./build.sh                     # compiles and installs into ~/Applications/WoW335.app
 ./build.sh /path/to/WoW335.app
+make launcher                  # same thing, via make
 ```
 
 Requires only the Xcode **Command Line Tools** (`swiftc` + macOS SDK). No Xcode, no dependencies.
