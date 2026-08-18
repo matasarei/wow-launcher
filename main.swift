@@ -385,9 +385,18 @@ struct PlayView: View {
                 .frame(width: 110, height: 110)
             Text("World of Warcraft 3.3.5a")
                 .font(.title2).bold()
-            Text(statusLine)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text(statusLine)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button(action: { store.detectNow() }) {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .disabled(store.busy || store.loadingStatus)
+                .help("Detect the main screen and apply its resolution")
+            }
             if store.gameRunning {
                 Label("The game is running", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
