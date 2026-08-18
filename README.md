@@ -55,6 +55,8 @@ Double-click **WoW335.app** — a native manager window opens:
 - **AddOns** — list installed addons (with versions from their .toc), install from ZIP or folder, remove to Trash, reveal in Finder. Blizzard built-ins are hidden.
 - **Display** — window mode (maximized / windowed / fullscreen), automatic resolution & Retina matching at every launch, or pick a specific display: the game window is moved there automatically after launch (needs a one-time Accessibility permission).
 
+**Russian input**: Cyrillic chat works out of the box for ruRU clients; for typing Russian on an enUS client set `CHAT_CP=1251` in `Contents/Resources/launcher.conf` before installing the game. (The 3.3.5a client inserts typed bytes without codepage conversion — the launcher configures wine's input side and the installer provides glyph-remapped fonts, preferring ones extracted from the client itself. Optional: `pip3 install mpyq fonttools` enables extraction of the client's original fonts; otherwise a free fallback set is used.)
+
 Everything the GUI does is also scriptable — the same tools it calls live in `Contents/Resources/bin/`:
 
 ```sh
