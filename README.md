@@ -38,6 +38,12 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 
 The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
 
+**Why this exists:** for fun and discovery — making a 2010 Windows game run *great* on
+modern Apple hardware is the whole point. This is not a piracy project: it ships no
+game data, and it is built around the **original WoW 3.3.5a (build 12340) client**.
+Modified or repacked clients might work, but they are untested and unsupported — if
+one misbehaves, try a clean original client first.
+
 <p align="center">
   <img src="assets/screenshots/dalaran.jpg" width="32%" alt="Dalaran at ~120 FPS">
   <img src="assets/screenshots/elwynn.jpg" width="32%" alt="Flying through Elwynn Forest at ~120 FPS">
@@ -102,6 +108,18 @@ make launcher                  # same thing, via make
 ```
 
 Requires only the Xcode **Command Line Tools** (`swiftc` + macOS SDK). No Xcode, no dependencies.
+
+## Troubleshooting
+
+- **Something feels wrong with the game?** Open the **Game** tab and click
+  **Verify** — it runs 41 checks over the client files, the Apple Silicon
+  patches, and the settings, and offers **Fix Issues** for everything
+  repairable in place.
+- **Verify reports the game data itself is damaged** (or things stay broken
+  after a fix): reinstall — click **Install New Game…** and point it at your
+  client folder again. Installing always replaces the previous game and
+  re-applies every patch from scratch. Your AddOns live inside the game folder,
+  so re-add them after a reinstall; characters are server-side and unaffected.
 
 ## Credits
 
