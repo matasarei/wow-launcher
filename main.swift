@@ -612,6 +612,9 @@ struct GamesView: View {
     var body: some View {
         Form {
             Section("Installed Game") {
+                Label(store.games.isEmpty ? "No game installed" : "Game installed",
+                      systemImage: store.games.isEmpty ? "exclamationmark.circle" : "checkmark.circle.fill")
+                    .foregroundStyle(store.games.isEmpty ? Color.orange : Color.green)
                 if store.games.count > 1 {
                     Picker("Active game", selection: activeGameBinding) {
                         ForEach(store.games, id: \.self) { Text($0).tag($0) }
