@@ -74,12 +74,17 @@ seed() {
   if grep -qiE "^SET $1 " "$CFGD"; then sed -i '' -E "s|^SET $1 .*|SET $1 \"$2\"|" "$CFGD"
   else printf 'SET %s "%s"\n' "$1" "$2" >> "$CFGD"; fi
 }
-seed gxWindow 1      # borderless window
-seed gxMaximize 1    # fill the screen (resolution itself is auto-set at launch)
-seed hwDetect 0      # don't let the game re-detect and override settings
-seed M2UseShaders 0  # known-good under the DXVK/libSiliconPatch stack
+seed gxWindow 1              # borderless window
+seed gxMaximize 1            # fill the screen (resolution itself is auto-set at launch)
+seed hwDetect 0              # don't let the game re-detect and override settings
+seed gxRefresh 60
+seed gxMultisampleQuality 0.000000
+seed videoOptionsVersion 3   # mark video setup as done — prevents first-run re-detection
+seed M2UseShaders 0          # known-good under the DXVK/libSiliconPatch stack
+seed M2UsePixelShaders 0
+seed M2UseThreadedBlood 0
 seed gxFixLag 0
-seed movie 0         # skip intro movies
+seed movie 0                 # skip intro movies
 seed readTOS 1
 seed readEULA 1
 echo "display settings reset to defaults"
