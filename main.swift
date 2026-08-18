@@ -129,8 +129,9 @@ final class Store: ObservableObject {
     }
 
     func checkRunning() {
+        let pattern = NSRegularExpression.escapedPattern(for: Paths.game + "/Wow.exe")
         DispatchQueue.global().async {
-            let out = shell("/usr/bin/pgrep", ["-f", "Wow.exe"])
+            let out = shell("/usr/bin/pgrep", ["-f", pattern])
             let running = !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !out.hasPrefix("ERROR")
             DispatchQueue.main.async { self.gameRunning = running }
         }
@@ -720,6 +721,9 @@ struct PlayView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { store.checkRunning() }
+        .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
+            store.checkRunning()
+        }
     }
 }
 
