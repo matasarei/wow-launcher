@@ -45,27 +45,34 @@ else
 fi
 # Wow.exe icon patch (cosmetic): use kit references when present, else apply the
 # repo's binary diff via the system bspatch (checksum-guarded on both sides).
-WOW_ORIG_MD5="45892bdedd0ad70aed4ccd22d9fb5984"
-WOW_ICON_MD5="ba04735e288ceb3b9f80b2527c48af67"
+# Diffs are named wow-icon-<input md5>-<output md5>.bsdiff; pick by checksum.
+CUR_MD5="$(md5 -q "$DEST/Wow.exe")"
+ICON_DONE=0
 if [ -f "$KIT/Wow.exe.orig" ] && cmp -s "$DEST/Wow.exe" "$KIT/Wow.exe.orig"; then
   cp "$DEST/Wow.exe" "$DEST/Wow.exe.icon-backup"
   cp "$KIT/Wow.exe.icon-patched" "$DEST/Wow.exe"
   echo "Wow.exe icon patched (from kit)"
-elif [ -f "$KIT/wow-icon.bsdiff" ] && [ -x /usr/bin/bspatch ] \
-  && [ "$(md5 -q "$DEST/Wow.exe")" = "$WOW_ORIG_MD5" ]; then
-  /usr/bin/bspatch "$DEST/Wow.exe" "$DEST/Wow.exe.icon-new" "$KIT/wow-icon.bsdiff"
-  if [ "$(md5 -q "$DEST/Wow.exe.icon-new" 2>/dev/null)" = "$WOW_ICON_MD5" ]; then
-    cp "$DEST/Wow.exe" "$DEST/Wow.exe.icon-backup"
-    mv "$DEST/Wow.exe.icon-new" "$DEST/Wow.exe"
-    chmod +x "$DEST/Wow.exe"
-    echo "Wow.exe icon patched"
-    [ -f "$KIT/Wow.exe.orig" ]         || cp "$DEST/Wow.exe.icon-backup" "$KIT/Wow.exe.orig"
-    [ -f "$KIT/Wow.exe.icon-patched" ] || cp "$DEST/Wow.exe" "$KIT/Wow.exe.icon-patched"
-  else
-    rm -f "$DEST/Wow.exe.icon-new"
-    echo "icon patch skipped (unexpected result)"
-  fi
+  ICON_DONE=1
+elif [ -x /usr/bin/bspatch ]; then
+  for D in "$KIT"/wow-icon-*.bsdiff; do
+    [ -f "$D" ] || continue
+    B="$(basename "$D" .bsdiff)"; B="${B#wow-icon-}"
+    IN_MD5="${B%%-*}"; OUT_MD5="${B#*-}"
+    [ "$CUR_MD5" = "$IN_MD5" ] || continue
+    /usr/bin/bspatch "$DEST/Wow.exe" "$DEST/Wow.exe.icon-new" "$D"
+    if [ "$(md5 -q "$DEST/Wow.exe.icon-new" 2>/dev/null)" = "$OUT_MD5" ]; then
+      cp "$DEST/Wow.exe" "$DEST/Wow.exe.icon-backup"
+      mv "$DEST/Wow.exe.icon-new" "$DEST/Wow.exe"
+      chmod +x "$DEST/Wow.exe"
+      echo "Wow.exe icon patched"
+      ICON_DONE=1
+    else
+      rm -f "$DEST/Wow.exe.icon-new"
+    fi
+    break
+  done
 fi
+[ "$ICON_DONE" = 1 ] || echo "icon patch skipped (unknown Wow.exe build — cosmetic only)"
 # Reset display/compat settings to the known-good baseline — imported clients
 # carry Config.wtf from other machines with incompatible window/renderer settings.
 CFGD="$DEST/WTF/Config.wtf"
