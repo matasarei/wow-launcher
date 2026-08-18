@@ -15,6 +15,7 @@
   <img src="https://img.shields.io/badge/SwiftUI-native-blue" alt="SwiftUI">
   <img src="https://img.shields.io/badge/WoW-3.3.5a%20(12340)-gold" alt="WoW 3.3.5a">
   <img src="https://img.shields.io/badge/%7E120-FPS-brightgreen" alt="~120 FPS">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license">
 </p>
 
 ---
@@ -75,3 +76,7 @@ Requires only the Xcode **Command Line Tools** (`swiftc` + macOS SDK). No Xcode,
 Standing on the shoulders of: [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon), the winerosetta / rosettax87 projects, [DXVK](https://github.com/doitsujin/dxvk) and its macOS D3D9 forks, CrossOver/Wine, and the [ChromieCraft](https://www.chromiecraft.com) community.
 
 World of Warcraft is a trademark of Blizzard Entertainment. This project contains no Blizzard assets or game data.
+
+## License
+
+[MIT](LICENSE)
