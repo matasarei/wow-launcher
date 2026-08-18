@@ -169,6 +169,19 @@ final class Store: ObservableObject {
         }
     }
 
+    func detectNow() {
+        busy = true
+        DispatchQueue.global().async {
+            let out = shell(Paths.settings, ["auto"])
+            DispatchQueue.main.async {
+                self.busy = false
+                self.note = out.trimmingCharacters(in: .whitespacesAndNewlines)
+                self.refreshDisplays()
+                self.refreshStatus()
+            }
+        }
+    }
+
     func applyDisplay(_ id: Int) {
         selectedDisplay = id
         guard let d = displays.first(where: { $0.id == id }) else { return }
@@ -501,6 +514,11 @@ struct DisplayView: View {
                 }
                 .pickerStyle(.menu)
                 .disabled(store.autoRes)
+                Button(action: { store.detectNow() }) {
+                    Label("Detect Main Screen Resolution", systemImage: "wand.and.stars")
+                }
+                .disabled(store.busy)
+                .help("Detect the main screen and apply its resolution now")
                 Toggle("Retina (render at native pixels)", isOn: retinaBinding)
                 LabeledContent("Game resolution", value: store.loadingStatus ? "…" : store.resolution)
             }
