@@ -92,6 +92,9 @@ two apps you install first:
 New to the command line? [docs/BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md) walks
 through every step, Terminal included.
 
+Contributors: [docs/INTERNALS.md](docs/INTERNALS.md) documents the wrapper
+anatomy, the patch mechanisms, and the traps already discovered.
+
 ## Repo layout & building the launcher
 
 | File | Installs to (inside WoW335.app) | Role |
