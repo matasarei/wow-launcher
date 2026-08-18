@@ -744,11 +744,10 @@ struct PlayView: View {
                 HStack(spacing: 6) {
                     Label("The game is running", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
-                    Button(action: { confirmStop = true }) {
-                        Image(systemName: "xmark.circle.fill")
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.red)
+                    Button("Close") { confirmStop = true }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(.red)
                     .disabled(store.busy)
                     .help("Force-stop the game")
                     .confirmationDialog("Force-stop World of Warcraft?", isPresented: $confirmStop) {
