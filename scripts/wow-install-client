@@ -115,17 +115,17 @@ grep -qE '^GAME=main$' "$RES/launcher.conf" 2>/dev/null || {
 }
 echo "display settings reset to defaults"
 # Fonts (the game loads Fonts/*.TTF over its MPQ fonts):
-# - Russian input mode (ruRU client, or CHAT_CP=1251): glyph-remapped fonts
+# - Cyrillic input mode (ruRU client, or CHAT_CP=1251): glyph-remapped fonts
 #   from the patch kit — the client inserts typed CP1251 bytes as Latin-1
 #   codepoints, and these fonts render those positions as Cyrillic (the
 #   classic community fix). Proper Unicode Cyrillic still renders normally.
 # - Otherwise: plain Arial from macOS so received Cyrillic isn't boxes.
-# Auto-enable the Russian input layer when the Mac has a Russian keyboard
+# Auto-enable the Cyrillic input layer when the Mac has a Russian keyboard
 # layout and CHAT_CP was not set explicitly (set CHAT_CP= empty to opt out).
 if ! grep -qsE '^CHAT_CP=' "$RES/launcher.conf" \
    && defaults read ~/Library/Preferences/com.apple.HIToolbox.plist AppleEnabledInputSources 2>/dev/null | grep -qi russian; then
   printf 'CHAT_CP=1251\n' >> "$RES/launcher.conf"
-  echo "Russian keyboard layout detected — Russian chat input enabled"
+  echo "Russian keyboard layout detected — Cyrillic chat input enabled"
 fi
 CHAT_CP="$(grep -sE '^CHAT_CP=' "$RES/launcher.conf" | cut -d= -f2)"
 SUP="/System/Library/Fonts/Supplemental"
@@ -137,9 +137,9 @@ if [ "$SRC_LOCALE" = "ruRU" ] || [ "$CHAT_CP" = "1251" ]; then
   elif python3 "$RES/bin/wow-client-fonts.py" "$DEST" "$DEST/Fonts" 2>/dev/null; then
     mkdir -p "$KIT/fonts-client" && cp "$DEST/Fonts/"* "$KIT/fonts-client/"
     echo "installed Cyrillic input fonts (extracted from the client's own fonts)"
-  elif [ -d "$KIT/fonts-cyr" ]; then
-    cp "$KIT/fonts-cyr/"*.TTF "$KIT/fonts-cyr/"*.ttf "$DEST/Fonts/" 2>/dev/null
-    echo "installed Cyrillic input fonts (fallback set)"
+  else
+    rmdir "$DEST/Fonts" 2>/dev/null || true
+    echo "NOTE: Cyrillic fonts unavailable — install a ruRU client once (its original fonts are then reused for any client)"
   fi
 elif [ ! -d "$DEST/Fonts" ] && [ -f "$SUP/Arial.ttf" ]; then
   mkdir -p "$DEST/Fonts"

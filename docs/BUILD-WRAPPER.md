@@ -41,9 +41,9 @@ missing otherwise):
    app bundle (the open-source patch payloads: winerosetta, rosettax87, DXVK
    d3d9, libSiliconPatch, libDllLdr).
 
-Optional, for Russian chat support with the client's original fonts:
-`python3 -m pip install --user mpyq fonttools` (without it, a bundled free
-font set is used instead).
+For Cyrillic chat support: `python3 -m pip install --user mpyq fonttools` —
+used to extract and remap the original fonts from a ruRU client at install
+time (there is no bundled substitute; the authentic fonts are the only source).
 
 You will also need **a WoW 3.3.5a client** (build 12340) — e.g.
 [chromiecraft.com](https://www.chromiecraft.com) has instructions — but that is

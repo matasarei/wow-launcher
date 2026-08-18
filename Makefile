@@ -69,7 +69,6 @@ patch-kit:
 	@chmod +x "$(RES)/patch-kit/rosettax87/"*
 	@printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n' > "$(RES)/patch-kit/dlls.txt"
 	@cp assets/wow-icon-*.bsdiff "$(RES)/patch-kit/"
-	@ditto assets/fonts-cyr "$(RES)/patch-kit/fonts-cyr"
 
 prefix:
 	@if [ -d "$(RES)/prefix/drive_c" ]; then echo "==> prefix already present, skipping"; \

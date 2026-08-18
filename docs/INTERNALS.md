@@ -23,7 +23,7 @@ Contents/Resources/
 |---|---|
 | `AUTO_RES=1\|0` | auto-match resolution/Retina to the main display at each launch |
 | `GAME=main` | active game folder under `games/` (installer sets it) |
-| `CHAT_CP=1251` | Russian input layer for any client (env locale, system codepage, remapped fonts); auto-added by the installer when a Russian keyboard layout is present, `CHAT_CP=` empty opts out |
+| `CHAT_CP=1251` | Cyrillic input layer for any client (env locale, system codepage, remapped fonts); auto-added by the installer when a Russian keyboard layout is present, `CHAT_CP=` empty opts out |
 | `GAME_DISPLAY=<name>` | show the game on this display (GUI writes it) |
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |
 
@@ -43,7 +43,7 @@ Contents/Resources/
 
 Shipped by `make patch-kit` (open-source payloads only): `d3d9.dll` (DXVK),
 `libDllLdr.dll`, `dlls.txt`, `mods/{winerosetta,libSiliconPatch}.dll`, `rosettax87/`,
-`wow-icon-<in-md5>-<out-md5>.bsdiff`, `fonts-cyr/` (DejaVu-based fallback).
+`wow-icon-<in-md5>-<out-md5>.bsdiff`.
 
 Self-populating at install time (never committed — Blizzard-derived):
 `DivxDecoder.dll.{orig,patched}`, `Wow.exe.{orig,icon-patched}`, `fonts-client/`.
@@ -63,7 +63,9 @@ wine env locale alone, the prefix ACP registry alone, patching the exe's
 `push 1252` constants (regressed behavior). The fix that works (classic
 community approach): **fonts with Cyrillic glyphs at U+00C0–U+00FF (+Ё/ё at
 A8/B8)** in `game/Fonts/` — `wow-client-fonts.py` extracts the client's own
-locale-MPQ fonts (mpyq) and remaps them (fontTools); fallback = `fonts-cyr/`.
+locale-MPQ fonts (mpyq) and remaps them (fontTools); once extracted they are
+stashed in `patch-kit/fonts-client/` and reused for any client (no other source —
+enUS MPQ fonts have no Cyrillic glyphs).
 The wine side still must deliver CP1251 bytes: `LANG/LC_ALL=ru_RU.UTF-8` +
 system codepage ACP=1251/OEMCP=866 (wow-launch derives from game locale or
 `CHAT_CP=1251`).
