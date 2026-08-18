@@ -210,7 +210,7 @@ final class Store: ObservableObject {
             let fm = FileManager.default
             var list: [AddOn] = []
             let dirs = (try? fm.contentsOfDirectory(atPath: Paths.addons)) ?? []
-            for dir in dirs where !dir.hasPrefix(".") {
+            for dir in dirs where !dir.hasPrefix(".") && !dir.hasPrefix("Blizzard_") {
                 let folderPath = Paths.addons + "/" + dir
                 var isDir: ObjCBool = false
                 guard fm.fileExists(atPath: folderPath, isDirectory: &isDir), isDir.boolValue else { continue }
