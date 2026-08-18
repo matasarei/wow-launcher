@@ -150,7 +150,7 @@ if [ -z "$RET" ]; then
   echo "WARN: could not detect display"; warn=$((warn+1))
 else
   [ "$RET" = yes ] && WANT=Y || WANT=N
-  HAVE="$("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | grep -oE '[YyNn]$' | tr a-z A-Z)"
+  HAVE="$("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*RetinaMode/ {print toupper($NF)}' | tail -1)"
   if [ "${HAVE:-N}" = "$WANT" ]; then echo "ok: retina mode matches display"
   elif [ "$FIX" = 1 ]; then "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d "$WANT" /f >/dev/null 2>&1; echo "ok: retina mode (fixed)"
   else echo "FAIL: retina mode is '${HAVE:-unset}', display wants $WANT — repairable"; fail=$((fail+1)); canfix=1; fi

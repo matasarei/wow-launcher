@@ -52,7 +52,7 @@ auto_resolution() {
   [ -n "$PX" ] || { echo "could not detect display"; return 1; }
   # Match wine RetinaMode to the physical display
   if [ "$RET" = yes ]; then WANT=Y; TARGET="$PX"; MODE_DESC="retina/native"; else WANT=N; TARGET="$PTS"; MODE_DESC="standard"; fi
-  HAVE=$("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | grep -oE '[YyNn]$' | tr a-z A-Z)
+  HAVE=$("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*RetinaMode/ {print toupper($NF)}' | tail -1)
   if [ "${HAVE:-N}" != "$WANT" ]; then
     "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d "$WANT" /f >/dev/null 2>&1
     echo "retina mode -> $([ "$WANT" = Y ] && echo on || echo off) (display is $([ "$RET" = yes ] && echo retina || echo non-retina))"
@@ -74,7 +74,7 @@ case "$1" in
   show)
     echo "mode:       $([ "$(get_cvar gxWindow)" = 0 ] && echo fullscreen || { [ "$(get_cvar gxMaximize)" = 1 ] && echo 'windowed (maximized)' || echo windowed; })"
     echo "resolution: $(get_cvar gxResolution)"
-    echo "retina:     $("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | grep -q '[Yy]$' && echo on || echo off)"
+    echo "retina:     $("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*RetinaMode/ {print toupper($NF)}' | tail -1 | grep -q Y && echo on || echo off)"
     ;;
   windowed)   set_cvar gxWindow 1; set_cvar gxMaximize 0; set_res "$2"; echo "windowed${2:+ at $2} — restart the game" ;;
   maximized)  set_cvar gxWindow 1; set_cvar gxMaximize 1; echo "maximized — restart the game" ;;
