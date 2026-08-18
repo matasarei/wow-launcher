@@ -152,6 +152,19 @@ final class Store: ObservableObject {
         }
     }
 
+    func forceStop() {
+        busy = true
+        let pattern = NSRegularExpression.escapedPattern(for: Paths.game + "/Wow.exe")
+        DispatchQueue.global().async {
+            _ = shell("/usr/bin/pkill", ["-9", "-f", pattern])
+            Thread.sleep(forTimeInterval: 0.8)
+            DispatchQueue.main.async {
+                self.busy = false
+                self.checkRunning()
+            }
+        }
+    }
+
     func setMode(_ m: String) {
         mode = m
         busy = true
@@ -702,9 +715,18 @@ struct PlayView: View {
                 .help("Detect the main screen and apply its resolution")
             }
             if store.gameRunning {
-                Label("The game is running", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .padding(.top, 8)
+                HStack(spacing: 6) {
+                    Label("The game is running", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Button(action: { store.forceStop() }) {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.red)
+                    .disabled(store.busy)
+                    .help("Force-stop the game")
+                }
+                .padding(.top, 8)
             } else {
                 Button(action: { store.play() }) {
                     Label("Play", systemImage: "play.fill")
