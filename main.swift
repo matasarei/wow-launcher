@@ -424,6 +424,9 @@ final class Store: ObservableObject {
                 self.busy = false
                 self.note = out.split(separator: "\n").suffix(2).joined(separator: " — ")
                 self.refreshGames()
+                self.refreshStatus()
+                self.refreshRealms()
+                self.refreshAddons()
             }
         }
     }
@@ -689,6 +692,7 @@ struct PlayView: View {
     @State private var confirmStop = false
 
     var statusLine: String {
+        if store.games.isEmpty { return "No game installed" }
         if store.loadingStatus { return "Loading settings…" }
         let m: String
         switch store.mode {
@@ -719,7 +723,27 @@ struct PlayView: View {
                 .disabled(store.busy || store.loadingStatus)
                 .help("Detect the main screen and apply its resolution")
             }
-            if store.gameRunning {
+            if store.games.isEmpty {
+                Button(action: { store.installGameFromPanel() }) {
+                    Label("Install", systemImage: "square.and.arrow.down")
+                        .frame(minWidth: 130)
+                        .font(.title3)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(store.busy)
+                .padding(.top, 8)
+                if store.busy {
+                    ProgressView().controlSize(.small).padding(.top, 4)
+                }
+                if !store.note.isEmpty {
+                    Text(store.note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 380)
+                }
+            } else if store.gameRunning {
                 HStack(spacing: 6) {
                     Label("The game is running", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
