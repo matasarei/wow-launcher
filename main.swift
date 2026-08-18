@@ -268,21 +268,82 @@ final class Store: ObservableObject {
         refreshStatus()
     }
 
+    struct VerifyItem: Identifiable {
+        enum Status { case ok, fail, warn }
+        let id = UUID()
+        let name: String
+        let status: Status
+    }
+
+    @Published var verifySheet = false
+    @Published var verifyItems: [VerifyItem] = []
+    @Published var verifyProgress: Double = 0
+    @Published var verifyCurrent = ""
+    @Published var verifyResult = ""
+    @Published var verifyRunning = false
+    private var verifyProc: Process?
+
     func verifyGame() {
-        busy = true
-        note = "Verifying game files…"
-        DispatchQueue.global().async {
-            let out = shell(Paths.verifyTool)
-            let lines = out.split(separator: "\n").map(String.init)
-            let problems = lines.filter { $0.hasPrefix("FAIL:") || $0.hasPrefix("WARN:") }
-            let result = lines.last(where: { $0.hasPrefix("RESULT:") }) ?? "RESULT: unknown"
-            let passed = lines.filter { $0.hasPrefix("ok:") }.count
-            DispatchQueue.main.async {
-                self.busy = false
-                self.note = problems.isEmpty
-                    ? result.replacingOccurrences(of: "all checks passed", with: "all \(passed) checks passed")
-                    : ([result] + problems).joined(separator: "\n")
+        verifyItems = []
+        verifyProgress = 0
+        verifyCurrent = ""
+        verifyResult = ""
+        verifyRunning = true
+        verifySheet = true
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: Paths.verifyTool)
+        p.arguments = ["--deep"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = pipe
+        var buf = ""
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] h in
+            let d = h.availableData
+            guard !d.isEmpty else { return }
+            buf += String(data: d, encoding: .utf8) ?? ""
+            while let r = buf.range(of: "\n") {
+                let line = String(buf[..<r.lowerBound])
+                buf.removeSubrange(..<r.upperBound)
+                DispatchQueue.main.async { self?.handleVerifyLine(line) }
             }
+        }
+        p.terminationHandler = { [weak self] _ in
+            pipe.fileHandleForReading.readabilityHandler = nil
+            DispatchQueue.main.async {
+                self?.verifyRunning = false
+                if self?.verifyResult.isEmpty == true {
+                    self?.verifyResult = "Verification stopped."
+                }
+            }
+        }
+        verifyProc = p
+        do { try p.run() } catch {
+            verifyRunning = false
+            verifyResult = "Could not start verification: \(error.localizedDescription)"
+        }
+    }
+
+    func cancelVerify() {
+        verifyProc?.terminate()
+    }
+
+    private func handleVerifyLine(_ line: String) {
+        if line.hasPrefix("ok: ") {
+            verifyItems.append(VerifyItem(name: String(line.dropFirst(4)), status: .ok))
+        } else if line.hasPrefix("FAIL: ") {
+            verifyItems.append(VerifyItem(name: String(line.dropFirst(6)), status: .fail))
+        } else if line.hasPrefix("WARN: ") {
+            verifyItems.append(VerifyItem(name: String(line.dropFirst(6)), status: .warn))
+        } else if line.hasPrefix("PROGRESS ") {
+            let parts = line.split(separator: " ", maxSplits: 3).map(String.init)
+            if parts.count >= 4, let i = Double(parts[1]), let t = Double(parts[2]), t > 0 {
+                verifyProgress = max(verifyProgress, (i - 1) / t)
+                verifyCurrent = parts[3]
+            }
+        } else if line.hasPrefix("RESULT: ") {
+            verifyResult = String(line.dropFirst(8))
+            verifyProgress = 1
+            verifyCurrent = ""
         }
     }
 
@@ -694,10 +755,65 @@ struct GamesView: View {
             }
         }
         .formStyle(.grouped)
+        .sheet(isPresented: $store.verifySheet) {
+            VerifySheet().environmentObject(store)
+        }
         .onAppear {
             store.refreshGames()
             store.refreshRealms()
         }
+    }
+}
+
+struct VerifySheet: View {
+    @EnvironmentObject var store: Store
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Game Verification")
+                .font(.headline)
+            ScrollViewReader { proxy in
+                List(store.verifyItems) { item in
+                    HStack(spacing: 8) {
+                        switch item.status {
+                        case .ok:
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                        case .fail:
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                        case .warn:
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        }
+                        Text(item.name).font(.callout)
+                    }
+                    .id(item.id)
+                }
+                .onChange(of: store.verifyItems.count) { _ in
+                    if let last = store.verifyItems.last { proxy.scrollTo(last.id) }
+                }
+            }
+            if store.verifyRunning {
+                ProgressView(value: store.verifyProgress)
+                Text(store.verifyCurrent.isEmpty ? "Checking…" : "Hashing \(store.verifyCurrent)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if !store.verifyResult.isEmpty {
+                Label(store.verifyResult,
+                      systemImage: store.verifyResult.hasPrefix("OK") ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(store.verifyResult.hasPrefix("OK") ? Color.green : Color.red)
+                    .font(.callout).bold()
+            }
+            HStack {
+                Spacer()
+                if store.verifyRunning {
+                    Button("Cancel") { store.cancelVerify() }
+                } else {
+                    Button("Close") { store.verifySheet = false }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        .padding(16)
+        .frame(width: 480, height: 460)
     }
 }
 

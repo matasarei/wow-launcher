@@ -1,5 +1,8 @@
 #!/bin/bash
 # Verify the active game's files and Apple Silicon patches against the patch kit.
+# Usage: wow-verify-game [--deep]
+#   --deep additionally re-hashes every file in .manifest.sha256, printing
+#   "PROGRESS <n> <total> <file>" lines before each hash for UI progress.
 # Prints ok:/WARN:/FAIL: lines and a final RESULT: line. Exit 1 if any FAIL.
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
@@ -9,10 +12,10 @@ if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then G="$RES/games/$GA
 [ -d "$G" ] || { echo "FAIL: no game installed"; echo "RESULT: PROBLEMS"; exit 1; }
 fail=0; warn=0
 
-need() {  # need <path relative to game> <label>
+need() {
   if [ -e "$G/$1" ]; then echo "ok: $2"; else echo "FAIL: $2 missing ($1)"; fail=$((fail+1)); fi
 }
-same() {  # same <game-rel path> <kit file> <label>
+same() {
   if cmp -s "$G/$1" "$KIT/$2"; then echo "ok: $3"; else echo "FAIL: $3 does not match the patch kit"; fail=$((fail+1)); fi
 }
 
@@ -48,11 +51,31 @@ same dlls.txt dlls.txt "dlls.txt"
 same mods/winerosetta.dll mods/winerosetta.dll "winerosetta.dll"
 same mods/libSiliconPatch.dll mods/libSiliconPatch.dll "libSiliconPatch.dll"
 for f in rosettax87/rosettax87 rosettax87/libRuntimeRosettax87; do
-  if [ -x "$G/$f" ] || [ -e "$G/$f" ]; then echo "ok: $f"; else echo "FAIL: $f missing"; fail=$((fail+1)); fi
+  if [ -e "$G/$f" ]; then echo "ok: $f"; else echo "FAIL: $f missing"; fail=$((fail+1)); fi
 done
 
+# deep verification against the install-time manifest
+if [ "$1" = "--deep" ]; then
+  MAN="$G/.manifest.sha256"
+  if [ ! -f "$MAN" ]; then
+    echo "WARN: no integrity manifest — run wow-manifest-game to create one"; warn=$((warn+1))
+  else
+    total=$(grep -c . "$MAN"); i=0
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      hash="${line%% *}"
+      rel="${line#*  }"
+      i=$((i+1))
+      echo "PROGRESS $i $total $rel"
+      if [ ! -f "$G/$rel" ]; then echo "FAIL: $rel missing"; fail=$((fail+1)); continue; fi
+      cur=$(shasum -a 256 "$G/$rel" | cut -d' ' -f1)
+      if [ "$cur" = "$hash" ]; then echo "ok: $rel checksum"; else echo "FAIL: $rel checksum mismatch"; fail=$((fail+1)); fi
+    done < "$MAN"
+  fi
+fi
+
 if [ "$fail" -gt 0 ]; then
-  echo "RESULT: PROBLEMS — $fail check(s) failed${warn:+, $warn warning(s)}"
+  echo "RESULT: PROBLEMS — $fail check(s) failed"
   exit 1
 elif [ "$warn" -gt 0 ]; then
   echo "RESULT: OK with $warn warning(s)"
