@@ -715,13 +715,15 @@ struct PlayView: View {
                 Text(statusLine)
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                Button(action: { store.detectNow() }) {
-                    Image(systemName: "arrow.clockwise")
+                if !store.games.isEmpty {
+                    Button(action: { store.detectNow() }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .disabled(store.busy || store.loadingStatus)
+                    .help("Detect the main screen and apply its resolution")
                 }
-                .buttonStyle(.borderless)
-                .controlSize(.small)
-                .disabled(store.busy || store.loadingStatus)
-                .help("Detect the main screen and apply its resolution")
             }
             if store.games.isEmpty {
                 Button(action: { store.installGameFromPanel() }) {
