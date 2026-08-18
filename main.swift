@@ -686,6 +686,7 @@ struct ContentView: View {
 
 struct PlayView: View {
     @EnvironmentObject var store: Store
+    @State private var confirmStop = false
 
     var statusLine: String {
         if store.loadingStatus { return "Loading settings…" }
@@ -722,13 +723,19 @@ struct PlayView: View {
                 HStack(spacing: 6) {
                     Label("The game is running", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
-                    Button(action: { store.forceStop() }) {
+                    Button(action: { confirmStop = true }) {
                         Image(systemName: "xmark.circle.fill")
                     }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.red)
                     .disabled(store.busy)
                     .help("Force-stop the game")
+                    .confirmationDialog("Force-stop World of Warcraft?", isPresented: $confirmStop) {
+                        Button("Force Stop", role: .destructive) { store.forceStop() }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("The game will be terminated immediately. Unsaved progress since the last world save may be lost.")
+                    }
                 }
                 .padding(.top, 8)
             } else {
