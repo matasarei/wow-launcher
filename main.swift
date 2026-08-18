@@ -744,7 +744,7 @@ struct PlayView: View {
                 HStack(spacing: 6) {
                     Label("The game is running", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
-                    Button("Close") { confirmStop = true }
+                    Button("Stop") { confirmStop = true }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .tint(.red)
