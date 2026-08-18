@@ -86,6 +86,6 @@ launcher:
 	@./build.sh "$(APP)"
 
 zip:
-	@echo "==> zipping (for PRIVATE sharing — do not redistribute publicly, contains CrossOver binaries)"
+	@echo "==> zipping (for PRIVATE sharing — contains CrossOver binaries and, if installed, the game itself; do not redistribute)"
 	ditto -c -k --keepParent "$(APP)" WoW335.zip
 	@du -h WoW335.zip

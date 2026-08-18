@@ -25,7 +25,7 @@ set_cvar() {
     printf 'SET %s "%s"\n' "$1" "$2" >> "$CFG"
   fi
 }
-get_cvar() { grep -iE "^SET $1 " "$CFG" | sed -E 's/.*"(.*)".*/\1/' | head -1; }
+get_cvar() { grep -siE "^SET $1 " "$CFG" | sed -E 's/.*"(.*)".*/\1/' | head -1; }
 set_res() { [ -n "$1" ] && { [[ "$1" =~ ^[0-9]+x[0-9]+$ ]] || { echo "bad resolution: $1 (use WxH)"; exit 1; }; set_cvar gxResolution "$1"; }; }
 
 

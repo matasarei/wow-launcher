@@ -26,8 +26,8 @@ enum Paths {
         let folder = activeGame.isEmpty ? "game" : activeGame
         return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\]Wow\\.exe"
     }
-    static let installTool = macOS.replacingOccurrences(of: "/MacOS", with: "/Resources/bin") + "/wow-install-client"
-    static let verifyTool  = macOS.replacingOccurrences(of: "/MacOS", with: "/Resources/bin") + "/wow-verify-game"
+    static let installTool = resources + "/bin/wow-install-client"
+    static let verifyTool  = resources + "/bin/wow-verify-game"
     static let settings  = resources + "/bin/wow-settings"
     static let launcher  = resources + "/bin/wow-launch"
     static let conf      = resources + "/launcher.conf"
@@ -306,16 +306,6 @@ final class Store: ObservableObject {
         }
     }
 
-    func selectGame(_ name: String) {
-        guard name != activeGame else { return }
-        confSet("GAME", name)
-        activeGame = name
-        note = "Active game: \(name)"
-        refreshAddons()
-        refreshRealms()
-        refreshStatus()
-    }
-
     struct VerifyItem: Identifiable {
         enum Status { case ok, fail, warn }
         let id = UUID()
@@ -429,18 +419,6 @@ final class Store: ObservableObject {
                 self.refreshAddons()
             }
         }
-    }
-
-    func removeGame(_ name: String) {
-        guard name != activeGame else { note = "Cannot remove the active game — switch to another one first."; return }
-        let url = URL(fileURLWithPath: Paths.gamesDir + "/" + name)
-        NSWorkspace.shared.recycle([url]) { _, _ in
-            DispatchQueue.main.async { self.refreshGames() }
-        }
-    }
-
-    func revealGame(_ name: String) {
-        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: Paths.gamesDir + "/" + name)])
     }
 
     // MARK: realmlist
@@ -685,13 +663,13 @@ struct ContentView: View {
         } detail: {
             switch pane ?? .play {
             case .play: PlayView()
-            case .games: GamesView()
+            case .games: GameView()
             case .addons: AddOnsView()
             case .display: DisplayView()
             }
         }
         .frame(minWidth: 680, minHeight: 440)
-        .onChange(of: store.games.isEmpty) { empty in
+        .onChange(of: store.games.isEmpty) { _, empty in
             if empty, pane == .addons || pane == .display { pane = .play }
         }
     }
@@ -796,13 +774,9 @@ struct PlayView: View {
     }
 }
 
-struct GamesView: View {
+struct GameView: View {
     @EnvironmentObject var store: Store
     @State private var newRealm = ""
-
-    var activeGameBinding: Binding<String> {
-        Binding(get: { store.activeGame }, set: { store.selectGame($0) })
-    }
 
     var body: some View {
         Form {
@@ -815,12 +789,6 @@ struct GamesView: View {
                     Button("Verify") { store.verifyGame() }
                         .disabled(store.busy || store.games.isEmpty)
                         .help("Check game files and Apple Silicon patches for integrity")
-                }
-                if store.games.count > 1 {
-                    Picker("Active game", selection: activeGameBinding) {
-                        ForEach(store.games, id: \.self) { Text($0).tag($0) }
-                    }
-                    .pickerStyle(.menu)
                 }
                 HStack {
                     Button(action: { store.installGameFromPanel() }) {
@@ -909,13 +877,13 @@ struct VerifySheet: View {
                     }
                     .id(item.id)
                 }
-                .onChange(of: store.verifyItems.count) { _ in
+                .onChange(of: store.verifyItems.count) { _, _ in
                     if let last = store.verifyItems.last { proxy.scrollTo(last.id) }
                 }
             }
             if store.verifyRunning {
                 ProgressView(value: store.verifyProgress)
-                Text(store.verifyCurrent.isEmpty ? "Checking…" : "Hashing \(store.verifyCurrent)")
+                Text(store.verifyCurrent.isEmpty ? "Checking…" : "Checking \(store.verifyCurrent)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if !store.verifyResult.isEmpty {
