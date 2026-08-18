@@ -22,6 +22,10 @@ enum Paths {
         return (!n.isEmpty && FileManager.default.fileExists(atPath: path)) ? path : resources + "/game"
     }
     static var addons: String { game + "/Interface/AddOns" }
+    static var runPattern: String {
+        let folder = activeGame.isEmpty ? "game" : activeGame
+        return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\]Wow\\.exe"
+    }
     static let installTool = macOS.replacingOccurrences(of: "/MacOS", with: "/Resources/bin") + "/wow-install-client"
     static let verifyTool  = macOS.replacingOccurrences(of: "/MacOS", with: "/Resources/bin") + "/wow-verify-game"
     static let settings  = resources + "/bin/wow-settings"
@@ -129,7 +133,7 @@ final class Store: ObservableObject {
     }
 
     func checkRunning() {
-        let pattern = NSRegularExpression.escapedPattern(for: Paths.game + "/Wow.exe")
+        let pattern = Paths.runPattern
         DispatchQueue.global().async {
             let out = shell("/usr/bin/pgrep", ["-f", pattern])
             let running = !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !out.hasPrefix("ERROR")
@@ -154,7 +158,7 @@ final class Store: ObservableObject {
 
     func forceStop() {
         busy = true
-        let pattern = NSRegularExpression.escapedPattern(for: Paths.game + "/Wow.exe")
+        let pattern = Paths.runPattern
         DispatchQueue.global().async {
             _ = shell("/usr/bin/pkill", ["-9", "-f", pattern])
             Thread.sleep(forTimeInterval: 0.8)
