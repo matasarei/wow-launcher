@@ -631,12 +631,12 @@ final class Store: ObservableObject {
 // MARK: - Views
 
 enum Pane: String, CaseIterable, Identifiable {
-    case play = "Play", games = "Game", addons = "AddOns", display = "Display"
+    case play = "Play", game = "Game", addons = "AddOns", display = "Display"
     var id: String { rawValue }
     var icon: String {
         switch self {
         case .play: return "play.circle"
-        case .games: return "gamecontroller"
+        case .game: return "gamecontroller"
         case .addons: return "puzzlepiece.extension"
         case .display: return "display"
         }
@@ -663,7 +663,7 @@ struct ContentView: View {
         } detail: {
             switch pane ?? .play {
             case .play: PlayView()
-            case .games: GameView()
+            case .game: GameView()
             case .addons: AddOnsView()
             case .display: DisplayView()
             }
