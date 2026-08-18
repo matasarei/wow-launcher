@@ -440,6 +440,13 @@ final class Store: ObservableObject {
         return addr.isEmpty ? nil : addr
     }
 
+    private func readTextFile(_ path: String) -> String? {
+        for enc in [String.Encoding.utf8, .windowsCP1251, .isoLatin1] {
+            if let text = try? String(contentsOfFile: path, encoding: enc) { return text }
+        }
+        return nil
+    }
+
     private func isCommented(_ line: String) -> Bool {
         line.trimmingCharacters(in: .whitespaces).hasPrefix("#")
     }
@@ -457,7 +464,7 @@ final class Store: ObservableObject {
         realmFiles = files
         var list: [Realm] = []
         if let first = files.first,
-           let raw = try? String(contentsOfFile: first, encoding: .utf8) {
+           let raw = readTextFile(first) {
             for line in raw.split(separator: "\n") {
                 let l = String(line)
                 guard let addr = realmAddr(l) else { continue }
@@ -475,7 +482,7 @@ final class Store: ObservableObject {
     private func writeRealms(_ list: [Realm]) {
         let block = list.map { $0.active ? "set realmlist \($0.addr)" : "# set realmlist \($0.addr)" }
         for path in realmFiles {
-            let raw = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+            let raw = readTextFile(path) ?? ""
             var out: [String] = []
             var inserted = false
             for line in raw.split(separator: "\n", omittingEmptySubsequences: false) {
