@@ -11,7 +11,9 @@
 set -e
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
-CFG="$RES/game/WTF/Config.wtf"
+GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
+if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME_DIR="$RES/games/$GAME_NAME"; else GAME_DIR="$RES/game"; fi
+CFG="$GAME_DIR/WTF/Config.wtf"
 LOADER="$RES/cxwine/CrossOver-Hosted Application/wineloader2"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
 unset ROSETTA_X87_PATH

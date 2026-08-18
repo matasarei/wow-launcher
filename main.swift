@@ -8,8 +8,21 @@ enum Paths {
     static let contents  = Bundle.main.bundlePath + "/Contents"
     static let resources = contents + "/Resources"
     static let macOS     = contents + "/MacOS"
-    static let game      = resources + "/game"
-    static let addons    = game + "/Interface/AddOns"
+    static let gamesDir  = resources + "/games"
+    static var activeGame: String {
+        let text = (try? String(contentsOfFile: Paths.conf, encoding: .utf8)) ?? ""
+        for line in text.split(separator: "\n") where line.hasPrefix("GAME=") {
+            return String(line.dropFirst(5))
+        }
+        return ""
+    }
+    static var game: String {
+        let n = activeGame
+        let path = gamesDir + "/" + n
+        return (!n.isEmpty && FileManager.default.fileExists(atPath: path)) ? path : resources + "/game"
+    }
+    static var addons: String { game + "/Interface/AddOns" }
+    static let installTool = macOS.replacingOccurrences(of: "/MacOS", with: "/Resources/bin") + "/wow-install-client"
     static let settings  = resources + "/bin/wow-settings"
     static let launcher  = resources + "/bin/wow-launch"
     static let conf      = resources + "/launcher.conf"
@@ -68,6 +81,8 @@ final class Store: ObservableObject {
     @Published var addons: [AddOn] = []
     @Published var displays: [DisplayOption] = []
     @Published var selectedDisplay = 0
+    @Published var games: [String] = []
+    @Published var activeGame = ""
     @Published var gameRunning = false
     @Published var loadingStatus = true
     @Published var busy = false
@@ -76,6 +91,7 @@ final class Store: ObservableObject {
     init() {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         refreshDisplays()
+        refreshGames()
         refreshAddons()
         refreshStatus()
         checkRunning()
@@ -159,7 +175,7 @@ final class Store: ObservableObject {
 
     func setAuto(_ v: Bool) {
         autoRes = v
-        try? "AUTO_RES=\(v ? 1 : 0)\n".write(toFile: Paths.conf, atomically: true, encoding: .utf8)
+        confSet("AUTO_RES", v ? "1" : "0")
         if v {
             busy = true
             DispatchQueue.global().async {
@@ -214,6 +230,76 @@ final class Store: ObservableObject {
         }
         displays = opts
         if let main = opts.first(where: { $0.isMain }) { selectedDisplay = main.id }
+    }
+
+    func confSet(_ key: String, _ value: String) {
+        var lines = ((try? String(contentsOfFile: Paths.conf, encoding: .utf8)) ?? "")
+            .split(separator: "\n").map(String.init)
+        lines.removeAll { $0.hasPrefix(key + "=") }
+        lines.append("\(key)=\(value)")
+        try? (lines.joined(separator: "\n") + "\n").write(toFile: Paths.conf, atomically: true, encoding: .utf8)
+    }
+
+    // MARK: games
+
+    func refreshGames() {
+        let fm = FileManager.default
+        let dirs = ((try? fm.contentsOfDirectory(atPath: Paths.gamesDir)) ?? [])
+            .filter { !$0.hasPrefix(".") }
+            .filter { fm.fileExists(atPath: Paths.gamesDir + "/" + $0 + "/Wow.exe") }
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        games = dirs
+        activeGame = Paths.activeGame
+        if activeGame.isEmpty || !dirs.contains(activeGame), let first = dirs.first {
+            confSet("GAME", first)
+            activeGame = first
+        }
+    }
+
+    func selectGame(_ name: String) {
+        guard name != activeGame else { return }
+        confSet("GAME", name)
+        activeGame = name
+        note = "Active game: \(name)"
+        refreshAddons()
+        refreshStatus()
+    }
+
+    func installGameFromPanel() {
+        let panel = NSOpenPanel()
+        panel.title = "Install Game Client"
+        panel.message = "Choose a WoW 3.3.5a client folder (contains Wow.exe and Data)"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.begin { resp in
+            guard resp == .OK, let url = panel.url else { return }
+            self.installGame(from: url)
+        }
+    }
+
+    func installGame(from url: URL) {
+        busy = true
+        note = "Installing \(url.lastPathComponent)… copying the client can take a few minutes."
+        DispatchQueue.global().async {
+            let out = shell(Paths.installTool, [url.path])
+            DispatchQueue.main.async {
+                self.busy = false
+                self.note = out.split(separator: "\n").suffix(2).joined(separator: " — ")
+                self.refreshGames()
+            }
+        }
+    }
+
+    func removeGame(_ name: String) {
+        guard name != activeGame else { note = "Cannot remove the active game — switch to another one first."; return }
+        let url = URL(fileURLWithPath: Paths.gamesDir + "/" + name)
+        NSWorkspace.shared.recycle([url]) { _, _ in
+            DispatchQueue.main.async { self.refreshGames() }
+        }
+    }
+
+    func revealGame(_ name: String) {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: Paths.gamesDir + "/" + name)])
     }
 
     // MARK: addons
@@ -331,11 +417,12 @@ final class Store: ObservableObject {
 // MARK: - Views
 
 enum Pane: String, CaseIterable, Identifiable {
-    case play = "Play", addons = "AddOns", display = "Display"
+    case play = "Play", games = "Games", addons = "AddOns", display = "Display"
     var id: String { rawValue }
     var icon: String {
         switch self {
         case .play: return "play.circle"
+        case .games: return "gamecontroller"
         case .addons: return "puzzlepiece.extension"
         case .display: return "display"
         }
@@ -355,6 +442,7 @@ struct ContentView: View {
         } detail: {
             switch pane ?? .play {
             case .play: PlayView()
+            case .games: GamesView()
             case .addons: AddOnsView()
             case .display: DisplayView()
             }
@@ -383,8 +471,11 @@ struct PlayView: View {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 110, height: 110)
-            Text("World of Warcraft 3.3.5a")
+            Text(store.activeGame.isEmpty ? "World of Warcraft 3.3.5a" : store.activeGame)
                 .font(.title2).bold()
+            Text("World of Warcraft 3.3.5a")
+                .font(.callout)
+                .foregroundStyle(.secondary)
             HStack(spacing: 6) {
                 Text(statusLine)
                     .font(.callout)
@@ -417,6 +508,65 @@ struct PlayView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { store.checkRunning() }
+    }
+}
+
+struct GamesView: View {
+    @EnvironmentObject var store: Store
+    @State private var selection: String?
+
+    var body: some View {
+        List(selection: $selection) {
+            ForEach(store.games, id: \.self) { g in
+                HStack {
+                    Image(systemName: g == store.activeGame ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(g == store.activeGame ? Color.accentColor : Color.secondary)
+                    Text(g)
+                    Spacer()
+                    if g == store.activeGame {
+                        Text("Active").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { store.selectGame(g) }
+                .padding(.vertical, 3)
+                .tag(g)
+                .contextMenu {
+                    Button("Activate") { store.selectGame(g) }
+                    Button("Reveal in Finder") { store.revealGame(g) }
+                    Button("Move to Trash", role: .destructive) { store.removeGame(g) }
+                        .disabled(g == store.activeGame)
+                }
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup {
+                if store.busy { ProgressView().controlSize(.small) }
+                Button(action: { store.installGameFromPanel() }) {
+                    Label("Install", systemImage: "plus")
+                }
+                .disabled(store.busy)
+                .help("Install a WoW 3.3.5a client folder — it is copied in and patched automatically")
+                Button(action: {
+                    if let sel = selection { store.removeGame(sel); selection = nil }
+                }) {
+                    Label("Remove", systemImage: "minus")
+                }
+                .disabled(selection == nil || selection == store.activeGame)
+                .help("Move the selected game to the Trash")
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if !store.note.isEmpty {
+                Text(store.note)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(.bar)
+            }
+        }
+        .onAppear { store.refreshGames() }
     }
 }
 

@@ -1,0 +1,37 @@
+#!/bin/bash
+# Install a WoW 3.3.5a client into the wrapper and apply the Apple Silicon patch kit.
+# Usage: wow-install-client /path/to/client [Name]
+set -e
+APP="$(cd "$(dirname "$0")/../../.." && pwd)"
+RES="$APP/Contents/Resources"
+KIT="$RES/patch-kit"
+SRC="$1"
+NAME="${2:-$(basename "$SRC")}"
+DEST="$RES/games/$NAME"
+[ -n "$SRC" ] || { echo "usage: wow-install-client /path/to/client [Name]"; exit 1; }
+[ -f "$SRC/Wow.exe" ] || { echo "not a WoW client (no Wow.exe in $SRC)"; exit 1; }
+[ -d "$SRC/Data" ]   || { echo "not a WoW client (no Data folder in $SRC)"; exit 1; }
+[ -d "$DEST" ] && { echo "a game named '$NAME' already exists"; exit 1; }
+mkdir -p "$RES/games"
+echo "copying client (this can take a few minutes)..."
+ditto "$SRC" "$DEST"
+echo "applying patch kit..."
+mkdir -p "$DEST/mods"
+cp "$KIT/d3d9.dll" "$KIT/libDllLdr.dll" "$KIT/dlls.txt" "$DEST/"
+cp "$KIT/mods/"* "$DEST/mods/"
+ditto "$KIT/rosettax87" "$DEST/rosettax87"
+# DivxDecoder.dll is identical in all 3.3.5a-12340 clients -> swap in the patched one
+if cmp -s "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.orig"; then
+  cp "$DEST/DivxDecoder.dll" "$DEST/DivxDecoder.dll.bak"
+  cp "$KIT/DivxDecoder.dll.patched" "$DEST/DivxDecoder.dll"
+elif cmp -s "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
+  echo "DivxDecoder.dll already patched"
+else
+  echo "WARNING: DivxDecoder.dll differs from the known 3.3.5a original — left unpatched, performance hooks will be INACTIVE"
+fi
+# Wow.exe icon patch (cosmetic) — only if the binary matches the known original
+if cmp -s "$DEST/Wow.exe" "$KIT/Wow.exe.orig"; then
+  cp "$DEST/Wow.exe" "$DEST/Wow.exe.icon-backup"
+  cp "$KIT/Wow.exe.icon-patched" "$DEST/Wow.exe"
+fi
+echo "installed '$NAME'"
