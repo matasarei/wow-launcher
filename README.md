@@ -36,6 +36,12 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 | **libSiliconPatch** | client-side hooks for Apple Silicon |
 | **SwiftUI manager** (this repo) | install, patch, verify, configure, and launch — no terminal needed |
 
+> [!IMPORTANT]
+> CrossOver and WoWSilicon are needed **only while building** the wrapper — everything
+> they provide is copied into the app bundle. Once `WoW335.app` is built, it is fully
+> self-contained: both apps can be uninstalled, and updating or removing them later
+> does not affect the wrapper.
+
 The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
 
 **Why this exists:** for fun and discovery — making a 2010 Windows game run *great* on
