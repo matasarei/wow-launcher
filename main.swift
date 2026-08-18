@@ -92,6 +92,7 @@ final class Store: ObservableObject {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         refreshDisplays()
         refreshGames()
+        refreshRealms()
         refreshAddons()
         refreshStatus()
         checkRunning()
@@ -262,6 +263,7 @@ final class Store: ObservableObject {
         activeGame = name
         note = "Active game: \(name)"
         refreshAddons()
+        refreshRealms()
         refreshStatus()
     }
 
@@ -300,6 +302,97 @@ final class Store: ObservableObject {
 
     func revealGame(_ name: String) {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: Paths.gamesDir + "/" + name)])
+    }
+
+    // MARK: realmlist
+
+    struct Realm: Identifiable, Hashable {
+        let addr: String
+        let active: Bool
+        var id: String { addr }
+    }
+
+    @Published var realms: [Realm] = []
+    private var realmFiles: [String] = []
+
+    private func realmAddr(_ line: String) -> String? {
+        var l = line.trimmingCharacters(in: .whitespaces)
+        while l.hasPrefix("#") { l = String(l.dropFirst()).trimmingCharacters(in: .whitespaces) }
+        guard l.lowercased().hasPrefix("set realmlist") else { return nil }
+        let addr = l.dropFirst("set realmlist".count).trimmingCharacters(in: .whitespaces)
+        return addr.isEmpty ? nil : addr
+    }
+
+    private func isCommented(_ line: String) -> Bool {
+        line.trimmingCharacters(in: .whitespaces).hasPrefix("#")
+    }
+
+    func refreshRealms() {
+        let fm = FileManager.default
+        var files: [String] = []
+        let dataDir = Paths.game + "/Data"
+        for loc in (try? fm.contentsOfDirectory(atPath: dataDir)) ?? [] {
+            let p = dataDir + "/" + loc + "/realmlist.wtf"
+            if fm.fileExists(atPath: p) { files.append(p) }
+        }
+        let root = Paths.game + "/realmlist.wtf"
+        if fm.fileExists(atPath: root) { files.append(root) }
+        realmFiles = files
+        var list: [Realm] = []
+        if let first = files.first,
+           let raw = try? String(contentsOfFile: first, encoding: .utf8) {
+            for line in raw.split(separator: "\n") {
+                let l = String(line)
+                guard let addr = realmAddr(l) else { continue }
+                if !list.contains(where: { $0.addr == addr }) {
+                    list.append(Realm(addr: addr, active: !isCommented(l)))
+                }
+            }
+        }
+        if !list.contains(where: { $0.active }), !list.isEmpty {
+            list[0] = Realm(addr: list[0].addr, active: true)
+        }
+        realms = list
+    }
+
+    private func writeRealms(_ list: [Realm]) {
+        let block = list.map { $0.active ? "set realmlist \($0.addr)" : "# set realmlist \($0.addr)" }
+        for path in realmFiles {
+            let raw = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+            var out: [String] = []
+            var inserted = false
+            for line in raw.split(separator: "\n", omittingEmptySubsequences: false) {
+                if realmAddr(String(line)) != nil {
+                    if !inserted { out.append(contentsOf: block); inserted = true }
+                } else {
+                    out.append(String(line))
+                }
+            }
+            if !inserted { out.append(contentsOf: block) }
+            while out.last?.isEmpty == true { out.removeLast() }
+            try? (out.joined(separator: "\n") + "\n").write(toFile: path, atomically: true, encoding: .utf8)
+        }
+        refreshRealms()
+    }
+
+    func selectRealm(_ addr: String) {
+        writeRealms(realms.map { Realm(addr: $0.addr, active: $0.addr == addr) })
+    }
+
+    func addRealm(_ addr: String) {
+        let a = addr.trimmingCharacters(in: .whitespaces)
+        guard !a.isEmpty, !a.contains(" ") else { note = "Invalid server address."; return }
+        guard !realms.contains(where: { $0.addr == a }) else { selectRealm(a); return }
+        writeRealms(realms.map { Realm(addr: $0.addr, active: false) } + [Realm(addr: a, active: true)])
+        note = "Server \(a) added and selected — takes effect at next game start."
+    }
+
+    func removeRealm(_ addr: String) {
+        guard !(realms.first(where: { $0.addr == addr })?.active ?? false) else {
+            note = "Cannot remove the active server — select another one first."
+            return
+        }
+        writeRealms(realms.filter { $0.addr != addr })
     }
 
     // MARK: addons
@@ -417,7 +510,7 @@ final class Store: ObservableObject {
 // MARK: - Views
 
 enum Pane: String, CaseIterable, Identifiable {
-    case play = "Play", games = "Games", addons = "AddOns", display = "Display"
+    case play = "Play", games = "Game", addons = "AddOns", display = "Display"
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -513,60 +606,75 @@ struct PlayView: View {
 
 struct GamesView: View {
     @EnvironmentObject var store: Store
-    @State private var selection: String?
+    @State private var newRealm = ""
+
+    var activeGameBinding: Binding<String> {
+        Binding(get: { store.activeGame }, set: { store.selectGame($0) })
+    }
 
     var body: some View {
-        List(selection: $selection) {
-            ForEach(store.games, id: \.self) { g in
-                HStack {
-                    Image(systemName: g == store.activeGame ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(g == store.activeGame ? Color.accentColor : Color.secondary)
-                    Text(g)
-                    Spacer()
-                    if g == store.activeGame {
-                        Text("Active").font(.caption).foregroundStyle(.secondary)
+        Form {
+            Section("Installed Game") {
+                if store.games.count > 1 {
+                    Picker("Active game", selection: activeGameBinding) {
+                        ForEach(store.games, id: \.self) { Text($0).tag($0) }
                     }
+                    .pickerStyle(.menu)
+                } else {
+                    LabeledContent("Game", value: store.activeGame.isEmpty ? "—" : store.activeGame)
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { store.selectGame(g) }
-                .padding(.vertical, 3)
-                .tag(g)
-                .contextMenu {
-                    Button("Activate") { store.selectGame(g) }
-                    Button("Reveal in Finder") { store.revealGame(g) }
-                    Button("Move to Trash", role: .destructive) { store.removeGame(g) }
-                        .disabled(g == store.activeGame)
+                HStack {
+                    Button(action: { store.installGameFromPanel() }) {
+                        Label("Install New Game…", systemImage: "plus")
+                    }
+                    .disabled(store.busy)
+                    if store.busy { ProgressView().controlSize(.small) }
                 }
-            }
-        }
-        .toolbar {
-            ToolbarItemGroup {
-                if store.busy { ProgressView().controlSize(.small) }
-                Button(action: { store.installGameFromPanel() }) {
-                    Label("Install", systemImage: "plus")
-                }
-                .disabled(store.busy)
-                .help("Install a WoW 3.3.5a client folder — it is copied in and patched automatically")
-                Button(action: {
-                    if let sel = selection { store.removeGame(sel); selection = nil }
-                }) {
-                    Label("Remove", systemImage: "minus")
-                }
-                .disabled(selection == nil || selection == store.activeGame)
-                .help("Move the selected game to the Trash")
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            if !store.note.isEmpty {
-                Text(store.note)
+                Text("Choose a WoW 3.3.5a client folder — it is copied into the app and patched for Apple Silicon automatically.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .background(.bar)
+            }
+            Section("Server") {
+                ForEach(store.realms) { r in
+                    HStack(spacing: 8) {
+                        Image(systemName: r.active ? "circle.inset.filled" : "circle")
+                            .foregroundStyle(r.active ? Color.accentColor : Color.secondary)
+                        Text(r.addr)
+                        Spacer()
+                        if r.active {
+                            Text("Active").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { store.selectRealm(r.addr) }
+                    .contextMenu {
+                        Button("Select") { store.selectRealm(r.addr) }
+                        Button("Remove", role: .destructive) { store.removeRealm(r.addr) }
+                            .disabled(r.active)
+                    }
+                }
+                HStack {
+                    TextField("logon.example.com", text: $newRealm)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { store.addRealm(newRealm); newRealm = "" }
+                    Button("Add") { store.addRealm(newRealm); newRealm = "" }
+                        .disabled(newRealm.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                Text("The selected server is written to realmlist.wtf; the others stay as commented lines. Takes effect at the next game start.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if !store.note.isEmpty {
+                Section {
+                    Text(store.note).font(.caption).foregroundStyle(.secondary)
+                }
             }
         }
-        .onAppear { store.refreshGames() }
+        .formStyle(.grouped)
+        .onAppear {
+            store.refreshGames()
+            store.refreshRealms()
+        }
     }
 }
 
