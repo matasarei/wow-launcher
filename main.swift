@@ -67,6 +67,7 @@ struct DisplayOption: Identifiable, Hashable {
     let name: String
     let ptsW: Int, ptsH: Int
     let pxW: Int, pxH: Int
+    let axX: Int, axY: Int
     let isMain: Bool
     var isRetina: Bool { pxW != ptsW }
     var label: String { "\(name)\(isMain ? " (main)" : "") — \(pxW) × \(pxH)" }
@@ -139,6 +140,7 @@ final class Store: ObservableObject {
 
     func play() {
         busy = true
+        resolveDisplayRect()
         DispatchQueue.global().async {
             _ = shell(Paths.launcher)
             DispatchQueue.main.async {
@@ -206,19 +208,33 @@ final class Store: ObservableObject {
         let target = retina ? "\(d.pxW)x\(d.pxH)" : "\(d.ptsW)x\(d.ptsH)"
         busy = true
         if !d.isMain && autoRes { setAuto(false) }
+        confSet("GAME_DISPLAY", d.isMain ? "" : d.name)
+        confSet("DISPLAY_RECT", d.isMain ? "" : "\(d.axX),\(d.axY),\(d.ptsW),\(d.ptsH)")
         DispatchQueue.global().async {
             _ = shell(Paths.settings, ["resolution", target])
             DispatchQueue.main.async {
                 self.busy = false
                 self.note = d.isMain ? "" :
-                    "Sized for \(d.name). Drag the game window there once — macOS remembers the position."
+                    "The game window will be moved to \(d.name) shortly after launch."
                 self.refreshStatus()
             }
         }
     }
 
+    private func resolveDisplayRect() {
+        let name = confGet("GAME_DISPLAY")
+        guard !name.isEmpty else { confSet("DISPLAY_RECT", ""); return }
+        refreshDisplays()
+        if let d = displays.first(where: { $0.name == name && !$0.isMain }) {
+            confSet("DISPLAY_RECT", "\(d.axX),\(d.axY),\(d.ptsW),\(d.ptsH)")
+        } else {
+            confSet("DISPLAY_RECT", "")
+        }
+    }
+
     func refreshDisplays() {
         var opts: [DisplayOption] = []
+        let primaryMaxY = NSScreen.screens.first?.frame.maxY ?? 0
         for (i, s) in NSScreen.screens.enumerated() {
             let pts = s.frame.size
             let scale = s.backingScaleFactor
@@ -227,11 +243,25 @@ final class Store: ObservableObject {
                 name: s.localizedName,
                 ptsW: Int(pts.width), ptsH: Int(pts.height),
                 pxW: Int(pts.width * scale), pxH: Int(pts.height * scale),
+                axX: Int(s.frame.minX), axY: Int(primaryMaxY - s.frame.maxY),
                 isMain: s == NSScreen.main || i == 0 && NSScreen.main == nil
             ))
         }
         displays = opts
-        if let main = opts.first(where: { $0.isMain }) { selectedDisplay = main.id }
+        let wanted = confGet("GAME_DISPLAY")
+        if !wanted.isEmpty, let d = opts.first(where: { $0.name == wanted && !$0.isMain }) {
+            selectedDisplay = d.id
+        } else if let main = opts.first(where: { $0.isMain }) {
+            selectedDisplay = main.id
+        }
+    }
+
+    func confGet(_ key: String) -> String {
+        let text = (try? String(contentsOfFile: Paths.conf, encoding: .utf8)) ?? ""
+        for line in text.split(separator: "\n") where line.hasPrefix(key + "=") {
+            return String(line.dropFirst(key.count + 1))
+        }
+        return ""
     }
 
     func confSet(_ key: String, _ value: String) {
@@ -945,13 +975,17 @@ struct DisplayView: View {
             }
             Section("Resolution") {
                 Toggle("Match the main display automatically at launch", isOn: autoBinding)
-                Picker("Size for display", selection: displayBinding) {
+                Picker("Show game on", selection: displayBinding) {
                     ForEach(store.displays) { d in
                         Text(d.label).tag(d.id)
                     }
                 }
                 .pickerStyle(.menu)
-                .disabled(store.autoRes)
+                if let d = store.displays.first(where: { $0.id == store.selectedDisplay }), !d.isMain {
+                    Text("The game always opens on the main display; it is then moved to \(d.name) automatically. This needs a one-time Accessibility permission for WoW335 (System Settings → Privacy & Security → Accessibility).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Button(action: { store.detectNow() }) {
                     Label("Detect Main Screen Resolution", systemImage: "wand.and.stars")
                 }

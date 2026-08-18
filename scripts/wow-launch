@@ -21,4 +21,36 @@ if [ "${AUTO:-1}" = "1" ]; then
 fi
 nohup "$LOADER" "$GAME/Wow.exe" > "$LOG" 2>&1 &
 disown
+# Move the game window to the chosen display once it appears (needs Accessibility)
+RECT="$(grep -sE '^DISPLAY_RECT=' "$RES/launcher.conf" | cut -d= -f2)"
+if [ -n "$RECT" ]; then
+  (
+    DX="${RECT%%,*}"; R2="${RECT#*,}"
+    DY="${R2%%,*}"; R3="${R2#*,}"
+    DW="${R3%%,*}"; DH="${R3#*,}"
+    for _ in $(seq 1 45); do
+      sleep 2
+      MOVED=$(osascript 2>/dev/null <<OSA
+tell application "System Events"
+  set moved to "no"
+  repeat with p in (application processes)
+    try
+      repeat with w in windows of p
+        if name of w is "World of Warcraft" then
+          set position of w to {$DX, $DY}
+          set size of w to {$DW, $DH}
+          set moved to "yes"
+        end if
+      end repeat
+    end try
+  end repeat
+  return moved
+end tell
+OSA
+)
+      [ "$MOVED" = "yes" ] && break
+    done
+  ) >> "$LOG.mover" 2>&1 &
+  disown
+fi
 exit 0
