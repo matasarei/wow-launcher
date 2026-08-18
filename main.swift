@@ -292,7 +292,6 @@ final class Store: ObservableObject {
         verifySheet = true
         let p = Process()
         p.executableURL = URL(fileURLWithPath: Paths.verifyTool)
-        p.arguments = ["--deep"]
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = pipe

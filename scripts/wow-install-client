@@ -34,5 +34,4 @@ if cmp -s "$DEST/Wow.exe" "$KIT/Wow.exe.orig"; then
   cp "$DEST/Wow.exe" "$DEST/Wow.exe.icon-backup"
   cp "$KIT/Wow.exe.icon-patched" "$DEST/Wow.exe"
 fi
-"$(cd "$(dirname "$0")" && pwd)/wow-manifest-game" "$NAME" || true
 echo "installed '$NAME'"

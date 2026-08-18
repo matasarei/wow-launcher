@@ -1,43 +1,47 @@
 #!/bin/bash
-# Verify the active game's files and Apple Silicon patches against the patch kit.
-# Usage: wow-verify-game [--deep]
-#   --deep additionally re-hashes every file in .manifest.sha256, printing
-#   "PROGRESS <n> <total> <file>" lines before each hash for UI progress.
-# Prints ok:/WARN:/FAIL: lines and a final RESULT: line. Exit 1 if any FAIL.
+# Verify the active game has every file it needs to run, plus the Apple Silicon
+# patch stack (small files byte-compared against the patch kit — instant).
+# Prints "PROGRESS <n> <total> <label>" before each check, ok:/WARN:/FAIL: results,
+# and a final RESULT: line. Exit 1 if any FAIL.
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 KIT="$RES/patch-kit"
 GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
 if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then G="$RES/games/$GAME_NAME"; else G="$RES/game"; fi
 [ -d "$G" ] || { echo "FAIL: no game installed"; echo "RESULT: PROBLEMS"; exit 1; }
-fail=0; warn=0
+fail=0; warn=0; i=0
+TOTAL=36
+step() { i=$((i+1)); echo "PROGRESS $i $TOTAL $1"; }
 
-need() {
+need() {  # need <rel path> <label>
+  step "$2"
   if [ -e "$G/$1" ]; then echo "ok: $2"; else echo "FAIL: $2 missing ($1)"; fail=$((fail+1)); fi
 }
-same() {
+optional() {  # optional <rel path> <label>
+  step "$2"
+  if [ -e "$G/$1" ]; then echo "ok: $2"; else echo "WARN: $2 not present ($1)"; warn=$((warn+1)); fi
+}
+same() {  # same <rel path> <kit file> <label>
+  step "$3"
   if cmp -s "$G/$1" "$KIT/$2"; then echo "ok: $3"; else echo "FAIL: $3 does not match the patch kit"; fail=$((fail+1)); fi
 }
 
-# core client files
+# game executable
 need Wow.exe "Wow.exe present"
+step "Wow.exe build check"
 if cmp -s "$G/Wow.exe" "$KIT/Wow.exe.icon-patched" || cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig"; then
   echo "ok: Wow.exe is the known 3.3.5a (12340) build"
 else
   echo "WARN: Wow.exe differs from the known 3.3.5a build"; warn=$((warn+1))
 fi
-for mpq in common.MPQ common-2.MPQ expansion.MPQ lichking.MPQ patch.MPQ patch-2.MPQ; do
-  need "Data/$mpq" "Data/$mpq"
+
+# support libraries every 3.3.5a client ships
+for dll in ijl15.dll dbghelp.dll unicows.dll Battle.net.dll Scan.dll; do
+  need "$dll" "$dll"
 done
-LOCALE="$(basename "$(ls -d "$G"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null)"
-if [ -n "$LOCALE" ]; then
-  echo "ok: locale $LOCALE"
-  need "Data/$LOCALE/realmlist.wtf" "realmlist.wtf"
-else
-  echo "FAIL: no locale folder in Data"; fail=$((fail+1))
-fi
 
 # Apple Silicon performance patches
+step "DivxDecoder.dll performance patch"
 if cmp -s "$G/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
   echo "ok: DivxDecoder.dll performance patch"
 elif cmp -s "$G/DivxDecoder.dll" "$KIT/DivxDecoder.dll.orig"; then
@@ -50,29 +54,36 @@ same libDllLdr.dll libDllLdr.dll "libDllLdr.dll"
 same dlls.txt dlls.txt "dlls.txt"
 same mods/winerosetta.dll mods/winerosetta.dll "winerosetta.dll"
 same mods/libSiliconPatch.dll mods/libSiliconPatch.dll "libSiliconPatch.dll"
-for f in rosettax87/rosettax87 rosettax87/libRuntimeRosettax87; do
-  if [ -e "$G/$f" ]; then echo "ok: $f"; else echo "FAIL: $f missing"; fail=$((fail+1)); fi
-done
+need rosettax87/rosettax87 "rosettax87"
+need rosettax87/libRuntimeRosettax87 "libRuntimeRosettax87"
 
-# deep verification against the install-time manifest
-if [ "$1" = "--deep" ]; then
-  MAN="$G/.manifest.sha256"
-  if [ ! -f "$MAN" ]; then
-    echo "WARN: no integrity manifest — run wow-manifest-game to create one"; warn=$((warn+1))
-  else
-    total=$(grep -c . "$MAN"); i=0
-    while IFS= read -r line; do
-      [ -n "$line" ] || continue
-      hash="${line%% *}"
-      rel="${line#*  }"
-      i=$((i+1))
-      echo "PROGRESS $i $total $rel"
-      if [ ! -f "$G/$rel" ]; then echo "FAIL: $rel missing"; fail=$((fail+1)); continue; fi
-      cur=$(shasum -a 256 "$G/$rel" | cut -d' ' -f1)
-      if [ "$cur" = "$hash" ]; then echo "ok: $rel checksum"; else echo "FAIL: $rel checksum mismatch"; fail=$((fail+1)); fi
-    done < "$MAN"
-  fi
+# core data archives
+for mpq in common.MPQ common-2.MPQ expansion.MPQ lichking.MPQ patch.MPQ patch-2.MPQ; do
+  need "Data/$mpq" "Data/$mpq"
+done
+optional "Data/patch-3.MPQ" "Data/patch-3.MPQ"
+
+# locale data
+step "locale folder"
+LOCALE="$(basename "$(ls -d "$G"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null)"
+if [ -n "$LOCALE" ]; then
+  echo "ok: locale $LOCALE"
+  need "Data/$LOCALE/realmlist.wtf" "realmlist.wtf"
+  for m in locale speech base backup; do
+    need "Data/$LOCALE/$m-$LOCALE.MPQ" "$m-$LOCALE.MPQ"
+  done
+  for m in expansion-locale expansion-speech lichking-locale lichking-speech; do
+    need "Data/$LOCALE/$m-$LOCALE.MPQ" "$m-$LOCALE.MPQ"
+  done
+  need "Data/$LOCALE/patch-$LOCALE.MPQ" "patch-$LOCALE.MPQ"
+  need "Data/$LOCALE/patch-$LOCALE-2.MPQ" "patch-$LOCALE-2.MPQ"
+  optional "Data/$LOCALE/patch-$LOCALE-3.MPQ" "patch-$LOCALE-3.MPQ"
+else
+  echo "FAIL: no locale folder in Data"; fail=$((fail+1))
 fi
+
+# config (created by the game on first run)
+optional "WTF/Config.wtf" "WTF/Config.wtf"
 
 if [ "$fail" -gt 0 ]; then
   echo "RESULT: PROBLEMS — $fail check(s) failed"
