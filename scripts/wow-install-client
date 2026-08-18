@@ -43,9 +43,27 @@ else
     echo "WARNING: DivxDecoder.dll patch did not apply — performance hooks will be INACTIVE"
   fi
 fi
-# Wow.exe icon patch (cosmetic) — only if the kit has references and the binary matches
+# Wow.exe icon patch (cosmetic): use kit references when present, else apply the
+# repo's binary diff via the system bspatch (checksum-guarded on both sides).
+WOW_ORIG_MD5="45892bdedd0ad70aed4ccd22d9fb5984"
+WOW_ICON_MD5="ba04735e288ceb3b9f80b2527c48af67"
 if [ -f "$KIT/Wow.exe.orig" ] && cmp -s "$DEST/Wow.exe" "$KIT/Wow.exe.orig"; then
   cp "$DEST/Wow.exe" "$DEST/Wow.exe.icon-backup"
   cp "$KIT/Wow.exe.icon-patched" "$DEST/Wow.exe"
+  echo "Wow.exe icon patched (from kit)"
+elif [ -f "$KIT/wow-icon.bsdiff" ] && [ -x /usr/bin/bspatch ] \
+  && [ "$(md5 -q "$DEST/Wow.exe")" = "$WOW_ORIG_MD5" ]; then
+  /usr/bin/bspatch "$DEST/Wow.exe" "$DEST/Wow.exe.icon-new" "$KIT/wow-icon.bsdiff"
+  if [ "$(md5 -q "$DEST/Wow.exe.icon-new" 2>/dev/null)" = "$WOW_ICON_MD5" ]; then
+    cp "$DEST/Wow.exe" "$DEST/Wow.exe.icon-backup"
+    mv "$DEST/Wow.exe.icon-new" "$DEST/Wow.exe"
+    chmod +x "$DEST/Wow.exe"
+    echo "Wow.exe icon patched"
+    [ -f "$KIT/Wow.exe.orig" ]         || cp "$DEST/Wow.exe.icon-backup" "$KIT/Wow.exe.orig"
+    [ -f "$KIT/Wow.exe.icon-patched" ] || cp "$DEST/Wow.exe" "$KIT/Wow.exe.icon-patched"
+  else
+    rm -f "$DEST/Wow.exe.icon-new"
+    echo "icon patch skipped (unexpected result)"
+  fi
 fi
 echo "installed '$NAME'"
