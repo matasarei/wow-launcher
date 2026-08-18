@@ -19,12 +19,6 @@
 
 ---
 
-<p align="center">
-  <img src="assets/screenshots/dalaran.jpg" width="32%" alt="Dalaran at ~120 FPS">
-  <img src="assets/screenshots/elwynn.jpg" width="32%" alt="Flying through Elwynn Forest at ~120 FPS">
-  <img src="assets/screenshots/westfall.jpg" width="32%" alt="Sentinel Hill inn at ~120 FPS">
-</p>
-
 ## About
 
 Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — about the worst possible match for an ARM Mac. This project wraps everything needed to run it *fast* into one `WoW335.app` bundle and puts a native SwiftUI manager in front of it:
@@ -38,6 +32,12 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 | **SwiftUI manager** (this repo) | install, patch, verify, configure, and launch — no terminal needed |
 
 The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
+
+<p align="center">
+  <img src="assets/screenshots/dalaran.jpg" width="32%" alt="Dalaran at ~120 FPS">
+  <img src="assets/screenshots/elwynn.jpg" width="32%" alt="Flying through Elwynn Forest at ~120 FPS">
+  <img src="assets/screenshots/westfall.jpg" width="32%" alt="Sentinel Hill inn at ~120 FPS">
+</p>
 
 > **What's not in this repo:** the game itself, the wine stack, and the prefix (≈18 GB) live only inside the app bundle. You need your own 3.3.5a client. This repo contains the launcher source that is installed into the bundle.
 
