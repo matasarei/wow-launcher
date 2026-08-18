@@ -1,33 +1,58 @@
 #!/bin/bash
-# Verify the active game has every file it needs to run, plus the Apple Silicon
-# patch stack (small files byte-compared against the patch kit — instant).
-# Prints "PROGRESS <n> <total> <label>" before each check, ok:/WARN:/FAIL: results,
-# and a final RESULT: line. Exit 1 if any FAIL.
+# Verify the active game can run: files in place, patches applied, settings sane.
+# Usage: wow-verify-game [--fix]
+#   --fix repairs everything repairable: patch-stack files are restored from the
+#   patch kit, settings (Config.wtf cvars, RetinaMode, fast-exit fix) rewritten.
+# Protocol: "PROGRESS <n> <total> <label>" before each check, ok:/WARN:/FAIL: results,
+# "CANFIX" if fixable failures were found (check mode), "REINSTALL" if the game
+# data itself is damaged (not repairable — reinstall the client), final RESULT: line.
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 KIT="$RES/patch-kit"
+BIN="$RES/bin"
 GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
 if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then G="$RES/games/$GAME_NAME"; else G="$RES/game"; fi
-[ -d "$G" ] || { echo "FAIL: no game installed"; echo "RESULT: PROBLEMS"; exit 1; }
-fail=0; warn=0; i=0
-TOTAL=36
-step() { i=$((i+1)); echo "PROGRESS $i $TOTAL $1"; }
+[ -d "$G" ] || { echo "FAIL: no game installed"; echo "REINSTALL"; echo "RESULT: PROBLEMS"; exit 1; }
+FIX=0; [ "$1" = "--fix" ] && FIX=1
+fail=0; warn=0; canfix=0; reinstall=0; i=0
+TOTAL=41
+CFG="$G/WTF/Config.wtf"
+LOADER="$RES/cxwine/CrossOver-Hosted Application/wineloader2"
+export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
 
-need() {  # need <rel path> <label>
-  step "$2"
-  if [ -e "$G/$1" ]; then echo "ok: $2"; else echo "FAIL: $2 missing ($1)"; fail=$((fail+1)); fi
+step() { i=$((i+1)); echo "PROGRESS $i $TOTAL $1"; }
+get_cvar() { grep -iE "^SET $1 " "$CFG" 2>/dev/null | sed -E 's/.*"(.*)".*/\1/' | head -1; }
+set_cvar() {
+  mkdir -p "$G/WTF"
+  if grep -qsiE "^SET $1 " "$CFG"; then sed -i '' -E "s|^SET $1 .*|SET $1 \"$2\"|" "$CFG"
+  else printf 'SET %s "%s"\n' "$1" "$2" >> "$CFG"; fi
 }
-optional() {  # optional <rel path> <label>
+
+need_core() {  # unrepairable client file
+  step "$2"
+  if [ -e "$G/$1" ]; then echo "ok: $2"
+  else echo "FAIL: $2 missing ($1)"; fail=$((fail+1)); reinstall=1; fi
+}
+optional() {
   step "$2"
   if [ -e "$G/$1" ]; then echo "ok: $2"; else echo "WARN: $2 not present ($1)"; warn=$((warn+1)); fi
 }
-same() {  # same <rel path> <kit file> <label>
+from_kit() {  # restorable from patch kit: from_kit <game rel> <kit rel> <label>
   step "$3"
-  if cmp -s "$G/$1" "$KIT/$2"; then echo "ok: $3"; else echo "FAIL: $3 does not match the patch kit"; fail=$((fail+1)); fi
+  if cmp -s "$G/$1" "$KIT/$2"; then echo "ok: $3"; return; fi
+  if [ "$FIX" = 1 ]; then
+    mkdir -p "$(dirname "$G/$1")"
+    if cp "$KIT/$2" "$G/$1" 2>/dev/null; then echo "ok: $3 (fixed)"; else echo "FAIL: $3 could not be restored"; fail=$((fail+1)); fi
+  else
+    echo "FAIL: $3 missing or modified — repairable"; fail=$((fail+1)); canfix=1
+  fi
 }
 
-# game executable
-need Wow.exe "Wow.exe present"
+# --- game executable (restorable from kit) ---
+step "Wow.exe present"
+if [ -f "$G/Wow.exe" ]; then echo "ok: Wow.exe present"
+elif [ "$FIX" = 1 ]; then cp "$KIT/Wow.exe.icon-patched" "$G/Wow.exe" && echo "ok: Wow.exe present (restored)" || { echo "FAIL: Wow.exe missing"; fail=$((fail+1)); }
+else echo "FAIL: Wow.exe missing — repairable"; fail=$((fail+1)); canfix=1; fi
 step "Wow.exe build check"
 if cmp -s "$G/Wow.exe" "$KIT/Wow.exe.icon-patched" || cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig"; then
   echo "ok: Wow.exe is the known 3.3.5a (12340) build"
@@ -35,56 +60,121 @@ else
   echo "WARN: Wow.exe differs from the known 3.3.5a build"; warn=$((warn+1))
 fi
 
-# support libraries every 3.3.5a client ships
+# --- support libraries every client ships (not in kit) ---
 for dll in ijl15.dll dbghelp.dll unicows.dll Battle.net.dll Scan.dll; do
-  need "$dll" "$dll"
+  need_core "$dll" "$dll"
 done
 
-# Apple Silicon performance patches
+# --- Apple Silicon patch stack (all restorable) ---
 step "DivxDecoder.dll performance patch"
 if cmp -s "$G/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
   echo "ok: DivxDecoder.dll performance patch"
-elif cmp -s "$G/DivxDecoder.dll" "$KIT/DivxDecoder.dll.orig"; then
-  echo "FAIL: DivxDecoder.dll is unpatched — performance hooks inactive"; fail=$((fail+1))
+elif [ "$FIX" = 1 ]; then
+  [ -f "$G/DivxDecoder.dll" ] && cp "$G/DivxDecoder.dll" "$G/DivxDecoder.dll.bak" 2>/dev/null
+  cp "$KIT/DivxDecoder.dll.patched" "$G/DivxDecoder.dll" && echo "ok: DivxDecoder.dll performance patch (fixed)" || { echo "FAIL: DivxDecoder.dll"; fail=$((fail+1)); }
 else
-  echo "FAIL: DivxDecoder.dll unknown version"; fail=$((fail+1))
+  echo "FAIL: DivxDecoder.dll performance patch inactive — repairable"; fail=$((fail+1)); canfix=1
 fi
-same d3d9.dll d3d9.dll "d3d9.dll (DXVK renderer)"
-same libDllLdr.dll libDllLdr.dll "libDllLdr.dll"
-same dlls.txt dlls.txt "dlls.txt"
-same mods/winerosetta.dll mods/winerosetta.dll "winerosetta.dll"
-same mods/libSiliconPatch.dll mods/libSiliconPatch.dll "libSiliconPatch.dll"
-need rosettax87/rosettax87 "rosettax87"
-need rosettax87/libRuntimeRosettax87 "libRuntimeRosettax87"
+from_kit d3d9.dll d3d9.dll "d3d9.dll (DXVK renderer)"
+from_kit libDllLdr.dll libDllLdr.dll "libDllLdr.dll"
+from_kit dlls.txt dlls.txt "dlls.txt"
+from_kit mods/winerosetta.dll mods/winerosetta.dll "winerosetta.dll"
+from_kit mods/libSiliconPatch.dll mods/libSiliconPatch.dll "libSiliconPatch.dll"
+from_kit rosettax87/rosettax87 rosettax87/rosettax87 "rosettax87"
+from_kit rosettax87/libRuntimeRosettax87 rosettax87/libRuntimeRosettax87 "libRuntimeRosettax87"
 
-# core data archives
+# --- core data archives (not repairable) ---
 for mpq in common.MPQ common-2.MPQ expansion.MPQ lichking.MPQ patch.MPQ patch-2.MPQ; do
-  need "Data/$mpq" "Data/$mpq"
+  need_core "Data/$mpq" "Data/$mpq"
 done
 optional "Data/patch-3.MPQ" "Data/patch-3.MPQ"
 
-# locale data
+# --- locale data ---
 step "locale folder"
 LOCALE="$(basename "$(ls -d "$G"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null)"
 if [ -n "$LOCALE" ]; then
   echo "ok: locale $LOCALE"
-  need "Data/$LOCALE/realmlist.wtf" "realmlist.wtf"
-  for m in locale speech base backup; do
-    need "Data/$LOCALE/$m-$LOCALE.MPQ" "$m-$LOCALE.MPQ"
+  step "realmlist.wtf"
+  if [ -f "$G/Data/$LOCALE/realmlist.wtf" ]; then echo "ok: realmlist.wtf"
+  elif [ -f "$G/realmlist.wtf" ]; then
+    if [ "$FIX" = 1 ]; then cp "$G/realmlist.wtf" "$G/Data/$LOCALE/realmlist.wtf"; echo "ok: realmlist.wtf (restored)"
+    else echo "FAIL: realmlist.wtf missing — repairable"; fail=$((fail+1)); canfix=1; fi
+  else
+    echo "FAIL: realmlist.wtf missing"; fail=$((fail+1)); reinstall=1
+  fi
+  for m in locale speech base backup expansion-locale expansion-speech lichking-locale lichking-speech; do
+    need_core "Data/$LOCALE/$m-$LOCALE.MPQ" "$m-$LOCALE.MPQ"
   done
-  for m in expansion-locale expansion-speech lichking-locale lichking-speech; do
-    need "Data/$LOCALE/$m-$LOCALE.MPQ" "$m-$LOCALE.MPQ"
-  done
-  need "Data/$LOCALE/patch-$LOCALE.MPQ" "patch-$LOCALE.MPQ"
-  need "Data/$LOCALE/patch-$LOCALE-2.MPQ" "patch-$LOCALE-2.MPQ"
+  need_core "Data/$LOCALE/patch-$LOCALE.MPQ" "patch-$LOCALE.MPQ"
+  need_core "Data/$LOCALE/patch-$LOCALE-2.MPQ" "patch-$LOCALE-2.MPQ"
   optional "Data/$LOCALE/patch-$LOCALE-3.MPQ" "patch-$LOCALE-3.MPQ"
 else
-  echo "FAIL: no locale folder in Data"; fail=$((fail+1))
+  echo "FAIL: no locale folder in Data"; fail=$((fail+1)); reinstall=1
+  for n in 1 2 3 4 5 6 7 8 9 10 11 12; do step "locale data"; echo "WARN: skipped (no locale)"; done
+  warn=$((warn+1))
 fi
 
-# config (created by the game on first run)
-optional "WTF/Config.wtf" "WTF/Config.wtf"
+# --- settings ---
+step "renderer API (gxApi)"
+API="$(get_cvar gxApi | tr A-Z a-z)"
+if [ -z "$API" ] || [ "$API" = "d3d9" ]; then echo "ok: renderer API is Direct3D 9"
+elif [ "$FIX" = 1 ]; then set_cvar gxApi D3D9; echo "ok: renderer API is Direct3D 9 (fixed)"
+else echo "FAIL: renderer API is '$API', DXVK needs d3d9 — repairable"; fail=$((fail+1)); canfix=1; fi
 
+DETECT="$("$BIN/wow-settings" __detect 2>/dev/null)"
+read -r PX PTS RET <<< "$DETECT"
+step "resolution matches display"
+AUTO="$(grep -sE '^AUTO_RES=' "$RES/launcher.conf" | cut -d= -f2)"
+if [ "${AUTO:-1}" != "1" ]; then
+  echo "ok: resolution (auto-match off, user managed)"
+elif [ -z "$PX" ]; then
+  echo "WARN: could not detect display"; warn=$((warn+1))
+else
+  [ "$RET" = yes ] && TARGET="$PX" || TARGET="$PTS"
+  CUR="$(get_cvar gxResolution)"
+  if [ "$CUR" = "$TARGET" ]; then echo "ok: resolution $CUR matches display"
+  elif [ "$FIX" = 1 ]; then "$BIN/wow-settings" auto >/dev/null 2>&1; echo "ok: resolution set to $TARGET (fixed)"
+  else echo "FAIL: resolution is '$CUR', display wants $TARGET — repairable"; fail=$((fail+1)); canfix=1; fi
+fi
+
+step "retina mode matches display"
+if [ -z "$RET" ]; then
+  echo "WARN: could not detect display"; warn=$((warn+1))
+else
+  [ "$RET" = yes ] && WANT=Y || WANT=N
+  HAVE="$("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | grep -oE '[YyNn]$' | tr a-z A-Z)"
+  if [ "${HAVE:-N}" = "$WANT" ]; then echo "ok: retina mode matches display"
+  elif [ "$FIX" = 1 ]; then "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d "$WANT" /f >/dev/null 2>&1; echo "ok: retina mode (fixed)"
+  else echo "FAIL: retina mode is '${HAVE:-unset}', display wants $WANT — repairable"; fail=$((fail+1)); canfix=1; fi
+fi
+
+step "realmList setting matches server"
+ACTIVE="$(grep -ihE '^[[:space:]]*set[[:space:]]+realmlist[[:space:]]' "$G/Data/$LOCALE/realmlist.wtf" 2>/dev/null | head -1 | awk '{print $3}')"
+CV="$(get_cvar realmList)"
+if [ -z "$ACTIVE" ] || [ -z "$CV" ] || [ "$CV" = "$ACTIVE" ]; then echo "ok: realmList setting"
+elif [ "$FIX" = 1 ]; then set_cvar realmList "$ACTIVE"; echo "ok: realmList set to $ACTIVE (fixed)"
+else echo "FAIL: Config realmList '$CV' differs from selected server '$ACTIVE' — repairable"; fail=$((fail+1)); canfix=1; fi
+
+step "fast-exit network fix"
+IS='HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
+PS="$("$LOADER" reg query "$IS" /v ProxyServer 2>/dev/null | tr -d '\r')"
+PE="$("$LOADER" reg query "$IS" /v ProxyEnable 2>/dev/null | tr -d '\r')"
+if echo "$PS" | grep -q '127\.0\.0\.1:1' && echo "$PE" | grep -qi '0x1'; then
+  echo "ok: fast-exit network fix active"
+elif [ "$FIX" = 1 ]; then
+  "$LOADER" reg add "$IS" /v ProxyServer /t REG_SZ /d '127.0.0.1:1' /f >/dev/null 2>&1
+  "$LOADER" reg add "$IS" /v ProxyEnable /t REG_DWORD /d 1 /f >/dev/null 2>&1
+  echo "ok: fast-exit network fix (fixed)"
+else
+  echo "FAIL: fast-exit network fix missing (game hangs ~5 min on exit) — repairable"; fail=$((fail+1)); canfix=1
+fi
+
+step "WTF/Config.wtf"
+if [ -f "$CFG" ]; then echo "ok: WTF/Config.wtf"
+else echo "WARN: Config.wtf not present (created on first run)"; warn=$((warn+1)); fi
+
+[ "$canfix" -gt 0 ] && [ "$FIX" = 0 ] && echo "CANFIX"
+[ "$reinstall" -gt 0 ] && echo "REINSTALL"
 if [ "$fail" -gt 0 ]; then
   echo "RESULT: PROBLEMS — $fail check(s) failed"
   exit 1

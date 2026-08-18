@@ -281,17 +281,22 @@ final class Store: ObservableObject {
     @Published var verifyCurrent = ""
     @Published var verifyResult = ""
     @Published var verifyRunning = false
+    @Published var verifyCanFix = false
+    @Published var verifyNeedsReinstall = false
     private var verifyProc: Process?
 
-    func verifyGame() {
+    func verifyGame(fix: Bool = false) {
         verifyItems = []
         verifyProgress = 0
         verifyCurrent = ""
         verifyResult = ""
+        verifyCanFix = false
+        verifyNeedsReinstall = false
         verifyRunning = true
         verifySheet = true
         let p = Process()
         p.executableURL = URL(fileURLWithPath: Paths.verifyTool)
+        p.arguments = fix ? ["--fix"] : []
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = pipe
@@ -339,6 +344,10 @@ final class Store: ObservableObject {
                 verifyProgress = max(verifyProgress, (i - 1) / t)
                 verifyCurrent = parts[3]
             }
+        } else if line == "CANFIX" {
+            verifyCanFix = true
+        } else if line == "REINSTALL" {
+            verifyNeedsReinstall = true
         } else if line.hasPrefix("RESULT: ") {
             verifyResult = String(line.dropFirst(8))
             verifyProgress = 1
@@ -801,13 +810,28 @@ struct VerifySheet: View {
                     .foregroundStyle(store.verifyResult.hasPrefix("OK") ? Color.green : Color.red)
                     .font(.callout).bold()
             }
+            if !store.verifyRunning && store.verifyNeedsReinstall {
+                Text("The game data itself is damaged and cannot be repaired in place — reinstall the game from a client folder.")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+            }
             HStack {
                 Spacer()
                 if store.verifyRunning {
                     Button("Cancel") { store.cancelVerify() }
                 } else {
+                    if store.verifyNeedsReinstall {
+                        Button("Reinstall Game…") {
+                            store.verifySheet = false
+                            store.installGameFromPanel()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    } else if store.verifyCanFix {
+                        Button("Fix Issues") { store.verifyGame(fix: true) }
+                            .buttonStyle(.borderedProminent)
+                    }
                     Button("Close") { store.verifySheet = false }
-                        .keyboardShortcut(.defaultAction)
+                        .keyboardShortcut(store.verifyCanFix || store.verifyNeedsReinstall ? .cancelAction : .defaultAction)
                 }
             }
         }

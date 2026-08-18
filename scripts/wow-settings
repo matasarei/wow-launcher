@@ -67,6 +67,8 @@ auto_resolution() {
 }
 
 case "$1" in
+  __detect)
+    detect_display ;;
   auto|"")
     auto_resolution ;;
   show)
