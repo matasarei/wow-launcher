@@ -564,11 +564,8 @@ struct PlayView: View {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 110, height: 110)
-            Text(store.activeGame.isEmpty ? "World of Warcraft 3.3.5a" : store.activeGame)
-                .font(.title2).bold()
             Text("World of Warcraft 3.3.5a")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                .font(.title2).bold()
             HStack(spacing: 6) {
                 Text(statusLine)
                     .font(.callout)
@@ -620,8 +617,6 @@ struct GamesView: View {
                         ForEach(store.games, id: \.self) { Text($0).tag($0) }
                     }
                     .pickerStyle(.menu)
-                } else {
-                    LabeledContent("Game", value: store.activeGame.isEmpty ? "—" : store.activeGame)
                 }
                 HStack {
                     Button(action: { store.installGameFromPanel() }) {
