@@ -23,6 +23,7 @@ enum Paths {
     }
     static var addons: String { game + "/Interface/AddOns" }
     static let installTool = macOS.replacingOccurrences(of: "/MacOS", with: "/Resources/bin") + "/wow-install-client"
+    static let verifyTool  = macOS.replacingOccurrences(of: "/MacOS", with: "/Resources/bin") + "/wow-verify-game"
     static let settings  = resources + "/bin/wow-settings"
     static let launcher  = resources + "/bin/wow-launch"
     static let conf      = resources + "/launcher.conf"
@@ -265,6 +266,24 @@ final class Store: ObservableObject {
         refreshAddons()
         refreshRealms()
         refreshStatus()
+    }
+
+    func verifyGame() {
+        busy = true
+        note = "Verifying game files…"
+        DispatchQueue.global().async {
+            let out = shell(Paths.verifyTool)
+            let lines = out.split(separator: "\n").map(String.init)
+            let problems = lines.filter { $0.hasPrefix("FAIL:") || $0.hasPrefix("WARN:") }
+            let result = lines.last(where: { $0.hasPrefix("RESULT:") }) ?? "RESULT: unknown"
+            let passed = lines.filter { $0.hasPrefix("ok:") }.count
+            DispatchQueue.main.async {
+                self.busy = false
+                self.note = problems.isEmpty
+                    ? result.replacingOccurrences(of: "all checks passed", with: "all \(passed) checks passed")
+                    : ([result] + problems).joined(separator: "\n")
+            }
+        }
     }
 
     func installGameFromPanel() {
@@ -612,9 +631,15 @@ struct GamesView: View {
     var body: some View {
         Form {
             Section("Installed Game") {
-                Label(store.games.isEmpty ? "No game installed" : "Game installed",
-                      systemImage: store.games.isEmpty ? "exclamationmark.circle" : "checkmark.circle.fill")
-                    .foregroundStyle(store.games.isEmpty ? Color.orange : Color.green)
+                HStack {
+                    Label(store.games.isEmpty ? "No game installed" : "Game installed",
+                          systemImage: store.games.isEmpty ? "exclamationmark.circle" : "checkmark.circle.fill")
+                        .foregroundStyle(store.games.isEmpty ? Color.orange : Color.green)
+                    Spacer()
+                    Button("Verify") { store.verifyGame() }
+                        .disabled(store.busy || store.games.isEmpty)
+                        .help("Check game files and Apple Silicon patches for integrity")
+                }
                 if store.games.count > 1 {
                     Picker("Active game", selection: activeGameBinding) {
                         ForEach(store.games, id: \.self) { Text($0).tag($0) }

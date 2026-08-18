@@ -1,0 +1,61 @@
+#!/bin/bash
+# Verify the active game's files and Apple Silicon patches against the patch kit.
+# Prints ok:/WARN:/FAIL: lines and a final RESULT: line. Exit 1 if any FAIL.
+APP="$(cd "$(dirname "$0")/../../.." && pwd)"
+RES="$APP/Contents/Resources"
+KIT="$RES/patch-kit"
+GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
+if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then G="$RES/games/$GAME_NAME"; else G="$RES/game"; fi
+[ -d "$G" ] || { echo "FAIL: no game installed"; echo "RESULT: PROBLEMS"; exit 1; }
+fail=0; warn=0
+
+need() {  # need <path relative to game> <label>
+  if [ -e "$G/$1" ]; then echo "ok: $2"; else echo "FAIL: $2 missing ($1)"; fail=$((fail+1)); fi
+}
+same() {  # same <game-rel path> <kit file> <label>
+  if cmp -s "$G/$1" "$KIT/$2"; then echo "ok: $3"; else echo "FAIL: $3 does not match the patch kit"; fail=$((fail+1)); fi
+}
+
+# core client files
+need Wow.exe "Wow.exe present"
+if cmp -s "$G/Wow.exe" "$KIT/Wow.exe.icon-patched" || cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig"; then
+  echo "ok: Wow.exe is the known 3.3.5a (12340) build"
+else
+  echo "WARN: Wow.exe differs from the known 3.3.5a build"; warn=$((warn+1))
+fi
+for mpq in common.MPQ common-2.MPQ expansion.MPQ lichking.MPQ patch.MPQ patch-2.MPQ; do
+  need "Data/$mpq" "Data/$mpq"
+done
+LOCALE="$(basename "$(ls -d "$G"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null)"
+if [ -n "$LOCALE" ]; then
+  echo "ok: locale $LOCALE"
+  need "Data/$LOCALE/realmlist.wtf" "realmlist.wtf"
+else
+  echo "FAIL: no locale folder in Data"; fail=$((fail+1))
+fi
+
+# Apple Silicon performance patches
+if cmp -s "$G/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
+  echo "ok: DivxDecoder.dll performance patch"
+elif cmp -s "$G/DivxDecoder.dll" "$KIT/DivxDecoder.dll.orig"; then
+  echo "FAIL: DivxDecoder.dll is unpatched — performance hooks inactive"; fail=$((fail+1))
+else
+  echo "FAIL: DivxDecoder.dll unknown version"; fail=$((fail+1))
+fi
+same d3d9.dll d3d9.dll "d3d9.dll (DXVK renderer)"
+same libDllLdr.dll libDllLdr.dll "libDllLdr.dll"
+same dlls.txt dlls.txt "dlls.txt"
+same mods/winerosetta.dll mods/winerosetta.dll "winerosetta.dll"
+same mods/libSiliconPatch.dll mods/libSiliconPatch.dll "libSiliconPatch.dll"
+for f in rosettax87/rosettax87 rosettax87/libRuntimeRosettax87; do
+  if [ -x "$G/$f" ] || [ -e "$G/$f" ]; then echo "ok: $f"; else echo "FAIL: $f missing"; fail=$((fail+1)); fi
+done
+
+if [ "$fail" -gt 0 ]; then
+  echo "RESULT: PROBLEMS — $fail check(s) failed${warn:+, $warn warning(s)}"
+  exit 1
+elif [ "$warn" -gt 0 ]; then
+  echo "RESULT: OK with $warn warning(s)"
+else
+  echo "RESULT: OK — all checks passed"
+fi
