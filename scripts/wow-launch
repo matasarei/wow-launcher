@@ -9,7 +9,15 @@ LOG="$RES/logs/last-launch.log"
 export WINEPREFIX="$RES/prefix"
 # spawn the game via the 'WoW' loader symlink so the Dock shows "WoW", not "wine"
 export WINELOADER="$RES/wine/lib/wine/x86_64-unix/WoW"
-export ROSETTA_X87_PATH="$GAME/rosettax87/rosettax87"
+# x87 engine (launcher.conf X87=): rosettax87 (default) or sidecar — the newer
+# cooperative variant (no debugger attach); a fallback if rosettax87 breaks on
+# a future macOS.
+X87="$(grep -sE '^X87=' "$RES/launcher.conf" | cut -d= -f2)"
+if [ "$X87" = "sidecar" ] && [ -x "$RES/patch-kit/x87sidecar/x87sidecar" ]; then
+  export X87_SIDECAR_PATH="$RES/patch-kit/x87sidecar/x87sidecar"
+else
+  export ROSETTA_X87_PATH="$GAME/rosettax87/rosettax87"
+fi
 # Renderer (launcher.conf RENDERER=): dxvk (default) loads the game-dir DXVK
 # d3d9.dll; mtld3d uses the runtime's builtin d3d9, which IS the MTLd3D
 # Metal-native backend (HDR-capable).

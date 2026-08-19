@@ -80,7 +80,8 @@ patch-kit: payloads
 	@cp "$(DEPS)/Patching/d9vk/d3d9.dll" "$(DEPS)/Patching/winerosetta/libDllLdr.dll" "$(RES)/patch-kit/"
 	@cp "$(DEPS)/Patching/winerosetta/winerosetta.dll" "$(DEPS)/Patching/libSiliconPatch/wotlk/libSiliconPatch.dll" "$(RES)/patch-kit/mods/"
 	@ditto "$(DEPS)/Patching/rosettax87" "$(RES)/patch-kit/rosettax87"
-	@chmod +x "$(RES)/patch-kit/rosettax87/"*
+	@ditto "$(DEPS)/Patching/x87sidecar" "$(RES)/patch-kit/x87sidecar"
+	@chmod +x "$(RES)/patch-kit/rosettax87/"* "$(RES)/patch-kit/x87sidecar/x87sidecar"
 	@printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n' > "$(RES)/patch-kit/dlls.txt"
 	@cp assets/wow-icon-*.bsdiff "$(RES)/patch-kit/"
 
