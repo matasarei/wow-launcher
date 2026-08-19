@@ -52,8 +52,10 @@ wanted = {
     b'Fonts\\MORPHEUS.TTF': 'MORPHEUS.TTF',
     b'Fonts\\SKURRI.TTF':   'skurri.ttf',
 }
-os.makedirs(out, exist_ok=True)
-done = 0
+# All-or-nothing: a partial font set is worse than none (e.g. enUS ARIALN has
+# Cyrillic but FRIZQT/MORPHEUS/SKURRI don't — installing just one leaves the UI
+# half-remapped). Collect everything first; write only when all four succeed.
+results = {}
 for src, dst in wanted.items():
     try:
         data = archive.read_file(src)
@@ -63,6 +65,10 @@ for src, dst in wanted.items():
         continue
     remapped = remap(data)
     if remapped:
-        open(f'{out}/{dst}', 'wb').write(remapped)
-        done += 1
-sys.exit(0 if done == 4 else 1)
+        results[dst] = remapped
+if len(results) != 4:
+    sys.exit(1)
+os.makedirs(out, exist_ok=True)
+for dst, data in results.items():
+    open(f'{out}/{dst}', 'wb').write(data)
+sys.exit(0)
