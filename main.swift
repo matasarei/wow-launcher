@@ -552,6 +552,11 @@ final class Store: ObservableObject {
                             if !t.isEmpty { title = t }
                         } else if l.hasPrefix("## Version:") {
                             version = String(l.dropFirst(11)).trimmingCharacters(in: .whitespaces)
+                            // the UI prepends "v" — drop the toc's own prefix (v1.0.3)
+                            if version.lowercased().hasPrefix("v"), version.count > 1,
+                               version[version.index(after: version.startIndex)].isNumber {
+                                version = String(version.dropFirst())
+                            }
                         }
                     }
                 }
