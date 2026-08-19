@@ -179,18 +179,56 @@ final class Store: ObservableObject {
     }
 
     func setRetina(_ on: Bool) {
+        let pts = windowPoints  // window size before the flag flips
         retina = on
         busy = true
         let auto = autoRes
+        let windowed = mode == "windowed"
         let disp = displays.first(where: { $0.id == selectedDisplay })
         DispatchQueue.global().async {
             _ = shell(Paths.settings, ["retina", on ? "on" : "off"])
             if auto {
                 _ = shell(Paths.settings, ["auto"])
+            } else if windowed {
+                // keep the same window size; retina just doubles the render pixels
+                if let t = Store.scaled(pts, by: on ? 2 : 1) {
+                    _ = shell(Paths.settings, ["resolution", t])
+                }
             } else if let d = disp {
                 let target = on ? "\(d.pxW)x\(d.pxH)" : "\(d.ptsW)x\(d.ptsH)"
                 _ = shell(Paths.settings, ["resolution", target])
             }
+            DispatchQueue.main.async { self.busy = false; self.refreshStatus() }
+        }
+    }
+
+    // MARK: windowed size
+
+    // Common 4:3 / 16:10 / 16:9 sizes of the WotLK era, in window points.
+    static let windowSizes = ["800x600", "1024x768", "1152x864", "1280x720",
+                              "1280x800", "1280x1024", "1440x900", "1600x900",
+                              "1680x1050", "1920x1080", "1920x1200"]
+
+    static func scaled(_ res: String, by factor: Int) -> String? {
+        let p = res.lowercased().split(separator: "x").compactMap { Int($0) }
+        guard p.count == 2 else { return nil }
+        return "\(p[0] * factor)x\(p[1] * factor)"
+    }
+
+    // Window size in points: gxResolution is pixels, halved when retina is on.
+    var windowPoints: String {
+        let p = resolution.lowercased().split(separator: "x").compactMap { Int($0) }
+        guard p.count == 2 else { return resolution }
+        return retina ? "\(p[0] / 2)x\(p[1] / 2)" : resolution
+    }
+
+    func setWindowSize(_ pts: String) {
+        guard let target = Store.scaled(pts, by: retina ? 2 : 1) else { return }
+        // a fixed size only survives the launch if auto-match doesn't overwrite it
+        if autoRes { setAuto(false) }
+        busy = true
+        DispatchQueue.global().async {
+            _ = shell(Paths.settings, ["windowed", target])
             DispatchQueue.main.async { self.busy = false; self.refreshStatus() }
         }
     }
@@ -1020,6 +1058,19 @@ struct DisplayView: View {
     var displayBinding: Binding<Int> {
         Binding(get: { store.selectedDisplay }, set: { store.applyDisplay($0) })
     }
+    var sizeBinding: Binding<String> {
+        Binding(get: { store.windowPoints }, set: { store.setWindowSize($0) })
+    }
+
+    // Standard sizes that fit on the chosen display (window size is in points).
+    var fittingSizes: [String] {
+        guard let d = store.displays.first(where: { $0.id == store.selectedDisplay })
+        else { return Store.windowSizes }
+        return Store.windowSizes.filter {
+            let p = $0.split(separator: "x").compactMap { Int($0) }
+            return p.count == 2 && p[0] <= d.ptsW && p[1] <= d.ptsH
+        }
+    }
 
     var body: some View {
         Form {
@@ -1030,6 +1081,20 @@ struct DisplayView: View {
                     Text("Fullscreen").tag("fullscreen")
                 }
                 .pickerStyle(.menu)
+                if store.mode == "windowed" {
+                    Picker("Window size", selection: sizeBinding) {
+                        ForEach(fittingSizes, id: \.self) { s in
+                            Text(s.replacingOccurrences(of: "x", with: " × ")).tag(s)
+                        }
+                        if !fittingSizes.contains(store.windowPoints) {
+                            Text("Custom (\(store.windowPoints))").tag(store.windowPoints)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    Text("Choosing a size turns off automatic resolution matching. On a Retina display the game renders at 2× the window size.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             Section("Resolution") {
                 Toggle("Match the main display automatically at launch", isOn: autoBinding)
