@@ -694,7 +694,7 @@ final class Store: ObservableObject {
 // MARK: - Views
 
 enum Pane: String, CaseIterable, Identifiable {
-    case play = "Play", game = "Game", addons = "AddOns", display = "Display"
+    case play = "Play", game = "Game", addons = "AddOns", display = "Display", about = "About"
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -702,6 +702,7 @@ enum Pane: String, CaseIterable, Identifiable {
         case .game: return "gamecontroller"
         case .addons: return "puzzlepiece.extension"
         case .display: return "display"
+        case .about: return "info.circle"
         }
     }
 }
@@ -729,6 +730,7 @@ struct ContentView: View {
             case .game: GameView()
             case .addons: AddOnsView()
             case .display: DisplayView()
+            case .about: AboutView()
             }
         }
         .frame(minWidth: 680, minHeight: 440)
@@ -1155,6 +1157,48 @@ struct DisplayView: View {
             store.refreshDisplays()
             store.refreshStatus()
         }
+    }
+}
+
+struct AboutView: View {
+    private var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+    }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Spacer()
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 96, height: 96)
+            Text("WoW335 Launcher")
+                .font(.title2).bold()
+            Text("Version \(version)")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Text("World of Warcraft 3.3.5a on Apple Silicon — self-contained and fast.")
+                .font(.callout)
+                .multilineTextAlignment(.center)
+            HStack(spacing: 18) {
+                Link("GitHub", destination: URL(string: "https://github.com/matasarei/wow335-launcher")!)
+                Link("How it was built", destination: URL(string: "https://hcnotes.cc/article/articles-my-own-private-azeroth")!)
+                Link("Third-party components", destination: URL(string: "https://github.com/matasarei/wow335-launcher/blob/main/docs/THIRD-PARTY.md")!)
+            }
+            .font(.callout)
+            .padding(.top, 4)
+            Spacer()
+            VStack(spacing: 4) {
+                Text("MIT License · © 2026 Yevhen Matasar")
+                Text("Built on WoWSilicon, WineAndAqua Wine, DXVK, MTLd3D, rosettax87 and MoltenVK.")
+                Text("Not affiliated with Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc.")
+                    .multilineTextAlignment(.center)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.bottom, 20)
+        }
+        .padding(.horizontal, 40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
