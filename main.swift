@@ -544,8 +544,7 @@ final class Store: ObservableObject {
                 let tocs = files.filter { $0.lowercased().hasSuffix(".toc") }
                 let toc = tocs.first(where: { $0.lowercased() == dir.lowercased() + ".toc" }) ?? tocs.first
                 if let toc = toc {
-                    let raw = (try? String(contentsOfFile: folderPath + "/" + toc, encoding: .utf8))
-                        ?? (try? String(contentsOfFile: folderPath + "/" + toc, encoding: .isoLatin1)) ?? ""
+                    let raw = self.readTextFile(folderPath + "/" + toc) ?? ""
                     for line in raw.split(separator: "\n").prefix(40) {
                         let l = line.trimmingCharacters(in: .whitespaces)
                         if l.hasPrefix("## Title:") {
