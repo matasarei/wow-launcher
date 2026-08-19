@@ -41,10 +41,12 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 | **SwiftUI manager** (this repo) | install, patch, verify, configure, and launch — no terminal needed |
 
 > [!IMPORTANT]
-> Nothing needs to be installed beforehand except the Xcode Command Line Tools — the
-> build downloads the wine runtime and the patch payloads from
+> **This repo contains only the launcher source and the build tooling** — no game data,
+> no wine stack. Nothing needs to be installed beforehand except the Xcode Command Line
+> Tools: the build downloads the wine runtime and the patch payloads from
 > [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)'s releases (checksum-verified)
-> and bakes them into the app bundle. The finished `WoW335.app` is fully self-contained.
+> and bakes them into the app bundle. The finished `WoW335.app` is fully self-contained;
+> you bring your own 3.3.5a client and install it through the app.
 
 The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
 
@@ -71,9 +73,6 @@ matching, the Cyrillic input layer, the fast-exit fix, and a proper "WoW" Dock i
   <img src="assets/screenshots/elwynn.jpg" width="32%" alt="Flying through Elwynn Forest at ~120 FPS">
   <img src="assets/screenshots/westfall.jpg" width="32%" alt="Sentinel Hill inn at ~120 FPS">
 </p>
-
-> [!IMPORTANT]
-> **What's not in this repo:** the game itself, the wine stack, and the prefix live only inside the locally built app bundle. You need your own 3.3.5a client. This repo contains the launcher source and the build tooling.
 
 ## Using the launcher
 
