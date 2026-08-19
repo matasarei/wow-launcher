@@ -442,7 +442,12 @@ final class Store: ObservableObject {
 
     private func readTextFile(_ path: String) -> String? {
         for enc in [String.Encoding.utf8, .windowsCP1251, .isoLatin1] {
-            if let text = try? String(contentsOfFile: path, encoding: enc) { return text }
+            if let text = try? String(contentsOfFile: path, encoding: enc) {
+                // CRLF must become LF: "\r\n" is a single Character in Swift,
+                // so split(separator: "\n") never splits Windows-ending files.
+                return text.replacingOccurrences(of: "\r\n", with: "\n")
+                           .replacingOccurrences(of: "\r", with: "\n")
+            }
         }
         return nil
     }
