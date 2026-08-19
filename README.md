@@ -112,6 +112,8 @@ through every step, Terminal included.
 
 Contributors: [docs/INTERNALS.md](docs/INTERNALS.md) documents the wrapper
 anatomy, the patch mechanisms, and the traps already discovered.
+[docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) lists every embedded component
+with its license and source.
 
 ## Repo layout & building the launcher
 
