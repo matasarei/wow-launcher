@@ -105,7 +105,8 @@ verifies their checksums, and assembles everything:
 1. Get this repo: **Code → Download ZIP**, double-click to unpack (no git needed)
 2. In Terminal, `cd` into the unpacked folder and run:
    ```sh
-   make wrapper        # assembles ~/Applications/WoW335.app
+   make                # assembles ~/Applications/WoW335.app
+   make install        # optional: move it to /Applications
    ```
 
 New to the command line? [docs/BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md) walks
@@ -127,11 +128,12 @@ with its license and source.
 | `scripts/wow-verify-game` | `Contents/Resources/bin/` | 41-check verification with `--fix` repair |
 
 ```sh
-./build.sh                     # compiles and installs into ~/Applications/WoW335.app
-./build.sh /path/to/WoW335.app
-make launcher                  # same thing, via make
+make build          # the full wrapper (same as plain `make`)
+make launcher       # just recompile the manager GUI + scripts into the existing wrapper
+make install        # move the wrapper to /Applications
 ```
 
+`make` is the only entrypoint — the helper scripts (like `build.sh`) are internal.
 Requires only the Xcode **Command Line Tools** (`swiftc` + macOS SDK). No Xcode, no dependencies.
 
 ## Troubleshooting

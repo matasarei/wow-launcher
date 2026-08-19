@@ -53,7 +53,7 @@ installed later through the app's own GUI, not by make.
 3. Type:
 
    ```sh
-   make wrapper
+   make
    ```
 
    and press Enter. The build prints its progress and takes a few minutes
@@ -65,13 +65,14 @@ installed later through the app's own GUI, not by make.
    ```
 
    The finished app is in the `Applications` folder inside your home folder
-   (in Finder: Go → Home → Applications).
+   (in Finder: Go → Home → Applications). Prefer it in the system-wide
+   `/Applications`? Run `make install` — it moves the app there.
 
 If something is missing or a download fails, the build stops immediately and
-prints what's wrong — fix that and run `make wrapper` again; it resumes where
+prints what's wrong — fix that and run `make` again; it resumes where
 it left off.
 
-## What `make wrapper` does
+## What `make` does
 
 1. **skeleton** — app bundle structure, Info.plist, icon
 2. **runtime** — downloads the wine runtime (~57 MB, sha256-verified) and unpacks it into the bundle. This wine has winerosetta's fast-x87-under-Rosetta support built in — the biggest FPS win. Also creates the `WoW` loader symlink so the game shows as "WoW" in the Dock instead of "wine"

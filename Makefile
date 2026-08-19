@@ -3,10 +3,13 @@
 # (checksum-verified) — nothing needs to be installed beforehand except the
 # Xcode Command Line Tools. See docs/BUILD-WRAPPER.md.
 #
-#   make wrapper                 build into ~/Applications/WoW335.app
-#   make wrapper APP=/path/App.app
-#   make launcher                rebuild just the manager GUI + scripts
+#   make (or make build)         build the full wrapper into ~/Applications/WoW335.app
+#   make build APP=/path/App.app build it somewhere else
+#   make launcher                rebuild just the manager GUI + scripts into it
+#   make install                 move the wrapper into /Applications
 #   make zip                     compress the wrapper for sharing (private use!)
+#
+# make is the only entrypoint — helper scripts (build.sh etc.) are internal.
 
 APP  ?= $(HOME)/Applications/WoW335.app
 RES   = $(APP)/Contents/Resources
@@ -24,12 +27,14 @@ PAYLOAD_SHA256 = 4d6fd5aa42d53dbdec86b31cf1c166368cba41a3a01a0bd5e2aba6d11b904ca
 WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))
 LOCAL_PAY   = $(WOWSILICON)/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching
 
-.PHONY: wrapper check skeleton runtime payloads patch-kit prefix launcher sign zip
+.PHONY: build wrapper check skeleton runtime payloads patch-kit prefix launcher sign install zip
 
-wrapper: check skeleton runtime patch-kit prefix launcher sign
+build: check skeleton runtime patch-kit prefix launcher sign
 	@echo ""
 	@echo "==> Done: $(APP)"
 	@echo "    Open it and click Install to add your WoW 3.3.5a client."
+
+wrapper: build   # historical alias
 
 # Must run LAST: seals the whole bundle. Without it a downloaded (quarantined)
 # copy fails Gatekeeper's deep verification as "damaged" — the lone binary
@@ -109,6 +114,15 @@ prefix:
 launcher:
 	@echo "==> building the manager GUI"
 	@./build.sh "$(APP)"
+
+install:
+	@[ -d "$(APP)" ] || { echo "ERROR: $(APP) not found — run 'make build' first"; exit 1; }
+	@[ "$(APP)" != "/Applications/WoW335.app" ] || { echo "already installed in /Applications"; exit 0; }
+	@if [ -n "$$(ls '/Applications/WoW335.app/Contents/Resources/games' 2>/dev/null)" ]; then \
+	  echo "ERROR: /Applications/WoW335.app already exists and has a game installed — remove it yourself first"; exit 1; fi
+	@rm -rf "/Applications/WoW335.app"
+	@mv "$(APP)" "/Applications/WoW335.app"
+	@echo "==> installed: /Applications/WoW335.app"
 
 zip:
 	@echo "==> zipping (for PRIVATE sharing — after a game install this contains the game itself; do not redistribute)"

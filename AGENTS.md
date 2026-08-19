@@ -7,8 +7,8 @@ Read this before changing anything. Deeper background: `docs/INTERNALS.md`
 ## Ground rules
 
 - **The repo is the source of truth.** Never edit files inside the built
-  `WoW335.app` directly — change the repo, then rebuild: `./build.sh` for the
-  GUI + scripts only, `make wrapper` for the full bundle. The wrapper is a
+  `WoW335.app` directly — change the repo, then rebuild via make: `make launcher` for the
+  GUI + scripts only, `make build` for the full bundle (helper scripts like `build.sh` are make's internals, never run directly). The wrapper is a
   disposable build artifact.
 - **One change at a time, verified in the real game.** After each functional
   change, stop and have the change verified in the running game before making
@@ -24,9 +24,9 @@ Read this before changing anything. Deeper background: `docs/INTERNALS.md`
 
 The app version lives in **one place**: `CFBundleShortVersionString` in
 `assets/Info.plist`. The About pane reads it at runtime from the bundle, so a
-bump propagates automatically after `make wrapper` (which copies Info.plist).
-`./build.sh` alone does **not** copy Info.plist — after a version bump either
-run `make skeleton launcher` or a full `make wrapper`. Release tags on GitHub
+bump propagates automatically after `make build` (which copies Info.plist).
+`make launcher` alone does **not** copy Info.plist — after a version bump either
+run `make skeleton launcher` or a full `make build`. Release tags on GitHub
 should match it (`v<version>`).
 
 ## Updating the pinned upstream artifacts
@@ -51,7 +51,7 @@ that has run installs accumulates Blizzard-derived files (the game under
 logs. The procedure:
 
 1. Bump the version in `assets/Info.plist`; commit and push everything.
-2. Build clean: `rm -rf ~/Applications/WoW335.app && make wrapper`.
+2. Build clean: `rm -rf ~/Applications/WoW335.app && make build`.
 3. Verify the bundle is pristine:
    - `Resources/games/` is empty;
    - `Resources/launcher.conf` contains only `AUTO_RES=1`;
@@ -72,7 +72,7 @@ logs. The procedure:
 
    Don't commit the zip. To keep the maintainer's working wrapper (and its
    installed game) untouched, build the release copy at a separate path:
-   `make wrapper APP=/tmp/release/WoW335.app`.
+   `make build APP=/tmp/release/WoW335.app`.
 
    Gatekeeper facts (learned the hard way): the bundle **must** carry a valid
    deep ad-hoc seal (`make sign`, the last wrapper step) or downloaded copies
@@ -85,7 +85,7 @@ logs. The procedure:
 
 ## Test matrix (after any runtime/installer/launcher change)
 
-- Fresh `make wrapper`, open the app (right-click → Open the first time).
+- Fresh `make build`, open the app.
 - Install an **enUS** client → Verify passes (41 checks) → Play: ~120 FPS,
   maximized Retina window, Dock shows "WoW", fast exit.
 - Replace with a **ruRU** client → Cyrillic input and rendering work
@@ -101,5 +101,5 @@ logs. The procedure:
 | `main.swift` | the entire SwiftUI manager (single file by design) |
 | `scripts/wow-*` | runtime helpers installed into `Resources/bin/` by `build.sh` |
 | `Makefile` | wrapper assembly: skeleton, runtime download, payloads, patch-kit, prefix, launcher |
-| `build.sh` | compiles main.swift (swiftc, no Xcode) + installs scripts |
+| `build.sh` | internal helper of `make launcher`: compiles main.swift (swiftc, no Xcode) + installs scripts |
 | `assets/` | Info.plist, icon, icon bsdiffs |
