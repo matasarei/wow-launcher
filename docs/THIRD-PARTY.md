@@ -1,6 +1,6 @@
 # Third-party components & licensing
 
-What a freshly built `WoW335.app` (no game installed) contains, where it comes
+What a freshly built `WoW.app` (no game installed) contains, where it comes
 from, and under which license. Everything is open source and redistributable
 with attribution; nothing proprietary is embedded since the CrossOver-based
 stack was replaced (see INTERNALS.md).

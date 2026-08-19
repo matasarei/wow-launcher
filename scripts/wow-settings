@@ -29,7 +29,9 @@ get_cvar() { grep -siE "^SET $1 " "$CFG" | sed -E 's/.*"(.*)".*/\1/' | head -1; 
 set_res() { [ -n "$1" ] && { [[ "$1" =~ ^[0-9]+x[0-9]+$ ]] || { echo "bad resolution: $1 (use WxH)"; exit 1; }; set_cvar gxResolution "$1"; }; }
 
 
-detect_display() {  # prints "PIXELSxPIXELS POINTSxPOINTS" of the main display
+detect_display() {  # prints "PIXELSxPIXELS POINTSxPOINTS retina-yes/no" of the main display
+  # test hook: lets the test suite run display-dependent logic deterministically
+  if [ -n "${WOW_TEST_DISPLAY:-}" ]; then echo "$WOW_TEST_DISPLAY"; return; fi
   system_profiler SPDisplaysDataType -json 2>/dev/null | python3 -c '
 import json,sys
 d=json.load(sys.stdin)

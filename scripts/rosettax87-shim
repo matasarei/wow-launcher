@@ -1,0 +1,12 @@
+#!/bin/bash
+# Game-side payload (patch-kit/rosettax87/): wine's ntdll spawns
+# $ROSETTA_X87_PATH with the wine loader path as the first argument; this shim
+# rewrites that path to the 'WoW' symlink (created by `make runtime`) before
+# handing over to the real rosettax87, so the game process — and its Dock
+# entry — is named "WoW" instead of "wine". Cosmetic only; falls back to the
+# original path if the symlink is missing.
+REAL="$(dirname "$0")/rosettax87"
+LOADER="$1"; shift
+WOW="$(dirname "$LOADER")/WoW"
+[ -e "$WOW" ] || WOW="$LOADER"
+exec "$REAL" "$WOW" "$@"

@@ -1,9 +1,9 @@
-# Build a WoW335.app wrapper. Fully self-bootstrapping: the wine runtime and
+# Build a WoW.app wrapper. Fully self-bootstrapping: the wine runtime and
 # the patch payloads are downloaded from WoWSilicon's GitHub releases
 # (checksum-verified) — nothing needs to be installed beforehand except the
 # Xcode Command Line Tools. See docs/BUILD-WRAPPER.md.
 #
-#   make (or make build)         build the full wrapper into ~/Applications/WoW335.app
+#   make (or make build)         build the full wrapper into ~/Applications/WoW.app
 #   make build APP=/path/App.app build it somewhere else
 #   make launcher                rebuild just the manager GUI + scripts into it
 #   make install                 move the wrapper into /Applications
@@ -11,7 +11,7 @@
 #
 # make is the only entrypoint — helper scripts (build.sh etc.) are internal.
 
-APP  ?= $(HOME)/Applications/WoW335.app
+APP  ?= $(HOME)/Applications/WoW.app
 RES   = $(APP)/Contents/Resources
 WINE  = $(RES)/wine
 UNIX  = $(WINE)/lib/wine/x86_64-unix
@@ -27,7 +27,7 @@ PAYLOAD_SHA256 = 4d6fd5aa42d53dbdec86b31cf1c166368cba41a3a01a0bd5e2aba6d11b904ca
 WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))
 LOCAL_PAY   = $(WOWSILICON)/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching
 
-.PHONY: build wrapper check skeleton runtime payloads patch-kit prefix launcher sign install zip
+.PHONY: build wrapper check skeleton runtime payloads patch-kit prefix launcher sign install test zip
 
 build: check skeleton runtime patch-kit prefix launcher sign
 	@echo ""
@@ -88,13 +88,17 @@ payloads:
 
 patch-kit: payloads
 	@echo "==> patch kit (open-source payloads only)"
-	@mkdir -p "$(RES)/patch-kit/mods"
+	@mkdir -p "$(RES)/patch-kit/mods" "$(RES)/patch-kit/libSiliconPatch/vanilla" "$(RES)/patch-kit/libSiliconPatch/wotlk"
 	@cp "$(DEPS)/Patching/d9vk/d3d9.dll" "$(DEPS)/Patching/winerosetta/libDllLdr.dll" "$(RES)/patch-kit/"
-	@cp "$(DEPS)/Patching/winerosetta/winerosetta.dll" "$(DEPS)/Patching/libSiliconPatch/wotlk/libSiliconPatch.dll" "$(RES)/patch-kit/mods/"
+	@cp "$(DEPS)/Patching/winerosetta/winerosetta.dll" "$(RES)/patch-kit/mods/"
+	@cp "$(DEPS)/Patching/libSiliconPatch/wotlk/libSiliconPatch.dll" "$(RES)/patch-kit/libSiliconPatch/wotlk/"
+	@cp "$(DEPS)/Patching/libSiliconPatch/vanilla/libSiliconPatch.dll" "$(RES)/patch-kit/libSiliconPatch/vanilla/"
+	@cp "$(DEPS)/Patching/vanilla-tweaks/vanilla-tweaks.exe" "$(RES)/patch-kit/" 2>/dev/null || true
+	@rm -f "$(RES)/patch-kit/mods/libSiliconPatch.dll" "$(RES)/patch-kit/dlls.txt"
 	@ditto "$(DEPS)/Patching/rosettax87" "$(RES)/patch-kit/rosettax87"
 	@ditto "$(DEPS)/Patching/x87sidecar" "$(RES)/patch-kit/x87sidecar"
+	@cp scripts/rosettax87-shim "$(RES)/patch-kit/rosettax87/"
 	@chmod +x "$(RES)/patch-kit/rosettax87/"* "$(RES)/patch-kit/x87sidecar/x87sidecar"
-	@printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n' > "$(RES)/patch-kit/dlls.txt"
 	@cp assets/wow-icon-*.bsdiff "$(RES)/patch-kit/"
 
 prefix:
@@ -115,16 +119,19 @@ launcher:
 	@echo "==> building the manager GUI"
 	@./build.sh "$(APP)"
 
+test:
+	@bash tests/run-tests.sh
+
 install:
 	@[ -d "$(APP)" ] || { echo "ERROR: $(APP) not found — run 'make build' first"; exit 1; }
-	@[ "$(APP)" != "/Applications/WoW335.app" ] || { echo "already installed in /Applications"; exit 0; }
-	@if [ -n "$$(ls '/Applications/WoW335.app/Contents/Resources/games' 2>/dev/null)" ]; then \
-	  echo "ERROR: /Applications/WoW335.app already exists and has a game installed — remove it yourself first"; exit 1; fi
-	@rm -rf "/Applications/WoW335.app"
-	@mv "$(APP)" "/Applications/WoW335.app"
-	@echo "==> installed: /Applications/WoW335.app"
+	@[ "$(APP)" != "/Applications/WoW.app" ] || { echo "already installed in /Applications"; exit 0; }
+	@if [ -n "$$(ls '/Applications/WoW.app/Contents/Resources/games' 2>/dev/null)" ]; then \
+	  echo "ERROR: /Applications/WoW.app already exists and has a game installed — remove it yourself first"; exit 1; fi
+	@rm -rf "/Applications/WoW.app"
+	@mv "$(APP)" "/Applications/WoW.app"
+	@echo "==> installed: /Applications/WoW.app"
 
 zip:
 	@echo "==> zipping (for PRIVATE sharing — after a game install this contains the game itself; do not redistribute)"
-	ditto -c -k --keepParent "$(APP)" WoW335.zip
-	@du -h WoW335.zip
+	ditto -c -k --keepParent "$(APP)" WoW.zip
+	@du -h WoW.zip

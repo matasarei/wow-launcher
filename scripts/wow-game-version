@@ -1,0 +1,8 @@
+#!/bin/bash
+# Detect the WoW client version of a game folder by its Data fingerprint.
+# Prints "3.3.5a", "2.4.3" or "1.12"; prints "unknown" and exits 1 otherwise.
+D="${1:?usage: wow-game-version /path/to/game}"
+if   [ -f "$D/Data/lichking.MPQ" ];  then echo "3.3.5a"
+elif [ -f "$D/Data/expansion.MPQ" ]; then echo "2.4.3"
+elif [ -f "$D/Data/dbc.MPQ" ];       then echo "1.12"
+else echo "unknown"; exit 1; fi

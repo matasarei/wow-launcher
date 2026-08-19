@@ -1,4 +1,4 @@
-# Building the WoW335.app wrapper
+# Building the WoW.app wrapper
 
 The wrapper is a self-contained app bundle: wine stack + prefix + patch kit + the
 manager GUI. It is **built on your machine with one command** — the build downloads
@@ -40,9 +40,9 @@ For Cyrillic chat support: `python3 -m pip install --user mpyq fonttools` —
 used to extract and remap the original fonts from a ruRU client at install
 time (there is no bundled substitute; the authentic fonts are the only source).
 
-You will also need **a WoW 3.3.5a client** (build 12340) — e.g.
-[chromiecraft.com](https://www.chromiecraft.com) has instructions — but that is
-installed later through the app's own GUI, not by make.
+You will also need **a WoW client** — 3.3.5a (build 12340), 2.4.3 or 1.12; e.g.
+[chromiecraft.com](https://www.chromiecraft.com) has instructions for 3.3.5a —
+but that is installed later through the app's own GUI, not by make.
 
 ## Step 2 — build
 
@@ -61,7 +61,7 @@ installed later through the app's own GUI, not by make.
    finishes you'll see:
 
    ```
-   ==> Done: /Users/you/Applications/WoW335.app
+   ==> Done: /Users/you/Applications/WoW.app
    ```
 
    The finished app is in the `Applications` folder inside your home folder
@@ -85,14 +85,14 @@ rebuilds just the GUI/scripts into an existing wrapper.
 
 ## First run
 
-1. Open `WoW335.app`. A locally built app opens directly. A *downloaded* copy is
+1. Open `WoW.app`. A locally built app opens directly. A *downloaded* copy is
    quarantined, and macOS refuses ad-hoc-signed apps outright ("damaged") — clear
-   the flag once: `xattr -dr com.apple.quarantine /path/to/WoW335.app`
-2. Click **Install** and choose your 3.3.5a client folder — it is copied in and patched automatically
+   the flag once: `xattr -dr com.apple.quarantine /path/to/WoW.app`
+2. Click **Install** and choose your client folder (3.3.5a, 2.4.3 or 1.12) — the version is detected, the client is copied in and patched, and an integrity check runs automatically
 3. Pick your server in **Game → Server**, click **Play**
 
 Selecting a non-main display in **Display** needs a one-time Accessibility
-permission (System Settings → Privacy & Security → Accessibility → WoW335).
+permission (System Settings → Privacy & Security → Accessibility → WoW Launcher).
 
 ## Sharing the result
 

@@ -1,5 +1,6 @@
 #!/bin/bash
 # Verify the active game can run: files in place, patches applied, settings sane.
+# Version-aware: 3.3.5a, 2.4.3 and 1.12 clients have different check lists.
 # Usage: wow-verify-game [--fix]
 #   --fix repairs everything repairable: patch-stack files are restored from the
 #   patch kit, settings (Config.wtf cvars, RetinaMode, fast-exit fix) rewritten.
@@ -15,10 +16,24 @@ if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then G="$RES/games/$GA
 [ -d "$G" ] || { echo "FAIL: no game installed"; echo "REINSTALL"; echo "RESULT: PROBLEMS"; exit 1; }
 FIX=0; [ "$1" = "--fix" ] && FIX=1
 fail=0; warn=0; canfix=0; reinstall=0; i=0
-TOTAL=41
 CFG="$G/WTF/Config.wtf"
 LOADER="$RES/wine/bin/wine"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
+
+V="$(grep -sE '^GAME_VERSION=' "$RES/launcher.conf" | cut -d= -f2)"
+[ -n "$V" ] || V="$("$BIN/wow-game-version" "$G" 2>/dev/null || echo unknown)"
+case "$V" in
+  3.3.5a) TOTAL=43; SUPPORT_DLLS="ijl15.dll dbghelp.dll unicows.dll Battle.net.dll Scan.dll"
+          CORE_MPQS="common.MPQ common-2.MPQ expansion.MPQ lichking.MPQ patch.MPQ patch-2.MPQ"
+          SILICON_SUB="wotlk" ;;
+  2.4.3)  TOTAL=29; SUPPORT_DLLS="ijl15.dll unicows.dll"
+          CORE_MPQS="common.MPQ expansion.MPQ patch.MPQ"
+          SILICON_SUB="" ;;
+  1.12)   TOTAL=25; SUPPORT_DLLS="ijl15.dll unicows.dll"
+          CORE_MPQS="dbc.MPQ interface.MPQ model.MPQ texture.MPQ"
+          SILICON_SUB="vanilla" ;;
+  *) echo "FAIL: unrecognized client version"; echo "REINSTALL"; echo "RESULT: PROBLEMS"; exit 1 ;;
+esac
 
 step() { i=$((i+1)); echo "PROGRESS $i $TOTAL $1"; }
 get_cvar() { grep -iE "^SET $1 " "$CFG" 2>/dev/null | sed -E 's/.*"(.*)".*/\1/' | head -1; }
@@ -48,81 +63,121 @@ from_kit() {  # restorable from patch kit: from_kit <game rel> <kit rel> <label>
   fi
 }
 
-# --- game executable (restorable from kit) ---
+# --- game executable --- (2 steps)
 step "Wow.exe present"
 if [ -f "$G/Wow.exe" ]; then echo "ok: Wow.exe present"
-elif [ "$FIX" = 1 ]; then cp "$KIT/Wow.exe.icon-patched" "$G/Wow.exe" && echo "ok: Wow.exe present (restored)" || { echo "FAIL: Wow.exe missing"; fail=$((fail+1)); }
-else echo "FAIL: Wow.exe missing — repairable"; fail=$((fail+1)); canfix=1; fi
+elif [ "$V" = "3.3.5a" ] && [ -f "$KIT/Wow.exe.icon-patched" ] && [ "$FIX" = 1 ]; then
+  cp "$KIT/Wow.exe.icon-patched" "$G/Wow.exe" && echo "ok: Wow.exe present (restored)" || { echo "FAIL: Wow.exe missing"; fail=$((fail+1)); }
+else echo "FAIL: Wow.exe missing"; fail=$((fail+1)); reinstall=1; fi
 step "Wow.exe build check"
-if [ ! -f "$KIT/Wow.exe.orig" ] && [ ! -f "$KIT/Wow.exe.icon-patched" ]; then
-  echo "ok: Wow.exe (no reference build in kit to compare against)"
-elif cmp -s "$G/Wow.exe" "$KIT/Wow.exe.icon-patched" || cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig"; then
-  echo "ok: Wow.exe is the known 3.3.5a (12340) build"
+if [ "$V" = "3.3.5a" ] && { [ -f "$KIT/Wow.exe.orig" ] || [ -f "$KIT/Wow.exe.icon-patched" ]; }; then
+  if cmp -s "$G/Wow.exe" "$KIT/Wow.exe.icon-patched" || cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig"; then
+    echo "ok: Wow.exe is the known 3.3.5a (12340) build"
+  else
+    echo "WARN: Wow.exe differs from the known 3.3.5a build"; warn=$((warn+1))
+  fi
 else
-  echo "WARN: Wow.exe differs from the known 3.3.5a build"; warn=$((warn+1))
+  echo "ok: Wow.exe ($V client, no reference build to compare against)"
 fi
 
-# --- support libraries every client ships (not in kit) ---
-for dll in ijl15.dll dbghelp.dll unicows.dll Battle.net.dll Scan.dll; do
-  need_core "$dll" "$dll"
+# --- support libraries the client ships (not in kit) ---
+# (3.3.5a: 5 steps; others: 2 steps — as warnings, older clients vary more)
+for dll in $SUPPORT_DLLS; do
+  if [ "$V" = "3.3.5a" ]; then need_core "$dll" "$dll"; else optional "$dll" "$dll"; fi
 done
 
-# --- Apple Silicon patch stack (all restorable) ---
-step "DivxDecoder.dll performance patch"
-if [ ! -f "$KIT/DivxDecoder.dll.patched" ]; then
-  if [ -f "$G/DivxDecoder.dll.bak" ] && ! cmp -s "$G/DivxDecoder.dll" "$G/DivxDecoder.dll.bak"; then
-    echo "ok: DivxDecoder.dll performance patch (verified against local backup)"
+# --- Apple Silicon patch stack (all restorable) --- (10 steps)
+check_divx() {  # check_divx <dll name> — 1 step
+  local DLL="$1" PATCHED="$KIT/$DLL.$V.patched"
+  step "$DLL performance patch"
+  if [ ! -f "$G/$DLL" ] && [ ! -f "$G/$DLL.bak" ]; then
+    echo "ok: $DLL not present in this client (not applicable)"
+  elif [ ! -f "$PATCHED" ]; then
+    if [ -f "$G/$DLL.bak" ] && ! cmp -s "$G/$DLL" "$G/$DLL.bak"; then
+      echo "ok: $DLL performance patch (verified against local backup)"
+    else
+      echo "WARN: cannot verify $DLL patch (no reference; reinstall the game to apply it)"; warn=$((warn+1))
+    fi
+  elif cmp -s "$G/$DLL" "$PATCHED"; then
+    echo "ok: $DLL performance patch"
+  elif [ "$FIX" = 1 ]; then
+    [ -f "$G/$DLL" ] && cp "$G/$DLL" "$G/$DLL.bak" 2>/dev/null
+    cp "$PATCHED" "$G/$DLL" && echo "ok: $DLL performance patch (fixed)" || { echo "FAIL: $DLL"; fail=$((fail+1)); }
   else
-    echo "WARN: cannot verify DivxDecoder.dll patch (no reference; reinstall the game to apply it)"; warn=$((warn+1))
+    echo "FAIL: $DLL performance patch inactive — repairable"; fail=$((fail+1)); canfix=1
   fi
-elif cmp -s "$G/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
-  echo "ok: DivxDecoder.dll performance patch"
-elif [ "$FIX" = 1 ]; then
-  [ -f "$G/DivxDecoder.dll" ] && cp "$G/DivxDecoder.dll" "$G/DivxDecoder.dll.bak" 2>/dev/null
-  cp "$KIT/DivxDecoder.dll.patched" "$G/DivxDecoder.dll" && echo "ok: DivxDecoder.dll performance patch (fixed)" || { echo "FAIL: DivxDecoder.dll"; fail=$((fail+1)); }
-else
-  echo "FAIL: DivxDecoder.dll performance patch inactive — repairable"; fail=$((fail+1)); canfix=1
-fi
+}
+check_divx DivxDecoder.dll
+check_divx DivxTac.dll
 from_kit d3d9.dll d3d9.dll "d3d9.dll (DXVK renderer)"
 from_kit libDllLdr.dll libDllLdr.dll "libDllLdr.dll"
-from_kit dlls.txt dlls.txt "dlls.txt"
+step "dlls.txt"
+if grep -qs 'mods/winerosetta.dll' "$G/dlls.txt"; then echo "ok: dlls.txt"
+elif [ "$FIX" = 1 ]; then
+  if [ -n "$SILICON_SUB" ]; then printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n' > "$G/dlls.txt"
+  else printf 'mods/winerosetta.dll\n' > "$G/dlls.txt"; fi
+  echo "ok: dlls.txt (fixed)"
+else echo "FAIL: dlls.txt missing or incomplete — repairable"; fail=$((fail+1)); canfix=1; fi
 from_kit mods/winerosetta.dll mods/winerosetta.dll "winerosetta.dll"
-from_kit mods/libSiliconPatch.dll mods/libSiliconPatch.dll "libSiliconPatch.dll"
+step "libSiliconPatch.dll"
+if [ -z "$SILICON_SUB" ]; then
+  echo "ok: libSiliconPatch not used for $V clients"
+elif cmp -s "$G/mods/libSiliconPatch.dll" "$KIT/libSiliconPatch/$SILICON_SUB/libSiliconPatch.dll"; then
+  echo "ok: libSiliconPatch.dll ($SILICON_SUB)"
+elif [ "$FIX" = 1 ]; then
+  mkdir -p "$G/mods"
+  cp "$KIT/libSiliconPatch/$SILICON_SUB/libSiliconPatch.dll" "$G/mods/" && echo "ok: libSiliconPatch.dll (fixed)" || { echo "FAIL: libSiliconPatch.dll"; fail=$((fail+1)); }
+else echo "FAIL: libSiliconPatch.dll missing or modified — repairable"; fail=$((fail+1)); canfix=1; fi
 from_kit rosettax87/rosettax87 rosettax87/rosettax87 "rosettax87"
 from_kit rosettax87/libRuntimeRosettax87 rosettax87/libRuntimeRosettax87 "libRuntimeRosettax87"
+from_kit rosettax87/rosettax87-shim rosettax87/rosettax87-shim "rosettax87 Dock-name shim"
 
 # --- core data archives (not repairable) ---
-for mpq in common.MPQ common-2.MPQ expansion.MPQ lichking.MPQ patch.MPQ patch-2.MPQ; do
+# (3.3.5a: 7 steps; 2.4.3: 3; 1.12: 4)
+for mpq in $CORE_MPQS; do
   need_core "Data/$mpq" "Data/$mpq"
 done
-optional "Data/patch-3.MPQ" "Data/patch-3.MPQ"
+[ "$V" = "3.3.5a" ] && optional "Data/patch-3.MPQ" "Data/patch-3.MPQ"
 
-# --- locale data ---
-step "locale folder"
+# --- locale data & realmlist ---
+# (3.3.5a: 13 steps; 2.4.3: 6; 1.12: 1)
 LOCALE="$(basename "$(ls -d "$G"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null)"
-if [ -n "$LOCALE" ]; then
-  echo "ok: locale $LOCALE"
+check_realmlist() {  # check_realmlist <path> — 1 step
   step "realmlist.wtf"
-  if [ -f "$G/Data/$LOCALE/realmlist.wtf" ]; then echo "ok: realmlist.wtf"
-  elif [ -f "$G/realmlist.wtf" ]; then
-    if [ "$FIX" = 1 ]; then cp "$G/realmlist.wtf" "$G/Data/$LOCALE/realmlist.wtf"; echo "ok: realmlist.wtf (restored)"
-    else echo "FAIL: realmlist.wtf missing — repairable"; fail=$((fail+1)); canfix=1; fi
-  else
-    echo "FAIL: realmlist.wtf missing"; fail=$((fail+1)); reinstall=1
-  fi
-  for m in locale speech base backup expansion-locale expansion-speech lichking-locale lichking-speech; do
-    need_core "Data/$LOCALE/$m-$LOCALE.MPQ" "$m-$LOCALE.MPQ"
-  done
-  need_core "Data/$LOCALE/patch-$LOCALE.MPQ" "patch-$LOCALE.MPQ"
-  need_core "Data/$LOCALE/patch-$LOCALE-2.MPQ" "patch-$LOCALE-2.MPQ"
-  optional "Data/$LOCALE/patch-$LOCALE-3.MPQ" "patch-$LOCALE-3.MPQ"
+  if [ -f "$1" ]; then echo "ok: realmlist.wtf"
+  else echo "FAIL: realmlist.wtf missing ($1)"; fail=$((fail+1)); reinstall=1; fi
+}
+if [ "$V" = "1.12" ]; then
+  REALMLIST="$G/realmlist.wtf"
+  check_realmlist "$REALMLIST"
 else
-  echo "FAIL: no locale folder in Data"; fail=$((fail+1)); reinstall=1
-  for n in 1 2 3 4 5 6 7 8 9 10 11 12; do step "locale data"; echo "WARN: skipped (no locale)"; done
-  warn=$((warn+1))
+  REALMLIST="$G/Data/$LOCALE/realmlist.wtf"
+  step "locale folder"
+  if [ -n "$LOCALE" ]; then
+    echo "ok: locale $LOCALE"
+    check_realmlist "$REALMLIST"
+    if [ "$V" = "3.3.5a" ]; then
+      for m in locale speech base backup expansion-locale expansion-speech lichking-locale lichking-speech; do
+        need_core "Data/$LOCALE/$m-$LOCALE.MPQ" "$m-$LOCALE.MPQ"
+      done
+      need_core "Data/$LOCALE/patch-$LOCALE.MPQ" "patch-$LOCALE.MPQ"
+      need_core "Data/$LOCALE/patch-$LOCALE-2.MPQ" "patch-$LOCALE-2.MPQ"
+      optional "Data/$LOCALE/patch-$LOCALE-3.MPQ" "patch-$LOCALE-3.MPQ"
+    else
+      need_core "Data/$LOCALE/locale-$LOCALE.MPQ" "locale-$LOCALE.MPQ"
+      need_core "Data/$LOCALE/expansion-locale-$LOCALE.MPQ" "expansion-locale-$LOCALE.MPQ"
+      need_core "Data/$LOCALE/patch-$LOCALE.MPQ" "patch-$LOCALE.MPQ"
+      optional "Data/$LOCALE/speech-$LOCALE.MPQ" "speech-$LOCALE.MPQ"
+    fi
+  else
+    echo "FAIL: no locale folder in Data"; fail=$((fail+1)); reinstall=1
+    if [ "$V" = "3.3.5a" ]; then PAD=12; else PAD=5; fi
+    for _ in $(seq 1 $PAD); do step "locale data"; echo "WARN: skipped (no locale)"; done
+    warn=$((warn+1))
+  fi
 fi
 
-# --- settings ---
+# --- settings --- (6 steps)
 step "renderer API (gxApi)"
 API="$(get_cvar gxApi | tr A-Z a-z)"
 if [ -z "$API" ] || [ "$API" = "d3d9" ]; then echo "ok: renderer API is Direct3D 9"
@@ -157,7 +212,7 @@ else
 fi
 
 step "realmList setting matches server"
-ACTIVE="$(grep -ihE '^[[:space:]]*set[[:space:]]+realmlist[[:space:]]' "$G/Data/$LOCALE/realmlist.wtf" 2>/dev/null | head -1 | awk '{print $3}')"
+ACTIVE="$(grep -ihE '^[[:space:]]*set[[:space:]]+realmlist[[:space:]]' "$REALMLIST" 2>/dev/null | head -1 | awk '{print $3}')"
 CV="$(get_cvar realmList)"
 if [ -z "$ACTIVE" ] || [ -z "$CV" ] || [ "$CV" = "$ACTIVE" ]; then echo "ok: realmList setting"
 elif [ "$FIX" = 1 ]; then set_cvar realmList "$ACTIVE"; echo "ok: realmList set to $ACTIVE (fixed)"

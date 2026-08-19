@@ -9,14 +9,15 @@ LOG="$RES/logs/last-launch.log"
 export WINEPREFIX="$RES/prefix"
 # the Z: drive link is stripped at build time (absolute symlinks break codesign)
 [ -e "$RES/prefix/dosdevices/z:" ] || ln -sf / "$RES/prefix/dosdevices/z:" 2>/dev/null
-# spawn the game via the 'WoW' loader symlink so the Dock shows "WoW", not "wine"
-export WINELOADER="$RES/wine/lib/wine/x86_64-unix/WoW"
 # x87 engine (launcher.conf X87=): rosettax87 (default) or sidecar — the newer
 # cooperative variant (no debugger attach); a fallback if rosettax87 breaks on
-# a future macOS.
+# a future macOS. The shim reroutes the loader exec through the 'WoW' symlink
+# so the game's Dock entry shows "WoW" instead of "wine".
 X87="$(grep -sE '^X87=' "$RES/launcher.conf" | cut -d= -f2)"
 if [ "$X87" = "sidecar" ] && [ -x "$RES/patch-kit/x87sidecar/x87sidecar" ]; then
   export X87_SIDECAR_PATH="$RES/patch-kit/x87sidecar/x87sidecar"
+elif [ -x "$GAME/rosettax87/rosettax87-shim" ]; then
+  export ROSETTA_X87_PATH="$GAME/rosettax87/rosettax87-shim"
 else
   export ROSETTA_X87_PATH="$GAME/rosettax87/rosettax87"
 fi
@@ -66,12 +67,19 @@ if [ "$CUR_ACP" != "$ACP" ]; then
   sleep 1
 fi
 cd "$GAME" || exit 1
+GAME_VERSION="$(grep -sE '^GAME_VERSION=' "$RES/launcher.conf" | cut -d= -f2)"
+[ -n "$GAME_VERSION" ] || GAME_VERSION="$("$RES/bin/wow-game-version" "$GAME" 2>/dev/null || true)"
+# vanilla: the WDB server-data cache goes stale and causes crashes — clear it
+[ "$GAME_VERSION" = "1.12" ] && rm -rf "$GAME/WDB"
+# prefer a vanilla-tweaks-generated executable when the user created one
+EXE="$GAME/Wow.exe"
+[ -f "$GAME/WoW_tweaked.exe" ] && EXE="$GAME/WoW_tweaked.exe"
 # Auto-match the game resolution to the current display, unless disabled in launcher.conf
 AUTO=$(grep -sE '^AUTO_RES=' "$RES/launcher.conf" | cut -d= -f2)
 if [ "${AUTO:-1}" = "1" ]; then
   "$RES/bin/wow-settings" auto >> "$LOG.settings" 2>&1 || true
 fi
-nohup "$LOADER" "$GAME/Wow.exe" > "$LOG" 2>&1 &
+nohup "$LOADER" "$EXE" > "$LOG" 2>&1 &
 disown
 # Move the game window to the chosen display once it appears (needs Accessibility)
 RECT="$(grep -sE '^DISPLAY_RECT=' "$RES/launcher.conf" | cut -d= -f2)"

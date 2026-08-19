@@ -5,10 +5,10 @@
 	<key>CFBundleExecutable</key><string>WoW335</string>
 	<key>CFBundleIconFile</key><string>WoW.icns</string>
 	<key>CFBundleIdentifier</key><string>local.wow335.singleapp</string>
-	<key>CFBundleName</key><string>WoW 3.3.5</string>
-	<key>CFBundleDisplayName</key><string>WoW 3.3.5</string>
+	<key>CFBundleName</key><string>WoW Launcher</string>
+	<key>CFBundleDisplayName</key><string>WoW Launcher</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>1.0</string>
+	<key>CFBundleShortVersionString</key><string>2.0</string>
 	<key>LSApplicationCategoryType</key><string>public.app-category.games</string>
 	<key>LSMinimumSystemVersion</key><string>14.0</string>
 	<key>NSHighResolutionCapable</key><true/>

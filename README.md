@@ -5,7 +5,7 @@
 <h1 align="center">WoW335 Launcher</h1>
 
 <p align="center">
-  A native macOS launcher &amp; manager for <b>World of Warcraft 3.3.5a</b> on <b>Apple Silicon</b> — ~120 FPS in a single self-contained app.
+  A native macOS launcher &amp; manager for <b>classic-era World of Warcraft</b> (3.3.5a, 2.4.3, 1.12) on <b>Apple Silicon</b> — ~120 FPS in a single self-contained app.
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-orange" alt="Apple Silicon">
   <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
   <img src="https://img.shields.io/badge/SwiftUI-native-blue" alt="SwiftUI">
-  <img src="https://img.shields.io/badge/WoW-3.3.5a%20(12340)-gold" alt="WoW 3.3.5a">
+  <img src="https://img.shields.io/badge/WoW-1.12%20%7C%202.4.3%20%7C%203.3.5a-gold" alt="WoW 1.12 / 2.4.3 / 3.3.5a">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license">
 </p>
 
@@ -30,7 +30,7 @@
   <img src="assets/screenshots/launcher-display.png" width="49%" alt="Launcher — Display settings">
 </p>
 
-Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — about the worst possible match for an ARM Mac. This project wraps everything needed to run it *fast* into one `WoW335.app` bundle and puts a native SwiftUI manager in front of it:
+Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — about the worst possible match for an ARM Mac. This project wraps everything needed to run it *fast* into one `WoW.app` bundle and puts a native SwiftUI manager in front of it:
 
 | Layer | What it does |
 |---|---|
@@ -45,14 +45,15 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 > no wine stack. Nothing needs to be installed beforehand except the Xcode Command Line
 > Tools: the build downloads the wine runtime and the patch payloads from
 > [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)'s releases (checksum-verified)
-> and bakes them into the app bundle. The finished `WoW335.app` is fully self-contained;
-> you bring your own 3.3.5a client and install it through the app.
+> and bakes them into the app bundle. The finished `WoW.app` is fully self-contained;
+> you bring your own client (3.3.5a, 2.4.3 or 1.12) and install it through the app.
 
 The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
 
 **Why this exists:** for fun and discovery — making a 2010 Windows game run *great* on
 modern Apple hardware is the whole point. This is not a piracy project: it ships no
-game data, and it is built around the **original WoW 3.3.5a (build 12340) client**.
+game data, and it is built around **original classic-era clients** — WotLK 3.3.5a (12340),
+TBC 2.4.3 and vanilla 1.12.
 Modified or repacked clients might work, but they are untested and unsupported — if
 one misbehaves, try a clean original client first.
 
@@ -62,7 +63,7 @@ open-source building blocks (the wine runtime, winerosetta/rosettax87, the patch
 but builds a different thing with them. WoWSilicon is a patcher/launcher app that manages
 games living elsewhere on your disk and a shared `~/.wine` prefix, with profiles for
 several expansions. This is a **single-game appliance**: the client, the wine stack, a
-private prefix, and all tooling live inside one `WoW335.app` — nothing touches the rest
+private prefix, and all tooling live inside one `WoW.app` — nothing touches the rest
 of your system, and deleting the app removes everything. On top sits its own SwiftUI
 manager with things WoWSilicon doesn't do: integrity verification with one-click repair,
 a realmlist editor, an addon manager, display targeting with automatic resolution/Retina
@@ -76,10 +77,10 @@ matching, the Cyrillic input layer, the fast-exit fix, and a proper "WoW" Dock i
 
 ## Using the launcher
 
-Double-click **WoW335.app** — a native manager window opens:
+Double-click **WoW.app** — a native manager window opens:
 
 - **Play** — one big button. Shows current mode/resolution/retina state, a one-click "re-detect display" refresh, a live *running* indicator with force-stop, and an **Install** button instead when no game is present.
-- **Game** — install a client (pick a 3.3.5a client folder — it's copied in and patched for Apple Silicon automatically), **Verify** integrity (41 checks: files, patches, settings) with one-click **Fix Issues** repair, or a reinstall suggestion if game data is damaged beyond repair. Below: the **server list** editor (realmlist.wtf) — radio-select the active server, add or remove entries.
+- **Game** — install a client (pick a 3.3.5a, 2.4.3 or 1.12 client folder — the version is detected and it's copied in and patched for Apple Silicon automatically, then verified), **Verify** integrity (up to 43 version-aware checks: files, patches, settings) with one-click **Fix Issues** repair, or a reinstall suggestion if game data is damaged beyond repair. Below: the **server list** editor (realmlist.wtf) — radio-select the active server, add or remove entries.
 - **AddOns** — list installed addons (with versions from their .toc), install from ZIP or folder, remove to Trash, reveal in Finder. Blizzard built-ins are hidden.
 - **Display** — window mode (maximized / windowed / fullscreen) with standard window sizes, automatic resolution & Retina matching at every launch, a renderer choice (**DXVK** by default or the Metal-native **MTLd3D** with HDR output), or pick a specific display: the game window is moved there automatically after launch (needs a one-time Accessibility permission).
 - **About** — version, links (repository, build story, third-party components), license and trademark info.
@@ -104,7 +105,7 @@ verifies their checksums, and assembles everything:
 1. Get this repo: **Code → Download ZIP**, double-click to unpack (no git needed)
 2. In Terminal, `cd` into the unpacked folder and run:
    ```sh
-   make                # assembles ~/Applications/WoW335.app
+   make                # assembles ~/Applications/WoW.app
    make install        # optional: move it to /Applications
    ```
 
@@ -118,7 +119,7 @@ with its license and source.
 
 ## Repo layout & building the launcher
 
-| File | Installs to (inside WoW335.app) | Role |
+| File | Installs to (inside WoW.app) | Role |
 |---|---|---|
 | `main.swift` | `Contents/MacOS/WoW335` | the SwiftUI manager (single file) |
 | `scripts/wow-launch` | `Contents/Resources/bin/` | game starter: env, auto-resolution, display mover |
@@ -133,7 +134,9 @@ make install        # move the wrapper to /Applications
 ```
 
 `make` is the only entrypoint — the helper scripts (like `build.sh`) are internal.
-Requires only the Xcode **Command Line Tools** (`swiftc` + macOS SDK). No Xcode, no dependencies.
+`make test` runs a hermetic test suite over the scripts (fake clients, stub wine — no
+game data needed). Requires only the Xcode **Command Line Tools** (`swiftc` + macOS SDK).
+No Xcode, no dependencies.
 
 ## Troubleshooting
 

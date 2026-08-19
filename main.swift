@@ -24,7 +24,8 @@ enum Paths {
     static var addons: String { game + "/Interface/AddOns" }
     static var runPattern: String {
         let folder = activeGame.isEmpty ? "game" : activeGame
-        return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\]Wow\\.exe"
+        // matches Wow.exe / WoW.exe / WoW_tweaked.exe (vanilla-tweaks output)
+        return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\][Ww]o[Ww](_[Tt]weaked)?\\.exe"
     }
     static let installTool = resources + "/bin/wow-install-client"
     static let verifyTool  = resources + "/bin/wow-verify-game"
@@ -90,6 +91,7 @@ final class Store: ObservableObject {
     @Published var selectedDisplay = 0
     @Published var games: [String] = []
     @Published var activeGame = ""
+    @Published var gameVersion = ""
     @Published var gameRunning = false
     @Published var loadingStatus = true
     @Published var busy = false
@@ -351,6 +353,19 @@ final class Store: ObservableObject {
             confSet("GAME", first)
             activeGame = first
         }
+        gameVersion = detectGameVersion()
+    }
+
+    private func detectGameVersion() -> String {
+        guard !games.isEmpty else { return "" }
+        let recorded = confGet("GAME_VERSION")
+        if !recorded.isEmpty { return recorded }
+        let fm = FileManager.default
+        let data = Paths.game + "/Data/"
+        if fm.fileExists(atPath: data + "lichking.MPQ") { return "3.3.5a" }
+        if fm.fileExists(atPath: data + "expansion.MPQ") { return "2.4.3" }
+        if fm.fileExists(atPath: data + "dbc.MPQ") { return "1.12" }
+        return ""
     }
 
     struct VerifyItem: Identifiable {
@@ -443,7 +458,7 @@ final class Store: ObservableObject {
     func installGameFromPanel() {
         let panel = NSOpenPanel()
         panel.title = "Install Game Client"
-        panel.message = "Choose a WoW 3.3.5a client folder (contains Wow.exe and Data)"
+        panel.message = "Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.begin { resp in
@@ -464,6 +479,9 @@ final class Store: ObservableObject {
                 self.refreshStatus()
                 self.refreshRealms()
                 self.refreshAddons()
+                if out.contains("game installed") {
+                    self.verifyGame()   // confirm the fresh install right away
+                }
             }
         }
     }
@@ -734,6 +752,9 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 680, minHeight: 440)
+        .sheet(isPresented: $store.verifySheet) {
+            VerifySheet().environmentObject(store)
+        }
         .onChange(of: store.games.isEmpty) { _, empty in
             if empty, pane == .addons || pane == .display { pane = .play }
         }
@@ -762,7 +783,7 @@ struct PlayView: View {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 110, height: 110)
-            Text("World of Warcraft 3.3.5a")
+            Text(store.gameVersion.isEmpty ? "World of Warcraft" : "World of Warcraft \(store.gameVersion)")
                 .font(.title2).bold()
             HStack(spacing: 6) {
                 Text(statusLine)
@@ -846,7 +867,8 @@ struct GameView: View {
         Form {
             Section("Installed Game") {
                 HStack {
-                    Label(store.games.isEmpty ? "No game installed" : "Game installed",
+                    Label(store.games.isEmpty ? "No game installed"
+                            : "Game installed: \(store.gameVersion.isEmpty ? "unknown version" : store.gameVersion)",
                           systemImage: store.games.isEmpty ? "exclamationmark.circle" : "checkmark.circle.fill")
                         .foregroundStyle(store.games.isEmpty ? Color.orange : Color.green)
                     Spacer()
@@ -861,7 +883,7 @@ struct GameView: View {
                     .disabled(store.busy)
                     if store.busy { ProgressView().controlSize(.small) }
                 }
-                Text("Choose a WoW 3.3.5a client folder — it is copied into the app and patched for Apple Silicon automatically.")
+                Text("Choose a WoW client folder (3.3.5a, 2.4.3 or 1.12) — it is copied into the app and patched for Apple Silicon automatically.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -909,9 +931,6 @@ struct GameView: View {
             }
         }
         .formStyle(.grouped)
-        .sheet(isPresented: $store.verifySheet) {
-            VerifySheet().environmentObject(store)
-        }
         .onAppear {
             store.refreshGames()
             store.refreshRealms()
@@ -1119,7 +1138,7 @@ struct DisplayView: View {
                 }
                 .pickerStyle(.menu)
                 if let d = store.displays.first(where: { $0.id == store.selectedDisplay }), !d.isMain {
-                    Text("The game always opens on the main display; it is then moved to \(d.name) automatically. This needs a one-time Accessibility permission for WoW335 (System Settings → Privacy & Security → Accessibility).")
+                    Text("The game always opens on the main display; it is then moved to \(d.name) automatically. This needs a one-time Accessibility permission for WoW Launcher (System Settings → Privacy & Security → Accessibility).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -1171,12 +1190,12 @@ struct AboutView: View {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 96, height: 96)
-            Text("WoW335 Launcher")
+            Text("WoW Launcher")
                 .font(.title2).bold()
             Text("Version \(version)")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Text("World of Warcraft 3.3.5a on Apple Silicon — self-contained and fast.")
+            Text("Classic-era World of Warcraft on Apple Silicon — self-contained and fast.")
                 .font(.callout)
                 .multilineTextAlignment(.center)
             HStack(spacing: 18) {
@@ -1209,7 +1228,7 @@ struct WoW335App: App {
     @StateObject private var store = Store()
 
     var body: some Scene {
-        Window("World of Warcraft 3.3.5a", id: "main") {
+        Window("WoW Launcher", id: "main") {
             ContentView().environmentObject(store)
         }
         .defaultSize(width: 780, height: 500)

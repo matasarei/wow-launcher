@@ -7,7 +7,7 @@ Read this before changing anything. Deeper background: `docs/INTERNALS.md`
 ## Ground rules
 
 - **The repo is the source of truth.** Never edit files inside the built
-  `WoW335.app` directly — change the repo, then rebuild via make: `make launcher` for the
+  `WoW.app` directly — change the repo, then rebuild via make: `make launcher` for the
   GUI + scripts only, `make build` for the full bundle (helper scripts like `build.sh` are make's internals, never run directly). The wrapper is a
   disposable build artifact.
 - **One change at a time, verified in the real game.** After each functional
@@ -51,7 +51,7 @@ that has run installs accumulates Blizzard-derived files (the game under
 logs. The procedure:
 
 1. Bump the version in `assets/Info.plist`; commit and push everything.
-2. Build clean: `rm -rf ~/Applications/WoW335.app && make build`.
+2. Build clean: `rm -rf ~/Applications/WoW.app && make build`.
 3. Verify the bundle is pristine:
    - `Resources/games/` is empty;
    - `Resources/launcher.conf` contains only `AUTO_RES=1`;
@@ -64,15 +64,15 @@ logs. The procedure:
 5. Archive and publish (only with the maintainer's explicit go-ahead):
 
    ```sh
-   make zip APP=/path/to/pristine/WoW335.app     # → WoW335.zip
-   mv WoW335.zip WoW335-v<version>.zip
-   gh release create v<version> WoW335-v<version>.zip \
+   make zip APP=/path/to/pristine/WoW.app     # → WoW.zip
+   mv WoW.zip WoW-v<version>.zip
+   gh release create v<version> WoW-v<version>.zip \
      --title "WoW335 Launcher v<version>" --notes-file <notes>
    ```
 
    Don't commit the zip. To keep the maintainer's working wrapper (and its
    installed game) untouched, build the release copy at a separate path:
-   `make build APP=/tmp/release/WoW335.app`.
+   `make build APP=/tmp/release/WoW.app`.
 
    Gatekeeper facts (learned the hard way): the bundle **must** carry a valid
    deep ad-hoc seal (`make sign`, the last wrapper step) or downloaded copies
@@ -83,16 +83,28 @@ logs. The procedure:
    `xattr -dr com.apple.quarantine` fallback. Frictionless downloads would
    require Developer ID signing + notarization (paid Apple account).
 
-## Test matrix (after any runtime/installer/launcher change)
+## Tests
+
+`make test` runs the hermetic suite (`tests/run-tests.sh`): fake wrapper +
+stub wine + fake clients made of empty files — version detection, install
+validation and patching per version, verify step counts (43/29/25) and
+CANFIX/REINSTALL/--fix behavior, launch env/exe selection. Seconds to run,
+no game data needed. Run it after ANY script change; add assertions for new
+behavior. What it cannot cover stays manual (below).
+
+## Manual test matrix (after any runtime/installer/launcher change)
 
 - Fresh `make build`, open the app.
-- Install an **enUS** client → Verify passes (41 checks) → Play: ~120 FPS,
-  maximized Retina window, Dock shows "WoW", fast exit.
+- Install an **enUS 3.3.5a** client → auto-verify passes (43 checks) → Play:
+  ~120 FPS, maximized Retina window, Dock shows "WoW", fast exit.
 - Replace with a **ruRU** client → Cyrillic input and rendering work
   (fonts extracted + stashed in the kit); reinstall enUS → Cyrillic still
   works from the stash.
 - Both renderers launch (Display → DXVK and MTLd3D), and `X87=sidecar` in
   `launcher.conf` still boots the game.
+- When touching the installer/verify/launch scripts: also install a **1.12**
+  and a **2.4.3** client — version detection, per-version verify totals
+  (25 / 29), vanilla WDB cleanup and root-level realmlist must all hold.
 
 ## Layout crib
 
@@ -103,3 +115,4 @@ logs. The procedure:
 | `Makefile` | wrapper assembly: skeleton, runtime download, payloads, patch-kit, prefix, launcher |
 | `build.sh` | internal helper of `make launcher`: compiles main.swift (swiftc, no Xcode) + installs scripts |
 | `assets/` | Info.plist, icon, icon bsdiffs |
+| `tests/run-tests.sh` | hermetic script tests (`make test`) — no game data or wine needed |

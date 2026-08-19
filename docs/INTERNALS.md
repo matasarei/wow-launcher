@@ -3,7 +3,7 @@
 Reference for future development. The README covers usage; BUILD-WRAPPER.md covers
 building; this file records how things actually work and the traps already hit.
 
-## Wrapper layout (inside WoW335.app)
+## Wrapper layout (inside WoW.app)
 
 ```
 Contents/MacOS/WoW335              compiled SwiftUI manager (from main.swift)
@@ -23,6 +23,7 @@ Contents/Resources/
 |---|---|
 | `AUTO_RES=1\|0` | auto-match resolution/Retina to the main display at each launch |
 | `GAME=main` | active game folder under `games/` (installer sets it) |
+| `GAME_VERSION=3.3.5a\|2.4.3\|1.12` | detected client version (installer sets it; `wow-game-version` re-detects by Data fingerprint: lichking.MPQ → 3.3.5a, expansion.MPQ → 2.4.3, dbc.MPQ → 1.12) |
 | `CHAT_CP=1251` | Cyrillic input layer for any client (env locale, system codepage, remapped fonts); auto-added by the installer when a Russian keyboard layout is present, `CHAT_CP=` empty opts out |
 | `GAME_DISPLAY=<name>` | show the game on this display (GUI writes it) |
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |
@@ -47,20 +48,29 @@ Contents/Resources/
   release DMG (sha256-pinned, mounted read-only, never launched/installed) — or from a
   locally installed WoWSilicon 3.x if one is found (detected by `Patching/x87sidecar`).
   Materialized in `build/deps/Patching/`.
-- **Dock name**: the game must not show as "wine" in the Dock. The launcher exports
-  `WINELOADER=<wine>/lib/wine/x86_64-unix/WoW` (a symlink to the real unix loader,
-  created by `make runtime`); wine execs that path for the game process, and
-  LaunchServices shows the *unresolved* exec basename → "WoW". No binary patching
-  (the 2.5.5-era stack patched a `wine\0` constant inside ntdll.so instead).
+- **Dock name**: the game must not show as "wine" in the Dock. The macOS process
+  name comes from the last component of the **exec path string** (not resolved).
+  ntdll builds the loader path itself (`wineloader = ntdll_dir + "/wine"`,
+  loader.c `init_paths`) — env `WINELOADER`, symlinks, even renaming the loader
+  binary do NOT change it, and the string literal is merged into other rodata so
+  it can't be byte-patched safely (all tried, all failed). What works: ntdll
+  spawns `$ROSETTA_X87_PATH <loader> <args…>`, and the kit's
+  `rosettax87/rosettax87-shim` rewrites `<loader>` to the `WoW` symlink
+  (created by `make runtime`) before exec'ing the real rosettax87 → the game
+  process is named "WoW". Known limitation: in `X87=sidecar` mode the loader is
+  exec'd directly, so the Dock shows "wine" there.
 
 ## Patch kit anatomy
 
 Shipped by `make patch-kit` (open-source payloads only): `d3d9.dll` (DXVK),
-`libDllLdr.dll`, `dlls.txt`, `mods/{winerosetta,libSiliconPatch}.dll`, `rosettax87/`,
-`wow-icon-<in-md5>-<out-md5>.bsdiff`.
+`libDllLdr.dll`, `mods/winerosetta.dll`, `libSiliconPatch/{vanilla,wotlk}/`,
+`vanilla-tweaks.exe`, `rosettax87/`, `x87sidecar/`,
+`wow-icon-<in-md5>-<out-md5>.bsdiff`. (`dlls.txt` is generated per version by
+the installer, not shipped.)
 
 Self-populating at install time (never committed — Blizzard-derived):
-`DivxDecoder.dll.{orig,patched}`, `Wow.exe.{orig,icon-patched}`, `fonts-client/`.
+`DivxDecoder.dll.<version>.{orig,patched}` (also `DivxTac.dll.…` on older
+clients), `Wow.exe.{orig,icon-patched}`, `fonts-client/`.
 
 - **DivxDecoder.dll**: patched live in the user's client via
   `wine 'C:\windows\syswow64\rundll32.exe' "libDllLdr.dll,PatchDivxDecoder" <winpath>`
@@ -99,7 +109,7 @@ Line-oriented: `PROGRESS <n> <total> <label>` before each check; `ok:` / `WARN:`
 `FAIL:` results; `CANFIX` (fixable failures exist, check mode only); `REINSTALL`
 (game data unrepairable); final `RESULT: …`; exit 1 on any FAIL. `--fix` repairs:
 patch-stack files from the kit, settings (cvars, RetinaMode, fast-exit proxy).
-`TOTAL` in the script must match the number of `step` calls (currently 41).
+`TOTAL` in the script must match the number of `step` calls exactly — it is per-version: 43 (3.3.5a), 29 (2.4.3), 25 (1.12).
 
 ## Assorted gotchas
 
@@ -107,7 +117,7 @@ patch-stack files from the kit, settings (cvars, RetinaMode, fast-exit proxy).
   hang); fixed by dead-proxy registry keys (`ProxyEnable=1`, `ProxyServer=127.0.0.1:1`)
   in the prefix — wininet fails instantly, realm/world traffic (winsock) unaffected.
 - **Running detection**: wine rewrites the game path to Windows form
-  (`Z:\...\main\Wow.exe`, backslashes) — match `main[/\\]Wow\.exe`, not the unix path.
+  (`Z:\...\main\Wow.exe`, backslashes) — match `main[/\\][Ww]o[Ww](_[Tt]weaked)?\.exe`, not the unix path.
 - **gxMaximize=1 overrides gxResolution** (window always fills the screen); with
   RetinaMode=Y the game renders native pixels. `wow-settings auto` keeps both in
   sync with the display; `hwDetect 0` stops the game from overriding seeded settings.
@@ -115,3 +125,27 @@ patch-stack files from the kit, settings (cvars, RetinaMode, fast-exit proxy).
 - The manager quits ~2 s after Play (detached game keeps running); script-app
   launchers that don't check in with LaunchServices get "not responding" — the
   compiled SwiftUI binary is what fixed that historically.
+
+## Multi-version support (2.0)
+
+One game at a time, any of **3.3.5a / 2.4.3 / 1.12** — the installer detects the
+version (`wow-game-version`, Data-MPQ fingerprint) and records it as
+`GAME_VERSION`. Per-version differences, everything else is shared:
+
+- **libSiliconPatch**: per-expansion builds in `patch-kit/libSiliconPatch/{vanilla,wotlk}`;
+  none exists for 2.4.3 (its `dlls.txt` lists only winerosetta).
+- **Divx patch**: `DivxTac.dll` is patched too when present (older clients);
+  kit references are version-keyed (`DivxDecoder.dll.<version>.{orig,patched}`)
+  because the DLLs differ between client builds.
+- **1.12**: no `Data/<locale>/` folder — `realmlist.wtf` lives in the game root
+  (the GUI already reads both); `vanilla-tweaks.exe` is copied into the game dir
+  (not run automatically — if the user generates `WoW_tweaked.exe`, wow-launch
+  prefers it); the `WDB/` cache is deleted before every launch.
+- **Config.wtf baseline**: common seeds for all; `videoOptionsVersion`/`M2*`/
+  `gxFixLag` only for 3.3.5a. The installer also runs `wow-settings auto` so a
+  fresh install verifies clean.
+- **Verify** is version-aware: 43 checks (3.3.5a), 29 (2.4.3), 25 (1.12) —
+  the TOTAL constants in `wow-verify-game` must match the emitted steps exactly.
+- The install triggers an automatic verify in the GUI (`installGame` →
+  `verifyGame()`), and the run-detection pattern matches
+  `[Ww]o[Ww](_[Tt]weaked)?\.exe`.

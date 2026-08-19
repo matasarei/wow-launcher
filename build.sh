@@ -1,9 +1,9 @@
 #!/bin/bash
 # Build the WoW335 manager GUI and install it into the app bundle.
-# Usage: ./build.sh [path-to-WoW335.app]   (default: ~/Applications/WoW335.app)
+# Usage: ./build.sh [path-to-WoW.app]   (default: ~/Applications/WoW.app)
 set -e
 SRC="$(cd "$(dirname "$0")" && pwd)"
-APP="${1:-$HOME/Applications/WoW335.app}"
+APP="${1:-$HOME/Applications/WoW.app}"
 [ -d "$APP/Contents" ] || { echo "app bundle not found: $APP"; exit 1; }
 mkdir -p "$SRC/build" "$APP/Contents/Resources/bin"
 swiftc -swift-version 5 -parse-as-library -O -target arm64-apple-macos14.0 \

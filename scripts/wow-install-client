@@ -1,10 +1,11 @@
 #!/bin/bash
-# Install a WoW 3.3.5a client into the wrapper and apply the Apple Silicon patch kit.
-# Usage: wow-install-client /path/to/client
+# Install a WoW client (3.3.5a, 2.4.3 or 1.12) into the wrapper and apply the
+# Apple Silicon patch kit. Usage: wow-install-client /path/to/client
 set -e
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 KIT="$RES/patch-kit"
+BIN="$RES/bin"
 LOADER="$RES/wine/bin/wine"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
 # the Z: drive link is stripped at build time (absolute symlinks break codesign)
@@ -15,17 +16,26 @@ DEST="$RES/games/main"
 # validate the source thoroughly BEFORE touching any existing install
 [ -f "$SRC/Wow.exe" ] || { echo "not a WoW client (no Wow.exe in $SRC)"; exit 1; }
 [ -d "$SRC/Data" ]   || { echo "not a WoW client (no Data folder in $SRC)"; exit 1; }
-for mpq in common.MPQ common-2.MPQ expansion.MPQ lichking.MPQ patch.MPQ patch-2.MPQ; do
-  [ -f "$SRC/Data/$mpq" ] || { echo "incomplete client: Data/$mpq is missing — nothing was changed"; exit 1; }
+V="$("$BIN/wow-game-version" "$SRC")" || { echo "unrecognized client version (expected 3.3.5a, 2.4.3 or 1.12) — nothing was changed"; exit 1; }
+case "$V" in
+  3.3.5a) CORE_MPQS="common.MPQ common-2.MPQ expansion.MPQ lichking.MPQ patch.MPQ patch-2.MPQ"; NEED_LOCALE=1 ;;
+  2.4.3)  CORE_MPQS="common.MPQ expansion.MPQ patch.MPQ";                                        NEED_LOCALE=1 ;;
+  1.12)   CORE_MPQS="dbc.MPQ interface.MPQ model.MPQ texture.MPQ";                               NEED_LOCALE=0 ;;
+esac
+for mpq in $CORE_MPQS; do
+  [ -f "$SRC/Data/$mpq" ] || { echo "incomplete $V client: Data/$mpq is missing — nothing was changed"; exit 1; }
 done
 SRC_LOCALE="$(basename "$(ls -d "$SRC"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null)"
-[ -n "$SRC_LOCALE" ] || { echo "incomplete client: no locale folder in Data — nothing was changed"; exit 1; }
+if [ "$NEED_LOCALE" = 1 ] && [ -z "$SRC_LOCALE" ]; then
+  echo "incomplete $V client: no locale folder in Data — nothing was changed"; exit 1
+fi
 # never install from inside the wrapper itself (rm -rf below would destroy the source)
 SRC_REAL="$(cd "$SRC" && pwd -P)"
 GAMES_REAL="$(cd "$RES" && pwd -P)/games"
 case "$SRC_REAL/" in
   "$GAMES_REAL"/*) echo "the source is the installed game itself — choose the original client folder"; exit 1 ;;
 esac
+echo "detected client version: $V"
 if [ -n "$(ls "$RES/games" 2>/dev/null)" ]; then
   echo "replacing the existing game..."
   rm -rf "$RES/games"/*
@@ -35,30 +45,55 @@ echo "copying client (this can take a few minutes)..."
 ditto "$SRC" "$DEST"
 echo "applying patch kit..."
 mkdir -p "$DEST/mods"
-cp "$KIT/d3d9.dll" "$KIT/libDllLdr.dll" "$KIT/dlls.txt" "$DEST/"
-cp "$KIT/mods/"* "$DEST/mods/"
+cp "$KIT/d3d9.dll" "$KIT/libDllLdr.dll" "$DEST/"
+cp "$KIT/mods/winerosetta.dll" "$DEST/mods/"
 ditto "$KIT/rosettax87" "$DEST/rosettax87"
-# DivxDecoder.dll: prefer the kit's patched copy (identical across all 3.3.5a-12340
-# clients); with a fresh kit, patch live via wine (libDllLdr's PatchDivxDecoder).
-if [ -f "$KIT/DivxDecoder.dll.patched" ] && cmp -s "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.orig"; then
-  cp "$DEST/DivxDecoder.dll" "$DEST/DivxDecoder.dll.bak"
-  cp "$KIT/DivxDecoder.dll.patched" "$DEST/DivxDecoder.dll"
-elif [ -f "$KIT/DivxDecoder.dll.patched" ] && cmp -s "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"; then
-  echo "DivxDecoder.dll already patched"
+# libSiliconPatch has per-expansion builds (none exists for 2.4.3)
+case "$V" in
+  3.3.5a) SILICON="$KIT/libSiliconPatch/wotlk/libSiliconPatch.dll" ;;
+  1.12)   SILICON="$KIT/libSiliconPatch/vanilla/libSiliconPatch.dll" ;;
+  *)      SILICON="" ;;
+esac
+if [ -n "$SILICON" ] && [ -f "$SILICON" ]; then
+  cp "$SILICON" "$DEST/mods/libSiliconPatch.dll"
+  printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n' > "$DEST/dlls.txt"
 else
-  echo "patching DivxDecoder.dll via wine..."
-  WDEST="$(cd "$DEST" && "$LOADER" winepath -w . 2>/dev/null | tr -d '\r' || true)"
-  ( cd "$DEST" && "$LOADER" 'C:\windows\syswow64\rundll32.exe' "libDllLdr.dll,PatchDivxDecoder" "$WDEST" >/dev/null 2>&1 )
-  "$RES/wine/bin/wineserver" -w 2>/dev/null || true
-  if [ -f "$DEST/DivxDecoder.dll.bak" ] && ! cmp -s "$DEST/DivxDecoder.dll" "$DEST/DivxDecoder.dll.bak"; then
-    echo "DivxDecoder.dll patched"
-    # stash references so future installs/verifies are instant
-    [ -f "$KIT/DivxDecoder.dll.orig" ]    || cp "$DEST/DivxDecoder.dll.bak" "$KIT/DivxDecoder.dll.orig"
-    [ -f "$KIT/DivxDecoder.dll.patched" ] || cp "$DEST/DivxDecoder.dll" "$KIT/DivxDecoder.dll.patched"
-  else
-    echo "WARNING: DivxDecoder.dll patch did not apply — performance hooks will be INACTIVE"
-  fi
+  printf 'mods/winerosetta.dll\n' > "$DEST/dlls.txt"
 fi
+# vanilla-tweaks (1.12 only): optional community exe patcher, shipped for later use
+if [ "$V" = "1.12" ] && [ -f "$KIT/vanilla-tweaks.exe" ]; then
+  cp "$KIT/vanilla-tweaks.exe" "$DEST/"
+fi
+# Divx DLL patch: makes the client load dlls.txt mods. Older clients ship
+# DivxTac.dll instead of (or besides) DivxDecoder.dll — patch whichever exists.
+# Kit references are keyed by version (the DLLs differ between client builds):
+# prefer the kit's patched copy, else patch live via wine (libDllLdr entry).
+patch_divx() {  # patch_divx <dll name> <libDllLdr entry>
+  local DLL="$1" ENTRY="$2"
+  local ORIG="$KIT/$DLL.$V.orig" PATCHED="$KIT/$DLL.$V.patched"
+  [ -f "$DEST/$DLL" ] || return 0
+  if [ -f "$PATCHED" ] && cmp -s "$DEST/$DLL" "$ORIG"; then
+    cp "$DEST/$DLL" "$DEST/$DLL.bak"
+    cp "$PATCHED" "$DEST/$DLL"
+    echo "$DLL patched (from kit)"
+  elif [ -f "$PATCHED" ] && cmp -s "$DEST/$DLL" "$PATCHED"; then
+    echo "$DLL already patched"
+  else
+    echo "patching $DLL via wine..."
+    ( cd "$DEST" && "$LOADER" 'C:\windows\syswow64\rundll32.exe' "libDllLdr.dll,$ENTRY" "$(cd "$DEST" && "$LOADER" winepath -w . 2>/dev/null | tr -d '\r' || true)" >/dev/null 2>&1 )
+    "$RES/wine/bin/wineserver" -w 2>/dev/null || true
+    if [ -f "$DEST/$DLL.bak" ] && ! cmp -s "$DEST/$DLL" "$DEST/$DLL.bak"; then
+      echo "$DLL patched"
+      # stash references so future installs/verifies are instant
+      [ -f "$ORIG" ]    || cp "$DEST/$DLL.bak" "$ORIG"
+      [ -f "$PATCHED" ] || cp "$DEST/$DLL" "$PATCHED"
+    else
+      echo "WARNING: $DLL patch did not apply — performance hooks may be INACTIVE"
+    fi
+  fi
+}
+patch_divx DivxDecoder.dll PatchDivxDecoder
+patch_divx DivxTac.dll     PatchDivxTac
 # Wow.exe icon patch (cosmetic): use kit references when present, else apply the
 # repo's binary diff via the system bspatch (checksum-guarded on both sides).
 # Diffs are named wow-icon-<input md5>-<output md5>.bsdiff; pick by checksum.
@@ -102,26 +137,28 @@ seed gxMaximize 1            # fill the screen (resolution itself is auto-set at
 seed hwDetect 0              # don't let the game re-detect and override settings
 seed gxRefresh 60
 seed gxMultisampleQuality 0.000000
-seed videoOptionsVersion 3   # mark video setup as done — prevents first-run re-detection
-seed M2UseShaders 0          # known-good under the DXVK/libSiliconPatch stack
-seed M2UsePixelShaders 0
-seed M2UseThreadedBlood 0
-seed gxFixLag 0
 seed movie 0                 # skip intro movies
 seed readTOS 1
 seed readEULA 1
-grep -qE '^GAME=main$' "$RES/launcher.conf" 2>/dev/null || {
-  grep -vE '^GAME=' "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
-  printf 'GAME=main\n' >> "$RES/launcher.conf.tmp"
-  mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
-}
+if [ "$V" = "3.3.5a" ]; then
+  seed videoOptionsVersion 3   # mark video setup as done — prevents first-run re-detection
+  seed M2UseShaders 0          # known-good under the DXVK/libSiliconPatch stack
+  seed M2UsePixelShaders 0
+  seed M2UseThreadedBlood 0
+  seed gxFixLag 0
+fi
+# record the game + version, and reset display/renderer settings to defaults
+grep -vE '^(GAME|GAME_VERSION|AUTO_RES|GAME_DISPLAY|DISPLAY_RECT|RENDERER)=' "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
+printf 'AUTO_RES=1\nGAME=main\nGAME_VERSION=%s\n' "$V" >> "$RES/launcher.conf.tmp"
+mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
+# match resolution + retina mode to the current display right away
+"$BIN/wow-settings" auto >/dev/null 2>&1 || true
 echo "display settings reset to defaults"
 # Fonts (the game loads Fonts/*.TTF over its MPQ fonts):
 # - Cyrillic input mode (ruRU client, or CHAT_CP=1251): glyph-remapped fonts
 #   from the patch kit — the client inserts typed CP1251 bytes as Latin-1
 #   codepoints, and these fonts render those positions as Cyrillic (the
 #   classic community fix). Proper Unicode Cyrillic still renders normally.
-# - Otherwise: plain Arial from macOS so received Cyrillic isn't boxes.
 # Auto-enable the Cyrillic input layer when the Mac has a Russian keyboard
 # layout and CHAT_CP was not set explicitly (set CHAT_CP= empty to opt out).
 if ! grep -qsE '^CHAT_CP=' "$RES/launcher.conf" \
@@ -130,25 +167,17 @@ if ! grep -qsE '^CHAT_CP=' "$RES/launcher.conf" \
   echo "Russian keyboard layout detected — Cyrillic chat input enabled"
 fi
 CHAT_CP="$(grep -sE '^CHAT_CP=' "$RES/launcher.conf" | cut -d= -f2)"
-SUP="/System/Library/Fonts/Supplemental"
 if [ "$SRC_LOCALE" = "ruRU" ] || [ "$CHAT_CP" = "1251" ]; then
   mkdir -p "$DEST/Fonts"
   if [ -n "$(ls "$KIT/fonts-client" 2>/dev/null)" ]; then
     cp "$KIT/fonts-client/"* "$DEST/Fonts/"
     echo "installed Cyrillic input fonts (original client fonts)"
-  elif python3 "$RES/bin/wow-client-fonts.py" "$DEST" "$DEST/Fonts" 2>/dev/null; then
+  elif [ -n "$SRC_LOCALE" ] && python3 "$RES/bin/wow-client-fonts.py" "$DEST" "$DEST/Fonts" 2>/dev/null; then
     mkdir -p "$KIT/fonts-client" && cp "$DEST/Fonts/"* "$KIT/fonts-client/"
     echo "installed Cyrillic input fonts (extracted from the client's own fonts)"
   else
     rmdir "$DEST/Fonts" 2>/dev/null || true
     echo "NOTE: Cyrillic fonts unavailable — install a ruRU client once (its original fonts are then reused for any client)"
   fi
-elif [ ! -d "$DEST/Fonts" ] && [ -f "$SUP/Arial.ttf" ]; then
-  mkdir -p "$DEST/Fonts"
-  cp "$SUP/Arial.ttf"        "$DEST/Fonts/FRIZQT__.TTF"
-  cp "$SUP/Arial Narrow.ttf" "$DEST/Fonts/ARIALN.TTF" 2>/dev/null || cp "$SUP/Arial.ttf" "$DEST/Fonts/ARIALN.TTF"
-  cp "$SUP/Arial Bold.ttf"   "$DEST/Fonts/MORPHEUS.TTF" 2>/dev/null || cp "$SUP/Arial.ttf" "$DEST/Fonts/MORPHEUS.TTF"
-  cp "$SUP/Arial Bold.ttf"   "$DEST/Fonts/skurri.ttf"   2>/dev/null || cp "$SUP/Arial.ttf" "$DEST/Fonts/skurri.ttf"
-  echo "installed Cyrillic-capable display fonts (delete the game's Fonts folder to restore the original look)"
 fi
-echo "game installed"
+echo "game installed ($V)"
