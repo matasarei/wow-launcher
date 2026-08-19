@@ -1,10 +1,8 @@
 # Development rules for this project
 
-Read this before changing anything. [CLAUDE.md](CLAUDE.md) points here, so
-Claude Code picks these rules up automatically. Deeper background:
-`docs/INTERNALS.md` (architecture, mechanisms, traps — read it first),
-`docs/BUILD-WRAPPER.md` (build walkthrough), `docs/THIRD-PARTY.md`
-(embedded components & licenses).
+Read this before changing anything. Deeper background: `docs/INTERNALS.md`
+(architecture, mechanisms, traps — read it first), `docs/BUILD-WRAPPER.md`
+(build walkthrough), `docs/THIRD-PARTY.md` (embedded components & licenses).
 
 ## Ground rules
 
