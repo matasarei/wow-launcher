@@ -102,6 +102,9 @@ behavior. What it cannot cover stays manual (below).
   works from the stash.
 - Both renderers launch (Display → DXVK and MTLd3D), and `X87=sidecar` in
   `launcher.conf` still boots the game.
+- Language packs (3.3.5a/2.4.3): import a pack from another-locale client,
+  switch both ways — window must appear and the game language change; the
+  Language section must be absent for 1.12.
 - When touching the installer/verify/launch scripts: also install a **1.12**
   and a **2.4.3** client — version detection, per-version verify totals
   (25 / 29), vanilla WDB cleanup and root-level realmlist must all hold.

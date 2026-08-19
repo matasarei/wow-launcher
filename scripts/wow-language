@@ -1,0 +1,130 @@
+#!/bin/bash
+# Language packs for the installed game (3.3.5a / 2.4.3 — vanilla has none).
+# A pack = the client's Data/<locale>/ folder + its matching Wow.exe (locale
+# and exe belong together: e.g. ruRU needs the ru locale-forced exe or the
+# window never appears). Only ONE pack lives in Data/ at a time; the rest are
+# stashed under games/<game>/locales/<locale>/{pack,Wow.exe}.
+#
+#   wow-language list                     one locale per line, active marked "* "
+#   wow-language import /path/to/client  stash that client's pack (same version!)
+#   wow-language switch <locale>          swap packs + exe, set cvar, clear cache
+set -e
+APP="$(cd "$(dirname "$0")/../../.." && pwd)"
+RES="$APP/Contents/Resources"
+KIT="$RES/patch-kit"
+BIN="$RES/bin"
+GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
+G="$RES/games/${GAME_NAME:-main}"
+[ -d "$G" ] || { echo "no game installed"; exit 1; }
+V="$(grep -sE '^GAME_VERSION=' "$RES/launcher.conf" | cut -d= -f2)"
+[ -n "$V" ] || V="$("$BIN/wow-game-version" "$G" 2>/dev/null || echo unknown)"
+[ "$V" = "1.12" ] && { echo "1.12 clients have no language packs"; exit 1; }
+CFG="$G/WTF/Config.wtf"
+
+active_locale() { basename "$(ls -d "$G"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null; }
+
+set_cvar() {
+  mkdir -p "$G/WTF"; touch "$CFG"
+  if grep -qiE "^SET $1 " "$CFG"; then sed -i '' -E "s|^SET $1 .*|SET $1 \"$2\"|" "$CFG"
+  else printf 'SET %s "%s"\n' "$1" "$2" >> "$CFG"; fi
+}
+
+# cosmetic Wow.exe icon patch via the kit's md5-keyed binary diffs
+patch_icon() {
+  [ -x /usr/bin/bspatch ] || return 0
+  local CUR_MD5 D B IN_MD5 OUT_MD5
+  CUR_MD5="$(md5 -q "$G/Wow.exe")"
+  for D in "$KIT"/wow-icon-*.bsdiff; do
+    [ -f "$D" ] || continue
+    B="$(basename "$D" .bsdiff)"; B="${B#wow-icon-}"
+    IN_MD5="${B%%-*}"; OUT_MD5="${B#*-}"
+    [ "$CUR_MD5" = "$IN_MD5" ] || continue
+    /usr/bin/bspatch "$G/Wow.exe" "$G/Wow.exe.icon-new" "$D"
+    if [ "$(md5 -q "$G/Wow.exe.icon-new" 2>/dev/null)" = "$OUT_MD5" ]; then
+      mv "$G/Wow.exe.icon-new" "$G/Wow.exe"; chmod +x "$G/Wow.exe"
+      echo "Wow.exe icon patched"
+    else
+      rm -f "$G/Wow.exe.icon-new"
+    fi
+    return 0
+  done
+}
+
+# Cyrillic input fonts: keep them whenever a ruRU pack exists anywhere (better
+# compatibility), or CHAT_CP=1251 forces the input layer.
+ensure_fonts() {
+  local CHAT_CP HAVE_RU=""
+  CHAT_CP="$(grep -sE '^CHAT_CP=' "$RES/launcher.conf" | cut -d= -f2)"
+  { [ -d "$G/Data/ruRU" ] || [ -d "$G/locales/ruRU" ]; } && HAVE_RU=1
+  if [ -n "$HAVE_RU" ] || [ "$CHAT_CP" = "1251" ]; then
+    if [ -n "$(ls "$KIT/fonts-client" 2>/dev/null)" ]; then
+      mkdir -p "$G/Fonts"
+      cp "$KIT/fonts-client/"* "$G/Fonts/"
+      echo "Cyrillic input fonts in place"
+    fi
+  fi
+}
+
+case "$1" in
+  list)
+    A="$(active_locale)"
+    [ -n "$A" ] && echo "* $A"
+    for d in "$G/locales"/*/; do
+      [ -d "$d" ] && echo "  $(basename "$d")"
+    done
+    ;;
+
+  import)
+    SRC="$2"
+    [ -n "$SRC" ] || { echo "usage: wow-language import /path/to/client"; exit 1; }
+    [ -f "$SRC/Wow.exe" ] || { echo "not a WoW client (no Wow.exe in $SRC)"; exit 1; }
+    SV="$("$BIN/wow-game-version" "$SRC" 2>/dev/null || echo unknown)"
+    [ "$SV" = "$V" ] || { echo "version mismatch: the installed game is $V, this client is $SV"; exit 1; }
+    SL="$(basename "$(ls -d "$SRC"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null)"
+    [ -n "$SL" ] || { echo "no locale folder in $SRC/Data"; exit 1; }
+    A="$(active_locale)"
+    [ "$SL" = "$A" ] && { echo "the $SL pack is already the active language"; exit 1; }
+    echo "importing $SL pack (copying can take a few minutes)..."
+    rm -rf "$G/locales/$SL"
+    mkdir -p "$G/locales/$SL"
+    ditto "$SRC/Data/$SL" "$G/locales/$SL/pack"
+    cp "$SRC/Wow.exe" "$G/locales/$SL/Wow.exe"
+    # a ruRU pack is also the source of the authentic Cyrillic fonts
+    if [ "$SL" = "ruRU" ] && [ -z "$(ls "$KIT/fonts-client" 2>/dev/null)" ]; then
+      if python3 "$BIN/wow-client-fonts.py" "$SRC" "$KIT/fonts-client" 2>/dev/null; then
+        echo "Cyrillic fonts extracted and stashed"
+      fi
+    fi
+    ensure_fonts
+    echo "language pack imported: $SL"
+    ;;
+
+  switch)
+    L="$2"
+    [ -n "$L" ] || { echo "usage: wow-language switch <locale>"; exit 1; }
+    A="$(active_locale)"
+    [ "$L" = "$A" ] && { echo "$L is already active"; exit 0; }
+    [ -d "$G/locales/$L/pack" ] || { echo "no $L pack imported"; exit 1; }
+    [ -f "$G/locales/$L/Wow.exe" ] || { echo "the $L pack has no Wow.exe"; exit 1; }
+    # stash the active pack + exe
+    if [ -n "$A" ]; then
+      rm -rf "$G/locales/$A"
+      mkdir -p "$G/locales/$A"
+      mv "$G/Data/$A" "$G/locales/$A/pack"
+      mv "$G/Wow.exe" "$G/locales/$A/Wow.exe"
+    fi
+    # bring in the target pack + its exe
+    mv "$G/locales/$L/pack" "$G/Data/$L"
+    mv "$G/locales/$L/Wow.exe" "$G/Wow.exe"
+    chmod +x "$G/Wow.exe"
+    rmdir "$G/locales/$L" 2>/dev/null || true
+    patch_icon
+    set_cvar locale "$L"
+    # stale server-data cache from the previous language causes glitches
+    rm -rf "$G/Cache"
+    ensure_fonts
+    echo "language switched to $L — takes effect at the next game start"
+    ;;
+
+  *) grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

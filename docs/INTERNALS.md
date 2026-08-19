@@ -149,3 +149,18 @@ version (`wow-game-version`, Data-MPQ fingerprint) and records it as
 - The install triggers an automatic verify in the GUI (`installGame` →
   `verifyGame()`), and the run-detection pattern matches
   `[Ww]o[Ww](_[Tt]weaked)?\.exe`.
+
+## Language packs (wow-language, 2.0)
+
+A pack = the client's `Data/<locale>/` folder **plus its matching `Wow.exe`** —
+they belong together: a clean enUS exe with `SET locale "ruRU"` starts, renders,
+then its window vanishes (the ruRU "repack" exe's 6-byte locale-force hack is
+load-bearing, not cosmetic). Two packs inside `Data/` at once breaks the same
+way — hence **physical switching**: exactly one pack in `Data/`, the rest under
+`games/<g>/locales/<loc>/{pack,Wow.exe}`. `wow-language switch` swaps folders +
+exe, re-applies the md5-keyed icon bsdiff, sets the `locale` cvar, wipes
+`Cache/` (stale per-locale server data), and keeps the Cyrillic fonts whenever
+a ruRU pack exists anywhere. `import` validates the source client version
+matches the installed game and also feeds the font stash from ruRU packs.
+Vanilla (1.12) has no locale folders — localized 1.12 clients are entirely
+separate builds — so the script refuses and the GUI hides the section.

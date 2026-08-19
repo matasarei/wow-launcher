@@ -82,7 +82,15 @@ mk_vanilla() {  # complete 1.12 client (no locale folder, root realmlist)
   for m in dbc interface model texture; do touch "$D/Data/$m.MPQ"; done
   printf 'set realmlist logon.example.com\r\n' > "$D/realmlist.wtf"
 }
+mk_wotlk_ru() {  # same build, ruRU locale
+  local D="$1"; mk_wotlk "$D"
+  mv "$D/Data/enUS" "$D/Data/ruRU"
+  for f in "$D/Data/ruRU/"*enUS*; do
+    mv "$f" "$(echo "$f" | sed s/enUS/ruRU/g)"; done
+  echo ru-exe > "$D/Wow.exe"
+}
 mk_wotlk   "$TMP/client-wotlk"
+mk_wotlk_ru "$TMP/client-wotlk-ru"
 mk_tbc     "$TMP/client-tbc"
 mk_vanilla "$TMP/client-vanilla"
 
@@ -162,6 +170,32 @@ printf 'RENDERER=mtld3d\nX87=sidecar\n' >> "$RES/launcher.conf"
 assert_contains "$(cat "$WINELOG")" "OVR=d3d9=b" "mtld3d override"
 assert_contains "$(cat "$WINELOG")" "SIDECAR=$RES/patch-kit/x87sidecar/x87sidecar" "sidecar engine"
 
+# ============================================================ language packs
+section "wow-language (3.3.5a)"
+OUT="$("$BIN/wow-language" import "$TMP/client-tbc" 2>&1)"
+assert_contains "$OUT" "version mismatch" "cross-version import rejected"
+OUT="$("$BIN/wow-language" import "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "already the active language" "same-locale import rejected"
+OUT="$("$BIN/wow-language" import "$TMP/client-wotlk-ru" 2>&1)"
+assert_contains "$OUT" "language pack imported: ruRU" "ruRU pack imported"
+assert_file "$G/locales/ruRU/pack/locale-ruRU.MPQ"
+assert_eq "$(cat "$G/locales/ruRU/Wow.exe")" "ru-exe" "pack carries its own exe"
+assert_contains "$("$BIN/wow-language" list)" "* enUS" "list marks active"
+mkdir -p "$G/Cache"; touch "$G/Cache/stale.wdb"
+ENUS_EXE="$(cat "$G/Wow.exe")"
+OUT="$("$BIN/wow-language" switch ruRU 2>&1)"
+assert_contains "$OUT" "language switched to ruRU" "switch runs"
+assert_file "$G/Data/ruRU/locale-ruRU.MPQ"
+assert_nofile "$G/Data/enUS"
+assert_eq "$(cat "$G/Wow.exe")" "ru-exe" "active exe swapped"
+assert_eq "$(cat "$G/locales/enUS/Wow.exe")" "$ENUS_EXE" "previous exe stashed"
+assert_nofile "$G/Cache"
+assert_contains "$(grep "SET locale" "$G/WTF/Config.wtf")" 'SET locale "ruRU"' "locale cvar set"
+OUT="$("$BIN/wow-language" switch enUS 2>&1)"
+assert_contains "$OUT" "language switched to enUS" "switch back runs"
+assert_file "$G/Data/enUS/locale-enUS.MPQ"
+assert_contains "$(grep "SET locale" "$G/WTF/Config.wtf")" 'SET locale "enUS"' "locale cvar restored"
+
 # ============================================================ install: tbc
 section "install 2.4.3 (replaces wotlk)"
 printf 'RENDERER=mtld3d\n' >> "$RES/launcher.conf"
@@ -194,6 +228,10 @@ OUT="$("$BIN/wow-verify-game" 2>&1)"
 assert_contains "$OUT" "RESULT: OK" "vanilla verify passes"
 assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "25" "vanilla step count"
 assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" "25" "vanilla TOTAL matches"
+
+section "no language packs on 1.12"
+OUT="$("$BIN/wow-language" list 2>&1)"
+assert_contains "$OUT" "1.12 clients have no language packs" "vanilla gate"
 
 section "launch 1.12"
 mkdir -p "$G/WDB"; touch "$G/WDB/creaturecache.wdb"

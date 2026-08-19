@@ -28,6 +28,7 @@ enum Paths {
         return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\][Ww]o[Ww](_[Tt]weaked)?\\.exe"
     }
     static let installTool = resources + "/bin/wow-install-client"
+    static let languageTool = resources + "/bin/wow-language"
     static let verifyTool  = resources + "/bin/wow-verify-game"
     static let settings  = resources + "/bin/wow-settings"
     static let launcher  = resources + "/bin/wow-launch"
@@ -354,6 +355,71 @@ final class Store: ObservableObject {
             activeGame = first
         }
         gameVersion = detectGameVersion()
+        refreshLanguages()
+    }
+
+    // MARK: language packs
+
+    @Published var languages: [String] = []
+    @Published var activeLanguage = ""
+
+    var supportsLanguagePacks: Bool {
+        !games.isEmpty && (gameVersion == "3.3.5a" || gameVersion == "2.4.3")
+    }
+
+    func refreshLanguages() {
+        guard supportsLanguagePacks else { languages = []; activeLanguage = ""; return }
+        DispatchQueue.global().async {
+            let out = shell(Paths.languageTool, ["list"])
+            var all: [String] = []
+            var active = ""
+            for line in out.split(separator: "\n") {
+                let l = String(line)
+                if l.hasPrefix("* ") { active = String(l.dropFirst(2)); all.append(active) }
+                else { all.append(l.trimmingCharacters(in: .whitespaces)) }
+            }
+            DispatchQueue.main.async {
+                self.languages = all.filter { !$0.isEmpty }
+                self.activeLanguage = active
+            }
+        }
+    }
+
+    func setLanguage(_ loc: String) {
+        guard loc != activeLanguage else { return }
+        activeLanguage = loc
+        busy = true
+        DispatchQueue.global().async {
+            let out = shell(Paths.languageTool, ["switch", loc])
+            DispatchQueue.main.async {
+                self.busy = false
+                self.note = out.split(separator: "\n").suffix(1).joined()
+                self.refreshLanguages()
+                self.refreshRealms()
+                self.refreshStatus()
+            }
+        }
+    }
+
+    func importLanguagePackFromPanel() {
+        let panel = NSOpenPanel()
+        panel.title = "Import Language Pack"
+        panel.message = "Choose a \(gameVersion) client folder in another language — only its language pack is imported"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.begin { resp in
+            guard resp == .OK, let url = panel.url else { return }
+            self.busy = true
+            self.note = "Importing language pack from \(url.lastPathComponent)…"
+            DispatchQueue.global().async {
+                let out = shell(Paths.languageTool, ["import", url.path])
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.note = out.split(separator: "\n").suffix(1).joined()
+                    self.refreshLanguages()
+                }
+            }
+        }
     }
 
     private func detectGameVersion() -> String {
@@ -886,6 +952,29 @@ struct GameView: View {
                 Text("Choose a WoW client folder (3.3.5a, 2.4.3 or 1.12) — it is copied into the app and patched for Apple Silicon automatically.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+            if store.supportsLanguagePacks {
+                Section("Language") {
+                    HStack {
+                        Picker("Game language", selection: Binding(
+                            get: { store.activeLanguage },
+                            set: { store.setLanguage($0) })) {
+                            ForEach(store.languages, id: \.self) { l in
+                                Text(l).tag(l)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .disabled(store.busy || store.languages.count < 2)
+                        Button(action: { store.importLanguagePackFromPanel() }) {
+                            Label("Import Language Pack…", systemImage: "globe")
+                        }
+                        .disabled(store.busy)
+                        .help("Import the language pack from a \(store.gameVersion) client in another language")
+                    }
+                    Text("A pack is the client's language data plus its matching game executable. Switching swaps them, clears the cache and takes effect at the next game start. To add a language, select a full \(store.gameVersion) game client in that language — only its language pack is imported, the rest is not copied.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             Section("Server") {
                 ForEach(store.realms) { r in
