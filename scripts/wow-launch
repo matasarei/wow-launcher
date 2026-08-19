@@ -1,5 +1,5 @@
 #!/bin/bash
-# Internal game launcher — invoked by the WoW335 manager GUI (Play button).
+# Internal game launcher — invoked by the WoW Launcher manager GUI (Play button).
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"

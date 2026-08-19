@@ -78,7 +78,7 @@ logs. The procedure:
    make zip APP=/path/to/pristine/WoW.app     # → WoW.zip
    mv WoW.zip WoW-v<version>.zip
    gh release create v<version> WoW-v<version>.zip \
-     --title "WoW335 Launcher v<version>" --notes-file <notes>
+     --title "WoW Launcher v<version>" --notes-file <notes>
    ```
 
    Don't commit the zip. To keep the maintainer's working wrapper (and its

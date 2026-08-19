@@ -1291,9 +1291,9 @@ struct AboutView: View {
                 .font(.callout)
                 .multilineTextAlignment(.center)
             HStack(spacing: 18) {
-                Link("GitHub", destination: URL(string: "https://github.com/matasarei/wow335-launcher")!)
+                Link("GitHub", destination: URL(string: "https://github.com/matasarei/wow-launcher")!)
                 Link("How it was built", destination: URL(string: "https://hcnotes.cc/article/articles-my-own-private-azeroth")!)
-                Link("Third-party components", destination: URL(string: "https://github.com/matasarei/wow335-launcher/blob/main/docs/THIRD-PARTY.md")!)
+                Link("Third-party components", destination: URL(string: "https://github.com/matasarei/wow-launcher/blob/main/docs/THIRD-PARTY.md")!)
             }
             .font(.callout)
             .padding(.top, 4)
@@ -1316,7 +1316,7 @@ struct AboutView: View {
 // MARK: - App
 
 @main
-struct WoW335App: App {
+struct WoWLauncherApp: App {
     @StateObject private var store = Store()
 
     var body: some Scene {

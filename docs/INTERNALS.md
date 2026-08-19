@@ -6,7 +6,7 @@ building; this file records how things actually work and the traps already hit.
 ## Wrapper layout (inside WoW.app)
 
 ```
-Contents/MacOS/WoW335              compiled SwiftUI manager (from main.swift)
+Contents/MacOS/WoW Launcher        compiled SwiftUI manager (from main.swift)
 Contents/Resources/
   bin/                             runtime scripts (installed by build.sh from scripts/wow-*)
   wine/                            wine runtime (WineAndAqua wine 11.13 + mtld3d, see below)

@@ -2,7 +2,7 @@
   <img src="assets/icon.png" width="128" alt="WoW 3.3.5a icon">
 </p>
 
-<h1 align="center">WoW335 Launcher</h1>
+<h1 align="center">WoW Launcher</h1>
 
 <p align="center">
   A native macOS launcher &amp; manager for <b>classic-era World of Warcraft</b> (3.3.5a, 2.4.3, 1.12) on <b>Apple Silicon</b> — ~120 FPS in a single self-contained app.
@@ -121,7 +121,7 @@ with its license and source.
 
 | File | Installs to (inside WoW.app) | Role |
 |---|---|---|
-| `main.swift` | `Contents/MacOS/WoW335` | the SwiftUI manager (single file) |
+| `main.swift` | `Contents/MacOS/WoW Launcher` | the SwiftUI manager (single file) |
 | `scripts/wow-launch` | `Contents/Resources/bin/` | game starter: env, auto-resolution, display mover |
 | `scripts/wow-settings` | `Contents/Resources/bin/` | Config.wtf cvars, Retina mode, display detection |
 | `scripts/wow-install-client` | `Contents/Resources/bin/` | copy a client in + apply the patch kit |

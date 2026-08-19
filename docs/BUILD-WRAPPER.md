@@ -9,10 +9,10 @@ the open-source wine runtime and patch payloads from WoWSilicon's GitHub release
 
 No git or programming knowledge needed:
 
-1. On the [repository page](https://github.com/matasarei/wow335-launcher), click
+1. On the [repository page](https://github.com/matasarei/wow-launcher), click
    the green **Code** button → **Download ZIP**.
-2. Double-click the downloaded `wow335-launcher-main.zip` — macOS unpacks it into
-   a folder called `wow335-launcher-main` (usually in Downloads).
+2. Double-click the downloaded `wow-launcher-main.zip` — macOS unpacks it into
+   a folder called `wow-launcher-main` (usually in Downloads).
 
 That folder is all you need; you can move it anywhere you like.
 
@@ -48,7 +48,7 @@ but that is installed later through the app's own GUI, not by make.
 
 1. Open **Terminal** (Cmd+Space → "Terminal" → Enter).
 2. Type `cd ` (with a space after it), then **drag the unpacked
-   `wow335-launcher-main` folder from Finder into the Terminal window** — its
+   `wow-launcher-main` folder from Finder into the Terminal window** — its
    path appears automatically. Press Enter.
 3. Type:
 

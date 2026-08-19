@@ -1,5 +1,5 @@
 #!/bin/bash
-# WoW335.app display settings tool.
+# WoW.app display settings tool.
 # Usage:
 #   wow-settings show
 #   wow-settings auto            detect display and set matching resolution
