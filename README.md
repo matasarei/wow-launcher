@@ -54,6 +54,18 @@ game data, and it is built around the **original WoW 3.3.5a (build 12340) client
 Modified or repacked clients might work, but they are untested and unsupported — if
 one misbehaves, try a clean original client first.
 
+**Not a WoWSilicon copy or fork:** [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)
+is the upstream that makes the performance possible — this project gratefully reuses its
+open-source building blocks (the wine runtime, winerosetta/rosettax87, the patch DLLs)
+but builds a different thing with them. WoWSilicon is a patcher/launcher app that manages
+games living elsewhere on your disk and a shared `~/.wine` prefix, with profiles for
+several expansions. This is a **single-game appliance**: the client, the wine stack, a
+private prefix, and all tooling live inside one `WoW335.app` — nothing touches the rest
+of your system, and deleting the app removes everything. On top sits its own SwiftUI
+manager with things WoWSilicon doesn't do: integrity verification with one-click repair,
+a realmlist editor, an addon manager, display targeting with automatic resolution/Retina
+matching, the Cyrillic input layer, the fast-exit fix, and a proper "WoW" Dock identity.
+
 <p align="center">
   <img src="assets/screenshots/dalaran.jpg" width="32%" alt="Dalaran at ~120 FPS">
   <img src="assets/screenshots/elwynn.jpg" width="32%" alt="Flying through Elwynn Forest at ~120 FPS">
