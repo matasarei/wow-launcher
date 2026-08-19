@@ -141,7 +141,7 @@ No Xcode, no dependencies.
 ## Troubleshooting
 
 - **Something feels wrong with the game?** Open the **Game** tab and click
-  **Verify** — it runs 41 checks over the client files, the Apple Silicon
+  **Verify** — it runs version-aware checks over the client files, the Apple Silicon
   patches, and the settings, and offers **Fix Issues** for everything
   repairable in place.
 - **Verify reports the game data itself is damaged** (or things stay broken
@@ -149,6 +149,10 @@ No Xcode, no dependencies.
   client folder again. Installing always replaces the previous game and
   re-applies every patch from scratch. Your AddOns live inside the game folder,
   so re-add them after a reinstall.
+- **Cyrillic shows as "????" or garbage in an enUS game:** the authentic
+  Cyrillic fonts come only from a ruRU client — install one once (or import a
+  ruRU **language pack** in the Game tab). Its fonts are extracted, stashed,
+  and reused for any client afterwards, including enUS.
 - **Keyboard controls don't work / keybindings dead:** a Cyrillic keyboard
   layout is active — the game binds keys by character. Switch to a Latin
   layout for playing; switch to Russian only while typing in chat.
