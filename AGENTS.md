@@ -20,6 +20,17 @@ Read this before changing anything. Deeper background: `docs/INTERNALS.md`
   maintainer's explicit approval.** A wrapper that has ever had a game
   installed must never be distributed at all.
 
+## Localization
+
+UI strings are localized (assets/lproj/<lang>.lproj/Localizable.strings, 8
+languages, keys = the English strings). When adding or changing a UI string in
+main.swift: literals localize automatically, dynamically built strings must go
+through L()/LF() — and every key needs a row in ALL eight .strings files
+(a missing key silently falls back to English, which is correct for en but
+leaves other languages untranslated). Script output (verify labels, installer
+messages) is deliberately NOT localized — it is the shell-tool protocol.
+Spot-check a language with: open WoW.app --args -AppleLanguages '(ru)'.
+
 ## Versioning
 
 The app version lives in **one place**: `CFBundleShortVersionString` in
