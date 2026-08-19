@@ -5,7 +5,7 @@
 <h1 align="center">WoW Launcher</h1>
 
 <p align="center">
-  A native macOS launcher &amp; manager for <b>classic-era World of Warcraft</b> (3.3.5a, 2.4.3, 1.12) on <b>Apple Silicon</b> — ~120 FPS in a single self-contained app.
+  A native macOS launcher &amp; manager for <b>classic-era World of Warcraft</b> (3.3.5a, 2.4.3, 1.12) on <b>Apple Silicon</b> — high performance in a single self-contained app.
 </p>
 
 <p align="center">
