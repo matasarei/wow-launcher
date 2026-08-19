@@ -34,12 +34,20 @@ missing otherwise):
    trial state doesn't matter to it. This supplies the whole wine + MoltenVK stack.
    (If you find CrossOver useful, buy a license — CodeWeavers funds a large share
    of Wine development.)
-3. **WoWSilicon** — download the app from
-   [github.com/WoWSilicon/WoWSilicon/releases](https://github.com/WoWSilicon/WoWSilicon/releases)
-   and drop `WoWSilicon.app` into `/Applications` or `~/Applications`.
-   **You never need to launch it** — the build only reads files from inside the
-   app bundle (the open-source patch payloads: winerosetta, rosettax87, DXVK
-   d3d9, libSiliconPatch, libDllLdr).
+3. **WoWSilicon v2.5.5** — download `WoWSilicon.app` from the
+   [v2.5.5 release](https://github.com/WoWSilicon/WoWSilicon/releases/tag/v2.5.5)
+   and drop it into `/Applications` or `~/Applications`. The version matters:
+   **exactly v2.5.5**, the last release before 3.x — newer versions no longer
+   carry the payload files the build reads (the open-source patches: winerosetta,
+   rosettax87, DXVK d3d9, libSiliconPatch, libDllLdr).
+
+   Then **launch WoWSilicon once and let it apply its patches** before running
+   the build. macOS will push back a couple of times — that's expected:
+   - the first launch may be blocked — allow it via **System Settings →
+     Privacy & Security → "Open Anyway"**;
+   - patching needs permission to modify other apps — enable WoWSilicon under
+     **System Settings → Privacy & Security → App Management** (without it the
+     patch step fails with a *"you don't have permission"* error).
 
 For Cyrillic chat support: `python3 -m pip install --user mpyq fonttools` —
 used to extract and remap the original fonts from a ruRU client at install

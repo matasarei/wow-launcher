@@ -92,8 +92,11 @@ two apps you install first:
 1. Get this repo: **Code → Download ZIP**, double-click to unpack (no git needed)
 2. Install [CrossOver](https://www.codeweavers.com/crossover) (free trial is fine)
    into `/Applications` or `~/Applications` — source of the wine stack
-3. Install [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon/releases) next to
-   it — used only as a file source for the patch payloads, never launched
+3. Install [WoWSilicon **v2.5.5**](https://github.com/WoWSilicon/WoWSilicon/releases/tag/v2.5.5)
+   next to it — **exactly v2.5.5** (the last release before 3.x; newer versions keep
+   their payloads elsewhere and don't work as a file source). Launch it once and let
+   it apply its patches before building — macOS will ask you to allow the app, and
+   in some cases to allow it to modify other apps (Privacy & Security → App Management)
 4. In Terminal, `cd` into the unpacked folder and run:
    ```sh
    make wrapper        # assembles ~/Applications/WoW335.app

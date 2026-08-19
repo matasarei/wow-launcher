@@ -26,7 +26,7 @@ wrapper: check skeleton cxwine loader-patch patch-kit prefix launcher
 check:
 	@command -v swiftc >/dev/null || { echo "ERROR: swiftc not found — install the Xcode Command Line Tools: xcode-select --install"; exit 1; }
 	@test -d "$(CX)" || { echo "ERROR: CrossOver.app not found (looked in ~/Applications and /Applications)."; echo "  Get it from https://www.codeweavers.com/crossover (the free trial is fine — the wrapper never uses its licensing UI)."; exit 1; }
-	@test -d "$(PAY)" || { echo "ERROR: WoWSilicon.app not found (looked in ~/Applications and /Applications)."; echo "  Get it from https://github.com/WoWSilicon/WoWSilicon/releases — it is only used as a file source, never launched."; exit 1; }
+	@test -d "$(PAY)" || { echo "ERROR: WoWSilicon v2.5.5 payloads not found (looked in ~/Applications and /Applications)."; echo "  Install exactly v2.5.5 from https://github.com/WoWSilicon/WoWSilicon/releases/tag/v2.5.5 (3.x does not work),"; echo "  launch it once and apply its patches, then re-run make. See docs/BUILD-WRAPPER.md."; exit 1; }
 	@echo "==> prerequisites OK"
 	@echo "    CrossOver:  $(CROSSOVER)"
 	@echo "    WoWSilicon: $(WOWSILICON)"
