@@ -10,7 +10,15 @@ export WINEPREFIX="$RES/prefix"
 # spawn the game via the 'WoW' loader symlink so the Dock shows "WoW", not "wine"
 export WINELOADER="$RES/wine/lib/wine/x86_64-unix/WoW"
 export ROSETTA_X87_PATH="$GAME/rosettax87/rosettax87"
-export WINEDLLOVERRIDES="d3d9=n,b"
+# Renderer (launcher.conf RENDERER=): dxvk (default) loads the game-dir DXVK
+# d3d9.dll; mtld3d uses the runtime's builtin d3d9, which IS the MTLd3D
+# Metal-native backend (HDR-capable).
+RENDERER="$(grep -sE '^RENDERER=' "$RES/launcher.conf" | cut -d= -f2)"
+if [ "$RENDERER" = "mtld3d" ]; then
+  export WINEDLLOVERRIDES="d3d9=b"
+else
+  export WINEDLLOVERRIDES="d3d9=n,b"
+fi
 export MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS=1
 export DXVK_ASYNC=1
 export WINE_LARGE_ADDRESS_AWARE=1

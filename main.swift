@@ -81,6 +81,7 @@ struct DisplayOption: Identifiable, Hashable {
 
 final class Store: ObservableObject {
     @Published var mode = "maximized"
+    @Published var renderer = "dxvk"
     @Published var resolution = "…"
     @Published var retina = false
     @Published var autoRes = true
@@ -96,6 +97,8 @@ final class Store: ObservableObject {
 
     init() {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
+        let r = confGet("RENDERER")
+        if !r.isEmpty { renderer = r }
         refreshDisplays()
         refreshGames()
         refreshRealms()
@@ -231,6 +234,12 @@ final class Store: ObservableObject {
             _ = shell(Paths.settings, ["windowed", target])
             DispatchQueue.main.async { self.busy = false; self.refreshStatus() }
         }
+    }
+
+    func setRenderer(_ r: String) {
+        renderer = r
+        confSet("RENDERER", r)
+        note = "Renderer set to \(r == "mtld3d" ? "MTLd3D" : "DXVK") — takes effect at the next game start."
     }
 
     func setAuto(_ v: Bool) {
@@ -1061,6 +1070,9 @@ struct DisplayView: View {
     var sizeBinding: Binding<String> {
         Binding(get: { store.windowPoints }, set: { store.setWindowSize($0) })
     }
+    var rendererBinding: Binding<String> {
+        Binding(get: { store.renderer }, set: { store.setRenderer($0) })
+    }
 
     // Standard sizes that fit on the chosen display (window size is in points).
     var fittingSizes: [String] {
@@ -1116,6 +1128,16 @@ struct DisplayView: View {
                 .help("Detect the main screen and apply its resolution now")
                 Toggle("Retina (render at native pixels)", isOn: retinaBinding)
                 LabeledContent("Game resolution", value: store.loadingStatus ? "…" : store.resolution)
+            }
+            Section("Renderer") {
+                Picker("Graphics backend", selection: rendererBinding) {
+                    Text("DXVK (default)").tag("dxvk")
+                    Text("MTLd3D (HDR, experimental)").tag("mtld3d")
+                }
+                .pickerStyle(.menu)
+                Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             if !store.note.isEmpty {
                 Section {
