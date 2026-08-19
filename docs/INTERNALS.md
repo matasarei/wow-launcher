@@ -9,7 +9,7 @@ building; this file records how things actually work and the traps already hit.
 Contents/MacOS/WoW335              compiled SwiftUI manager (from main.swift)
 Contents/Resources/
   bin/                             runtime scripts (installed by build.sh from scripts/wow-*)
-  cxwine/                          CrossOver wine tree copy + patches (see below)
+  wine/                            wine runtime (WineAndAqua wine 11.13 + mtld3d, see below)
   prefix/                          wine prefix (fresh wineboot + fast-exit fix)
   patch-kit/                       payloads applied to every installed client
   games/main/                      THE game (single-game model; install = replace)
@@ -27,21 +27,29 @@ Contents/Resources/
 | `GAME_DISPLAY=<name>` | show the game on this display (GUI writes it) |
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |
 
-## cxwine patches (what `make loader-patch` does)
+## Wine runtime (what `make runtime` / `make payloads` do)
 
-- **wineloader2** = CrossOver's `wineloader` with `codesign --remove-signature` —
-  byte-identical to what WoWSilicon's "CrossOver Patch" produces. No signature →
-  no library validation → the patched libraries load.
-- **ntdll.so** = winerosetta's build (fast x87 under Rosetta — the biggest FPS win),
-  taken from the WoWSilicon bundle. The Makefile's payload paths match **WoWSilicon
-  v2.5.5 exactly** (`Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching/`);
-  3.x restructured the app (the wine runtime is a separate download) and does not
-  work as a file source. WoWSilicon must also have been launched once with its
-  patches applied before the build.
-- **Dock name**: the bare `wine\0` constant at offset **627328** in that ntdll.so is
-  patched to `WoW \0` (4-char limit) by `scripts/patch-dock-name.py` (verifies bytes
-  first, skips on other builds); the unix loader is renamed `WoW 3.3.5` with
-  `wine` and `WoW ` symlinks. LaunchServices shows the *unresolved* exec basename.
+- **Runtime** = WoWSilicon's standalone wine build: [WineAndAqua wine](https://github.com/WineAndAqua/wine)
+  11.13 (branch `wine-11.13-macos`) plus the mtld3d D3D9→Metal layer, published as
+  `wine-runtime-r<N>.tar.xz` on WoWSilicon's releases. The Makefile downloads it
+  sha256-pinned (`RUNTIME_URL`/`RUNTIME_SHA256` — update both together) and untars
+  into `Resources/wine/`. `share/wowsilicon/runtime-lock.json` inside records the
+  exact wine commit and component versions.
+- **winerosetta is integrated**: this wine's `ntdll.so` natively contains the fast-x87
+  hooks (the biggest FPS win) and reads the same `ROSETTA_X87_PATH` env var as the
+  old patched-CrossOver stack (plus a newer `X87_SIDECAR_PATH` alternative, unused here).
+- **No signature games**: the runtime's binaries are unsigned, so there is no library
+  validation to defeat. The old stack (≤ v2.5.5, CrossOver-based) needed `wineloader2`
+  (signature-stripped loader) and a winerosetta `ntdll.so` swap — all obsolete.
+- **Payloads** (`make payloads`): the game-side files come from the WoWSilicon 3.0.1
+  release DMG (sha256-pinned, mounted read-only, never launched/installed) — or from a
+  locally installed WoWSilicon 3.x if one is found (detected by `Patching/x87sidecar`).
+  Materialized in `build/deps/Patching/`.
+- **Dock name**: the game must not show as "wine" in the Dock. The launcher exports
+  `WINELOADER=<wine>/lib/wine/x86_64-unix/WoW` (a symlink to the real unix loader,
+  created by `make runtime`); wine execs that path for the game process, and
+  LaunchServices shows the *unresolved* exec basename → "WoW". No binary patching
+  (the 2.5.5-era stack patched a `wine\0` constant inside ntdll.so instead).
 
 ## Patch kit anatomy
 
@@ -53,7 +61,7 @@ Self-populating at install time (never committed — Blizzard-derived):
 `DivxDecoder.dll.{orig,patched}`, `Wow.exe.{orig,icon-patched}`, `fonts-client/`.
 
 - **DivxDecoder.dll**: patched live in the user's client via
-  `wineloader2 'C:\windows\syswow64\rundll32.exe' "libDllLdr.dll,PatchDivxDecoder" <winpath>`
+  `wine 'C:\windows\syswow64\rundll32.exe' "libDllLdr.dll,PatchDivxDecoder" <winpath>`
   (32-bit rundll32 required); the patched DLL chain-loads `dlls.txt` mods.
 - **Icon**: bsdiffs keyed by source-exe md5, applied with the system `/usr/bin/bspatch`,
   output md5 verified. The known "ruRU" repack = enUS exe + 6-byte locale-force hack

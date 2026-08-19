@@ -4,13 +4,16 @@ APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
 if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME="$RES/games/$GAME_NAME"; else GAME="$RES/game"; fi
-LOADER="$RES/cxwine/CrossOver-Hosted Application/wineloader2"
+LOADER="$RES/wine/bin/wine"
 LOG="$RES/logs/last-launch.log"
 export WINEPREFIX="$RES/prefix"
+# spawn the game via the 'WoW' loader symlink so the Dock shows "WoW", not "wine"
+export WINELOADER="$RES/wine/lib/wine/x86_64-unix/WoW"
 export ROSETTA_X87_PATH="$GAME/rosettax87/rosettax87"
 export WINEDLLOVERRIDES="d3d9=n,b"
 export MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS=1
 export DXVK_ASYNC=1
+export WINE_LARGE_ADDRESS_AWARE=1
 export MTL_HUD_ENABLED=0
 export WINEDEBUG=-all
 # Wine's keyboard input conversion follows the unix locale, and the prefix's
@@ -41,7 +44,7 @@ if [ "$CUR_ACP" != "$ACP" ]; then
   "$LOADER" reg add "$NLSKEY" /v OEMCP /t REG_SZ /d "$OEMCP" /f >/dev/null 2>&1
   "$LOADER" reg add "$NLSKEY" /v MACCP /t REG_SZ /d "$MACCP" /f >/dev/null 2>&1
   # the system codepage is baked in per wineserver session — force a fresh one
-  "$RES/cxwine/CrossOver-Hosted Application/wineserver" -k >/dev/null 2>&1 || true
+  "$RES/wine/bin/wineserver" -k >/dev/null 2>&1 || true
   sleep 1
 fi
 cd "$GAME" || exit 1

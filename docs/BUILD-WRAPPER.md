@@ -1,8 +1,9 @@
 # Building the WoW335.app wrapper
 
 The wrapper is a self-contained app bundle: wine stack + prefix + patch kit + the
-manager GUI. It is **built on your machine from parts you obtain yourself** — it is
-not distributed, because it embeds CrossOver's commercial binaries.
+manager GUI. It is **built on your machine with one command** — the build downloads
+the open-source wine runtime and patch payloads from WoWSilicon's GitHub releases
+(checksum-verified) and assembles everything automatically.
 
 ## Step 0 — get this repo onto your Mac
 
@@ -17,37 +18,23 @@ That folder is all you need; you can move it anywhere you like.
 
 ## Step 1 — install the prerequisites
 
-The build takes its dependencies from two apps that must be **downloaded and
-installed on your Mac first** (`make` will refuse to run and tell you what's
-missing otherwise):
+Just one thing, plus an internet connection (the build downloads ~200 MB of
+open-source components on first run and caches them):
 
-1. **Xcode Command Line Tools** — open the **Terminal** app (find it with
-   Spotlight: press Cmd+Space, type "Terminal", press Enter), then type
-   `xcode-select --install` and press Enter. A macOS dialog appears — click
-   **Install** and wait for it to finish. (If it says the tools are already
-   installed, you're done with this step.) This provides the compiler for the
-   manager app; the full Xcode is not needed.
-2. **CrossOver** — download from
-   [codeweavers.com/crossover](https://www.codeweavers.com/crossover) and install
-   it into `/Applications` or `~/Applications`. The free 14-day trial is fine: the
-   wrapper calls wine directly and never touches CrossOver's licensing UI, so the
-   trial state doesn't matter to it. This supplies the whole wine + MoltenVK stack.
-   (If you find CrossOver useful, buy a license — CodeWeavers funds a large share
-   of Wine development.)
-3. **WoWSilicon v2.5.5** — download `WoWSilicon.app` from the
-   [v2.5.5 release](https://github.com/WoWSilicon/WoWSilicon/releases/tag/v2.5.5)
-   and drop it into `/Applications` or `~/Applications`. The version matters:
-   **exactly v2.5.5**, the last release before 3.x — newer versions no longer
-   carry the payload files the build reads (the open-source patches: winerosetta,
-   rosettax87, DXVK d3d9, libSiliconPatch, libDllLdr).
+**Xcode Command Line Tools** — open the **Terminal** app (find it with
+Spotlight: press Cmd+Space, type "Terminal", press Enter), then type
+`xcode-select --install` and press Enter. A macOS dialog appears — click
+**Install** and wait for it to finish. (If it says the tools are already
+installed, you're done with this step.) This provides the compiler for the
+manager app; the full Xcode is not needed.
 
-   Then **launch WoWSilicon once and let it apply its patches** before running
-   the build. macOS will push back a couple of times — that's expected:
-   - the first launch may be blocked — allow it via **System Settings →
-     Privacy & Security → "Open Anyway"**;
-   - patching needs permission to modify other apps — enable WoWSilicon under
-     **System Settings → Privacy & Security → App Management** (without it the
-     patch step fails with a *"you don't have permission"* error).
+Nothing else to install: the wine runtime (a standalone open-source
+[WineAndAqua](https://github.com/WineAndAqua/wine) build) and the patch payloads
+(winerosetta, rosettax87, DXVK d3d9, libSiliconPatch, libDllLdr) are fetched from
+[WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)'s releases with their
+checksums verified. WoWSilicon itself is never installed or launched — its release
+DMG is only read as a file source. (If a WoWSilicon 3.x app happens to be installed
+already, the build takes the payloads from it and skips that download.)
 
 For Cyrillic chat support: `python3 -m pip install --user mpyq fonttools` —
 used to extract and remap the original fonts from a ruRU client at install
@@ -70,7 +57,8 @@ installed later through the app's own GUI, not by make.
    ```
 
    and press Enter. The build prints its progress and takes a few minutes
-   (copying the ~1 GB wine stack is the slow part). When it finishes you'll see:
+   (the downloads are the slow part; they are cached for re-runs). When it
+   finishes you'll see:
 
    ```
    ==> Done: /Users/you/Applications/WoW335.app
@@ -79,25 +67,17 @@ installed later through the app's own GUI, not by make.
    The finished app is in the `Applications` folder inside your home folder
    (in Finder: Go → Home → Applications).
 
-If a prerequisite is missing, the build stops immediately and prints what to
-install and where to get it — fix that and run `make wrapper` again; it resumes
-where it left off.
-
-CrossOver and WoWSilicon are auto-detected in `~/Applications` and
-`/Applications`; if you keep them elsewhere:
-
-```sh
-make wrapper CROSSOVER=/path/to/CrossOver.app WOWSILICON=/path/to/WoWSilicon.app
-```
+If something is missing or a download fails, the build stops immediately and
+prints what's wrong — fix that and run `make wrapper` again; it resumes where
+it left off.
 
 ## What `make wrapper` does
 
 1. **skeleton** — app bundle structure, Info.plist, icon
-2. **cxwine** — copies CrossOver's wine tree (`SharedSupport/CrossOver`, ~1 GB) into the bundle
-3. **loader-patch** — creates `wineloader2` (a signature-stripped copy of the wine loader, so wine can load the patched libraries), installs winerosetta's `ntdll.so` (fast x87 math under Rosetta — the biggest FPS win), and applies the cosmetic Dock-name patch so the game shows as "WoW"
-4. **patch-kit** — collects the open-source payloads (DXVK `d3d9.dll`, `libDllLdr.dll`, `winerosetta.dll`, `libSiliconPatch.dll`, `rosettax87`) used to patch game clients at install time. No game files are included — `DivxDecoder.dll` is patched live, in your own client, on first install.
-5. **prefix** — creates a fresh wine prefix and applies the fast-exit fix (WoW 3.3.5 phones dead Blizzard tracker endpoints on quit and hangs ~5 min; a dead-proxy registry entry makes those fail instantly without affecting game traffic)
-6. **launcher** — compiles the SwiftUI manager and installs it plus the helper scripts
+2. **runtime** — downloads the wine runtime (~57 MB, sha256-verified) and unpacks it into the bundle. This wine has winerosetta's fast-x87-under-Rosetta support built in — the biggest FPS win. Also creates the `WoW` loader symlink so the game shows as "WoW" in the Dock instead of "wine"
+3. **payloads / patch-kit** — collects the open-source payloads (DXVK `d3d9.dll`, `libDllLdr.dll`, `winerosetta.dll`, `libSiliconPatch.dll`, `rosettax87`) from a local WoWSilicon 3.x app or the release DMG (~150 MB, sha256-verified). These patch game clients at install time. No game files are included — `DivxDecoder.dll` is patched live, in your own client, on first install
+4. **prefix** — creates a fresh wine prefix and applies the fast-exit fix (WoW 3.3.5 phones dead Blizzard tracker endpoints on quit and hangs ~5 min; a dead-proxy registry entry makes those fail instantly without affecting game traffic)
+5. **launcher** — compiles the SwiftUI manager and installs it plus the helper scripts
 
 The build is idempotent — re-running skips what's already done. `make launcher`
 rebuilds just the GUI/scripts into an existing wrapper.
@@ -113,6 +93,6 @@ permission (System Settings → Privacy & Security → Accessibility → WoW335)
 
 ## Sharing the result
 
-Don't, publicly — the built wrapper contains CrossOver's proprietary binaries and
-(after a game install) Blizzard's client. `make zip` exists for private/backup use.
-Share this repo instead; anyone can rebuild the wrapper in a few minutes.
+Don't share a wrapper with a game installed — it contains Blizzard's client.
+`make zip` exists for private/backup use. Share this repo instead; anyone can
+rebuild the wrapper in a few minutes from freely downloadable components.

@@ -34,17 +34,17 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 
 | Layer | What it does |
 |---|---|
-| **CrossOver 26 wine** | runs the Windows client on macOS |
+| **Wine 11 ([WineAndAqua](https://github.com/WineAndAqua/wine) build)** | runs the Windows client on macOS |
 | **DXVK (async)** | translates Direct3D 9 → Vulkan → Metal |
 | **winerosetta + rosettax87** | fast x87 FPU math under Rosetta 2 — the single biggest FPS win for 2010-era game code |
 | **libSiliconPatch** | client-side hooks for Apple Silicon |
 | **SwiftUI manager** (this repo) | install, patch, verify, configure, and launch — no terminal needed |
 
 > [!IMPORTANT]
-> CrossOver and WoWSilicon are needed **only while building** the wrapper — everything
-> they provide is copied into the app bundle. Once `WoW335.app` is built, it is fully
-> self-contained: both apps can be uninstalled, and updating or removing them later
-> does not affect the wrapper.
+> Nothing needs to be installed beforehand except the Xcode Command Line Tools — the
+> build downloads the wine runtime and the patch payloads from
+> [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)'s releases (checksum-verified)
+> and bakes them into the app bundle. The finished `WoW335.app` is fully self-contained.
 
 The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
 
@@ -85,19 +85,12 @@ wow-launch
 
 ## Building the wrapper
 
-The app bundle is **built locally, not downloaded** — it embeds CrossOver's wine
-stack, which cannot be redistributed. The build harvests its dependencies from
-two apps you install first:
+The app bundle is **built locally with one command** — the build downloads the wine
+runtime (~57 MB) and the patch payloads from WoWSilicon's GitHub releases,
+verifies their checksums, and assembles everything:
 
 1. Get this repo: **Code → Download ZIP**, double-click to unpack (no git needed)
-2. Install [CrossOver](https://www.codeweavers.com/crossover) (free trial is fine)
-   into `/Applications` or `~/Applications` — source of the wine stack
-3. Install [WoWSilicon **v2.5.5**](https://github.com/WoWSilicon/WoWSilicon/releases/tag/v2.5.5)
-   next to it — **exactly v2.5.5** (the last release before 3.x; newer versions keep
-   their payloads elsewhere and don't work as a file source). Launch it once and let
-   it apply its patches before building — macOS will ask you to allow the app, and
-   in some cases to allow it to modify other apps (Privacy & Security → App Management)
-4. In Terminal, `cd` into the unpacked folder and run:
+2. In Terminal, `cd` into the unpacked folder and run:
    ```sh
    make wrapper        # assembles ~/Applications/WoW335.app
    ```
@@ -146,7 +139,7 @@ Requires only the Xcode **Command Line Tools** (`swiftc` + macOS SDK). No Xcode,
 
 ## Credits
 
-Standing on the shoulders of: [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon), the winerosetta / rosettax87 projects, [DXVK](https://github.com/doitsujin/dxvk) and its macOS D3D9 forks, CrossOver/Wine, and the [ChromieCraft](https://www.chromiecraft.com) community.
+Standing on the shoulders of: [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon), the [WineAndAqua](https://github.com/WineAndAqua/wine) wine build, the winerosetta / rosettax87 projects, [DXVK](https://github.com/doitsujin/dxvk) and its macOS D3D9 forks, Wine/CrossOver, and the [ChromieCraft](https://www.chromiecraft.com) community.
 
 World of Warcraft is a trademark of Blizzard Entertainment. This project contains no Blizzard assets or game data.
 

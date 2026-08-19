@@ -17,7 +17,7 @@ FIX=0; [ "$1" = "--fix" ] && FIX=1
 fail=0; warn=0; canfix=0; reinstall=0; i=0
 TOTAL=41
 CFG="$G/WTF/Config.wtf"
-LOADER="$RES/cxwine/CrossOver-Hosted Application/wineloader2"
+LOADER="$RES/wine/bin/wine"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
 
 step() { i=$((i+1)); echo "PROGRESS $i $TOTAL $1"; }

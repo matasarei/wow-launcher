@@ -5,7 +5,7 @@ set -e
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 KIT="$RES/patch-kit"
-LOADER="$RES/cxwine/CrossOver-Hosted Application/wineloader2"
+LOADER="$RES/wine/bin/wine"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
 SRC="$1"
 DEST="$RES/games/main"
@@ -47,7 +47,7 @@ else
   echo "patching DivxDecoder.dll via wine..."
   WDEST="$(cd "$DEST" && "$LOADER" winepath -w . 2>/dev/null | tr -d '\r' || true)"
   ( cd "$DEST" && "$LOADER" 'C:\windows\syswow64\rundll32.exe' "libDllLdr.dll,PatchDivxDecoder" "$WDEST" >/dev/null 2>&1 )
-  "$RES/cxwine/CrossOver-Hosted Application/wineserver" -w 2>/dev/null || true
+  "$RES/wine/bin/wineserver" -w 2>/dev/null || true
   if [ -f "$DEST/DivxDecoder.dll.bak" ] && ! cmp -s "$DEST/DivxDecoder.dll" "$DEST/DivxDecoder.dll.bak"; then
     echo "DivxDecoder.dll patched"
     # stash references so future installs/verifies are instant
