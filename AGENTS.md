@@ -61,8 +61,18 @@ logs. The procedure:
    - `Resources/logs/` is empty.
 4. Run the test matrix (below) with a scratch copy, then **rebuild clean
    again** before zipping — testing dirties the wrapper.
-5. `make zip` the pristine build; attach to a GitHub release tagged
-   `v<version>` — only with the maintainer's explicit go-ahead.
+5. Archive and publish (only with the maintainer's explicit go-ahead):
+
+   ```sh
+   make zip APP=/path/to/pristine/WoW335.app     # → WoW335.zip
+   mv WoW335.zip WoW335-v<version>.zip
+   gh release create v<version> WoW335-v<version>.zip \
+     --title "WoW335 Launcher v<version>" --notes-file <notes>
+   ```
+
+   Don't commit the zip. To keep the maintainer's working wrapper (and its
+   installed game) untouched, build the release copy at a separate path:
+   `make wrapper APP=/tmp/release/WoW335.app`.
 
 ## Test matrix (after any runtime/installer/launcher change)
 
