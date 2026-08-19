@@ -84,10 +84,9 @@ rebuilds just the GUI/scripts into an existing wrapper.
 
 ## First run
 
-1. Open `WoW335.app`. A locally built app usually opens directly; a *downloaded*
-   one is quarantined and macOS refuses once — dismiss the warning, then
-   **System Settings → Privacy & Security → Open Anyway** (or
-   `xattr -dr com.apple.quarantine WoW335.app`)
+1. Open `WoW335.app`. A locally built app opens directly. A *downloaded* copy is
+   quarantined, and macOS refuses ad-hoc-signed apps outright ("damaged") — clear
+   the flag once: `xattr -dr com.apple.quarantine /path/to/WoW335.app`
 2. Click **Install** and choose your 3.3.5a client folder — it is copied in and patched automatically
 3. Pick your server in **Game → Server**, click **Play**
 

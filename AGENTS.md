@@ -74,6 +74,15 @@ logs. The procedure:
    installed game) untouched, build the release copy at a separate path:
    `make wrapper APP=/tmp/release/WoW335.app`.
 
+   Gatekeeper facts (learned the hard way): the bundle **must** carry a valid
+   deep ad-hoc seal (`make sign`, the last wrapper step) or downloaded copies
+   fail as "damaged"; absolute symlinks in the prefix break codesign (stripped
+   by the prefix target). Even with a valid seal, modern macOS refuses
+   quarantined **ad-hoc** apps with no "Open Anyway" offered — release notes
+   must include the `curl` install (no quarantine) and the
+   `xattr -dr com.apple.quarantine` fallback. Frictionless downloads would
+   require Developer ID signing + notarization (paid Apple account).
+
 ## Test matrix (after any runtime/installer/launcher change)
 
 - Fresh `make wrapper`, open the app (right-click → Open the first time).
