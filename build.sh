@@ -11,4 +11,8 @@ swiftc -swift-version 5 -parse-as-library -O -target arm64-apple-macos14.0 \
 codesign --force --sign - "$SRC/build/WoW335"
 cp "$SRC/build/WoW335" "$APP/Contents/MacOS/WoW335"
 install -m 755 "$SRC/scripts/wow-"* "$APP/Contents/Resources/bin/"
+# UI translations (macOS picks the app language from the system, fallback en)
+for d in "$SRC/assets/lproj/"*.lproj; do
+  ditto "$d" "$APP/Contents/Resources/$(basename "$d")"
+done
 echo "installed into $APP"

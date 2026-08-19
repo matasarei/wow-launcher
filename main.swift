@@ -51,6 +51,9 @@ func shell(_ path: String, _ args: [String] = []) -> String {
     return String(data: data, encoding: .utf8) ?? ""
 }
 
+func L(_ key: String) -> String { NSLocalizedString(key, comment: "") }
+func LF(_ key: String, _ args: CVarArg...) -> String { String(format: NSLocalizedString(key, comment: ""), arguments: args) }
+
 func stripWoWCodes(_ s: String) -> String {
     var t = s
     for pat in ["\\|c[0-9a-fA-F]{8}", "\\|r", "\\|T[^|]*\\|t"] {
@@ -242,7 +245,7 @@ final class Store: ObservableObject {
     func setRenderer(_ r: String) {
         renderer = r
         confSet("RENDERER", r)
-        note = "Renderer set to \(r == "mtld3d" ? "MTLd3D" : "DXVK") — takes effect at the next game start."
+        note = LF("Renderer set to %@ — takes effect at the next game start.", r == "mtld3d" ? "MTLd3D" : "DXVK")
     }
 
     func setAuto(_ v: Bool) {
@@ -283,7 +286,7 @@ final class Store: ObservableObject {
             DispatchQueue.main.async {
                 self.busy = false
                 self.note = d.isMain ? "" :
-                    "The game window will be moved to \(d.name) shortly after launch."
+                    LF("The game window will be moved to %@ shortly after launch.", d.name)
                 self.refreshStatus()
             }
         }
@@ -403,14 +406,14 @@ final class Store: ObservableObject {
 
     func importLanguagePackFromPanel() {
         let panel = NSOpenPanel()
-        panel.title = "Import Language Pack"
-        panel.message = "Choose a \(gameVersion) client folder in another language — only its language pack is imported"
+        panel.title = L("Import Language Pack")
+        panel.message = LF("Choose a %@ client folder in another language — only its language pack is imported", gameVersion)
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.begin { resp in
             guard resp == .OK, let url = panel.url else { return }
             self.busy = true
-            self.note = "Importing language pack from \(url.lastPathComponent)…"
+            self.note = LF("Importing language pack from %@…", url.lastPathComponent)
             DispatchQueue.global().async {
                 let out = shell(Paths.languageTool, ["import", url.path])
                 DispatchQueue.main.async {
@@ -482,14 +485,14 @@ final class Store: ObservableObject {
             DispatchQueue.main.async {
                 self?.verifyRunning = false
                 if self?.verifyResult.isEmpty == true {
-                    self?.verifyResult = "Verification stopped."
+                    self?.verifyResult = L("Verification stopped.")
                 }
             }
         }
         verifyProc = p
         do { try p.run() } catch {
             verifyRunning = false
-            verifyResult = "Could not start verification: \(error.localizedDescription)"
+            verifyResult = LF("Could not start verification: %@", error.localizedDescription)
         }
     }
 
@@ -523,8 +526,8 @@ final class Store: ObservableObject {
 
     func installGameFromPanel() {
         let panel = NSOpenPanel()
-        panel.title = "Install Game Client"
-        panel.message = "Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)"
+        panel.title = L("Install Game Client")
+        panel.message = L("Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.begin { resp in
@@ -535,7 +538,7 @@ final class Store: ObservableObject {
 
     func installGame(from url: URL) {
         busy = true
-        note = "Installing \(url.lastPathComponent)… copying the client can take a few minutes."
+        note = LF("Installing %@… copying the client can take a few minutes.", url.lastPathComponent)
         DispatchQueue.global().async {
             let out = shell(Paths.installTool, [url.path])
             DispatchQueue.main.async {
@@ -641,16 +644,16 @@ final class Store: ObservableObject {
 
     func addRealm(_ addr: String) {
         let a = addr.trimmingCharacters(in: .whitespaces)
-        guard !a.isEmpty, !a.contains(" ") else { note = "Invalid server address."; return }
+        guard !a.isEmpty, !a.contains(" ") else { note = L("Invalid server address."); return }
         guard !realms.contains(where: { $0.addr == a }) else { selectRealm(a); return }
         writeRealms(realms.map { Realm(addr: $0.addr, active: false) } + [Realm(addr: a, active: true)])
-        note = "Server \(a) added and selected — takes effect at next game start."
+        note = LF("Server %@ added and selected — takes effect at next game start.", a)
     }
 
     func removeRealm(_ addr: String) {
         var rest = realms.filter { $0.addr != addr }
         guard !rest.isEmpty else {
-            note = "At least one server is required — add another before removing this one."
+            note = L("At least one server is required — add another before removing this one.")
             return
         }
         if !rest.contains(where: { $0.active }) {
@@ -712,8 +715,8 @@ final class Store: ObservableObject {
 
     func installFromPanel() {
         let panel = NSOpenPanel()
-        panel.title = "Install AddOns"
-        panel.message = "Choose AddOn ZIP archives or folders"
+        panel.title = L("Install AddOns")
+        panel.message = L("Choose AddOn ZIP archives or folders")
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.zip, .folder]
@@ -747,7 +750,7 @@ final class Store: ObservableObject {
                         try fm.copyItem(at: root, to: dest)
                         installed.append(root.lastPathComponent)
                     } catch {
-                        DispatchQueue.main.async { self.note = "Failed to install \(root.lastPathComponent): \(error.localizedDescription)" }
+                        DispatchQueue.main.async { self.note = LF("Failed to install %@: %@", root.lastPathComponent, error.localizedDescription) }
                     }
                 }
             }
@@ -802,7 +805,7 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             List(Pane.allCases, selection: $pane) { p in
-                Label(p.rawValue, systemImage: p.icon)
+                Label(LocalizedStringKey(p.rawValue), systemImage: p.icon)
                     .tag(p)
                     .selectionDisabled(needsGame(p))
                     .foregroundStyle(needsGame(p) ? Color.secondary.opacity(0.5) : Color.primary)
@@ -832,15 +835,15 @@ struct PlayView: View {
     @State private var confirmStop = false
 
     var statusLine: String {
-        if store.games.isEmpty { return "No game installed" }
-        if store.loadingStatus { return "Loading settings…" }
+        if store.games.isEmpty { return L("No game installed") }
+        if store.loadingStatus { return L("Loading settings…") }
         let m: String
         switch store.mode {
-        case "fullscreen": m = "Fullscreen"
-        case "windowed": m = "Windowed"
-        default: m = "Maximized window"
+        case "fullscreen": m = L("Fullscreen")
+        case "windowed": m = L("Windowed")
+        default: m = L("Maximized window")
         }
-        return "\(m) · \(store.resolution) · Retina \(store.retina ? "on" : "off")"
+        return "\(m) · \(store.resolution) · \(store.retina ? L("Retina on") : L("Retina off"))"
     }
 
     var body: some View {
@@ -933,8 +936,8 @@ struct GameView: View {
         Form {
             Section("Installed Game") {
                 HStack {
-                    Label(store.games.isEmpty ? "No game installed"
-                            : "Game installed: \(store.gameVersion.isEmpty ? "unknown version" : store.gameVersion)",
+                    Label(store.games.isEmpty ? L("No game installed")
+                            : LF("Game installed: %@", store.gameVersion.isEmpty ? L("unknown version") : store.gameVersion),
                           systemImage: store.games.isEmpty ? "exclamationmark.circle" : "checkmark.circle.fill")
                         .foregroundStyle(store.games.isEmpty ? Color.orange : Color.green)
                     Spacer()
