@@ -24,12 +24,19 @@ PAYLOAD_SHA256 = 4d6fd5aa42d53dbdec86b31cf1c166368cba41a3a01a0bd5e2aba6d11b904ca
 WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))
 LOCAL_PAY   = $(WOWSILICON)/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching
 
-.PHONY: wrapper check skeleton runtime payloads patch-kit prefix launcher zip
+.PHONY: wrapper check skeleton runtime payloads patch-kit prefix launcher sign zip
 
-wrapper: check skeleton runtime patch-kit prefix launcher
+wrapper: check skeleton runtime patch-kit prefix launcher sign
 	@echo ""
 	@echo "==> Done: $(APP)"
 	@echo "    Open it and click Install to add your WoW 3.3.5a client."
+
+# Must run LAST: seals the whole bundle. Without it a downloaded (quarantined)
+# copy fails Gatekeeper's deep verification as "damaged" — the lone binary
+# signature from build.sh claims sealed resources the bundle doesn't have.
+sign:
+	@echo "==> signing the bundle (ad-hoc)"
+	@codesign --force --deep --sign - "$(APP)"
 
 check:
 	@command -v swiftc >/dev/null || { echo "ERROR: swiftc not found — install the Xcode Command Line Tools: xcode-select --install"; exit 1; }
@@ -94,6 +101,10 @@ prefix:
 	@WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all "$(WINE)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyEnable /t REG_DWORD /d 1 /f >/dev/null 2>&1
 	@WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all "$(WINE)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyServer /t REG_SZ /d 127.0.0.1:1 /f >/dev/null 2>&1
 	@WINEPREFIX="$(RES)/prefix" "$(WINE)/bin/wineserver" -k >/dev/null 2>&1 || true
+	@# absolute symlinks (dosdevices/z: -> /, users/<builduser> -> $$HOME/Wine)
+	@# make codesign reject the bundle and leak build-machine paths; wine and
+	@# wow-launch recreate them on the user's machine at first run.
+	@find "$(RES)/prefix" -type l -lname '/*' -delete
 
 launcher:
 	@echo "==> building the manager GUI"

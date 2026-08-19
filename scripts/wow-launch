@@ -7,6 +7,8 @@ if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME="$RES/games/
 LOADER="$RES/wine/bin/wine"
 LOG="$RES/logs/last-launch.log"
 export WINEPREFIX="$RES/prefix"
+# the Z: drive link is stripped at build time (absolute symlinks break codesign)
+[ -e "$RES/prefix/dosdevices/z:" ] || ln -sf / "$RES/prefix/dosdevices/z:" 2>/dev/null
 # spawn the game via the 'WoW' loader symlink so the Dock shows "WoW", not "wine"
 export WINELOADER="$RES/wine/lib/wine/x86_64-unix/WoW"
 # x87 engine (launcher.conf X87=): rosettax87 (default) or sidecar — the newer

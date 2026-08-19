@@ -7,6 +7,8 @@ RES="$APP/Contents/Resources"
 KIT="$RES/patch-kit"
 LOADER="$RES/wine/bin/wine"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
+# the Z: drive link is stripped at build time (absolute symlinks break codesign)
+[ -e "$RES/prefix/dosdevices/z:" ] || ln -sf / "$RES/prefix/dosdevices/z:" 2>/dev/null
 SRC="$1"
 DEST="$RES/games/main"
 [ -n "$SRC" ] || { echo "usage: wow-install-client /path/to/client"; exit 1; }
