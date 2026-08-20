@@ -156,9 +156,10 @@ No Xcode, no dependencies.
 - **Keyboard controls don't work / keybindings dead:** a Cyrillic keyboard
   layout is active — the game binds keys by character. Switch to a Latin
   layout for playing; switch to Russian only while typing in chat.
-- **The game doesn't appear after Play:** it may have opened behind other
-  windows — find the **WoW** icon in the Dock and click it to bring the game
-  to the front.
+- **The game doesn't appear after Play:** normally the launcher waits for the
+  game window and brings it to the front automatically. If you switched to
+  another app while the game was loading, it stays in the background by
+  design — find the **WoW** icon in the Dock and click it.
 
 ## Credits
 

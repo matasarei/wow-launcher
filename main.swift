@@ -160,9 +160,52 @@ final class Store: ObservableObject {
             DispatchQueue.main.async {
                 self.gameRunning = true
                 self.busy = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { NSApp.terminate(nil) }
+                self.focusGameThenQuit()
             }
         }
+    }
+
+    // Cooperative activation (macOS 14+) only lets the frontmost app pass
+    // focus on — the game can never take it by itself. So stay alive until
+    // the game window exists, hand activation over, then quit. If the window
+    // never shows or the user switched away meanwhile, just quit as before.
+    private func focusGameThenQuit() {
+        let pattern = Paths.runPattern
+        let deadline = Date().addingTimeInterval(30)
+        func tick() {
+            DispatchQueue.global().async {
+                let out = shell("/usr/bin/pgrep", ["-f", pattern])
+                let pids = Set(out.split(whereSeparator: \.isNewline)
+                    .compactMap { pid_t($0.trimmingCharacters(in: .whitespaces)) })
+                let winPID = Store.visibleWindowOwner(among: pids)
+                DispatchQueue.main.async {
+                    if let pid = winPID, let app = NSRunningApplication(processIdentifier: pid) {
+                        NSApp.yieldActivation(to: app)
+                        app.activate(options: [])
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+                    } else if Date() >= deadline || !NSApp.isActive {
+                        NSApp.terminate(nil)
+                    } else {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { tick() }
+                    }
+                }
+            }
+        }
+        tick()
+    }
+
+    // Window-list metadata needs no Accessibility/Screen Recording permission.
+    private static func visibleWindowOwner(among pids: Set<pid_t>) -> pid_t? {
+        guard !pids.isEmpty,
+              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                                    kCGNullWindowID) as? [[String: Any]] else { return nil }
+        for w in list {
+            guard let pid = (w[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
+                  pids.contains(pid),
+                  (w[kCGWindowLayer as String] as? NSNumber)?.intValue == 0 else { continue }
+            return pid
+        }
+        return nil
     }
 
     func forceStop() {
