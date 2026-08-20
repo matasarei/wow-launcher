@@ -162,6 +162,13 @@ No Xcode, no dependencies.
 - **Keyboard controls don't work / keybindings dead:** a Cyrillic keyboard
   layout is active — the game binds keys by character. Switch to a Latin
   layout for playing; switch to Russian only while typing in chat.
+- **Stuck at "Connecting" on a local-network server** (a `192.168.x.x` /
+  `10.x.x.x` / `.local` address): macOS gates local-network access per app
+  copy — and for unsigned apps it silently blocks a copy it doesn't recognize,
+  without asking again. Always run the app from `Applications` (not from
+  `Downloads`); if it still won't connect, open **System Settings → Privacy &
+  Security → Local Network**, toggle **WoW** off and on, and relaunch.
+  Internet servers are unaffected — this is LAN-only.
 - **The game doesn't appear after Play:** normally the launcher waits for the
   game window and brings it to the front automatically. If you switched to
   another app while the game was loading, it stays in the background by

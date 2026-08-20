@@ -4,7 +4,7 @@
 <dict>
 	<key>CFBundleExecutable</key><string>WoW Launcher</string>
 	<key>CFBundleIconFile</key><string>WoW.icns</string>
-	<key>CFBundleIdentifier</key><string>local.wow335.singleapp</string>
+	<key>CFBundleIdentifier</key><string>io.github.matasarei.wow-launcher</string>
 	<key>CFBundleName</key><string>WoW Launcher</string>
 	<key>CFBundleDisplayName</key><string>WoW Launcher</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
