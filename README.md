@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/macOS-15%2B-black?logo=apple" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-orange" alt="Apple Silicon">
   <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
   <img src="https://img.shields.io/badge/SwiftUI-native-blue" alt="SwiftUI">
@@ -47,6 +47,12 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 > [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)'s releases (checksum-verified)
 > and bakes them into the app bundle. The finished `WoW.app` is fully self-contained;
 > you bring your own client (3.3.5a, 2.4.3 or 1.12) and install it through the app.
+
+**Requirements:** an Apple Silicon Mac running **macOS 15 or newer** — the floor set
+by the embedded wine runtime; developed and tested on macOS 26. Any Apple Silicon
+model qualifies (they all run macOS 15+). Uses **Rosetta 2** under the hood — macOS
+offers to install it on first launch if it isn't already
+(`softwareupdate --install-rosetta` does the same from Terminal).
 
 The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
 
