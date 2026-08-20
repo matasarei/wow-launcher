@@ -18,7 +18,7 @@ stack was replaced (see INTERNALS.md).
 
 The runtime is downloaded unmodified from
 [WoWSilicon's releases](https://github.com/WoWSilicon/WoWSilicon/releases)
-(`wine-runtime-r4.tar.xz`, sha256-pinned in the Makefile).
+(`wine-runtime-r6.tar.xz`, sha256-pinned in the Makefile).
 
 ## Patch kit (`Resources/patch-kit/`)
 

@@ -18,8 +18,8 @@ UNIX  = $(WINE)/lib/wine/x86_64-unix
 DEPS  = build/deps
 
 # Pinned upstream artifacts (update the URL and hash together).
-RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/wine-runtime-r4/WoWSilicon-WineRuntime-r4.tar.xz
-RUNTIME_SHA256 = 56f5b8ca54042b0212f2f6e97b769af64c233a24072549ed9867e1623e4a10f0
+RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/wine-runtime-r6/WoWSilicon-WineRuntime-r6.tar.xz
+RUNTIME_SHA256 = f1ed55fe60b1ced305543844a6b47b08844f6d0600c4ebcc007dac35ffaacb27
 PAYLOAD_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/v3.0.1/WoWSilicon-3.0.1.dmg
 PAYLOAD_SHA256 = 4d6fd5aa42d53dbdec86b31cf1c166368cba41a3a01a0bd5e2aba6d11b904ca0
 
