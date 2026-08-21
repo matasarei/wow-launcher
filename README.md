@@ -47,6 +47,8 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 > [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)'s releases (checksum-verified)
 > and bakes them into the app bundle. The finished `WoW.app` is fully self-contained;
 > you bring your own client (3.3.5a, 2.4.3 or 1.12) and install it through the app.
+> Don't want to build? Every [release](https://github.com/matasarei/wow-launcher/releases)
+> ships the same ready-to-use `WoW.app`.
 
 **Requirements:** an Apple Silicon Mac running **macOS 15 or newer** — the floor set
 by the embedded wine runtime; developed and tested on macOS 26. Any Apple Silicon
@@ -91,7 +93,7 @@ Double-click **WoW.app** — a native manager window opens:
 - **Display** — window mode (maximized / windowed / fullscreen) with standard window sizes, automatic resolution & Retina matching at every launch, a renderer choice (**DXVK** by default or the Metal-native **MTLd3D** with HDR output), or pick a specific display: the game window is moved there automatically after launch (needs a one-time Accessibility permission).
 - **About** — version, links (repository, build story, third-party components), license and trademark info.
 
-**Cyrillic input** (tested on both ruRU and enUS clients): works out of the box — for ruRU clients always, and for enUS clients whenever your Mac has a Russian keyboard layout configured (the installer detects it and enables `CHAT_CP=1251` in `Contents/Resources/launcher.conf` automatically; set the key manually to force it either way). The fonts come from a ruRU client's own files, extracted and remapped at install time (requires `pip3 install mpyq fonttools`) — install a ruRU client once and its fonts are reused for any client afterwards.
+**Cyrillic input** (tested on both ruRU and enUS clients): works out of the box — for ruRU clients always, and for enUS clients whenever your Mac has a Russian keyboard layout configured (the installer detects it and enables `CHAT_CP=1251` in `Contents/Resources/launcher.conf` automatically; set the key manually to force it either way). The fonts come from a ruRU client's own files, extracted and remapped automatically (requires `pip3 install mpyq fonttools`) — import a ruRU **language pack** in the Game tab (or install a ruRU client) once, and the fonts are stashed and reused for any client afterwards.
 
 Everything the GUI does is also scriptable — the same tools it calls live in `Contents/Resources/bin/`:
 
@@ -156,9 +158,10 @@ No Xcode, no dependencies.
   re-applies every patch from scratch. Your AddOns live inside the game folder,
   so re-add them after a reinstall.
 - **Cyrillic shows as "????" or garbage in an enUS game:** the authentic
-  Cyrillic fonts come only from a ruRU client — install one once (or import a
-  ruRU **language pack** in the Game tab). Its fonts are extracted, stashed,
-  and reused for any client afterwards, including enUS.
+  Cyrillic fonts come only from ruRU client files — import a ruRU
+  **language pack** in the Game tab (or install a ruRU client) once. Its
+  fonts are extracted, stashed, and reused for any client afterwards,
+  including enUS.
 - **Keyboard controls don't work / keybindings dead:** a Cyrillic keyboard
   layout is active — the game binds keys by character. Switch to a Latin
   layout for playing; switch to Russian only while typing in chat.

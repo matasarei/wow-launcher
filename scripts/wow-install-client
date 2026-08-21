@@ -177,7 +177,7 @@ if [ "$SRC_LOCALE" = "ruRU" ] || [ "$CHAT_CP" = "1251" ]; then
     echo "installed Cyrillic input fonts (extracted from the client's own fonts)"
   else
     rmdir "$DEST/Fonts" 2>/dev/null || true
-    echo "NOTE: Cyrillic fonts unavailable — install a ruRU client once (its original fonts are then reused for any client)"
+    echo "NOTE: Cyrillic fonts unavailable — import a ruRU language pack (or install a ruRU client) once; its original fonts are then reused for any client"
   fi
 fi
 echo "game installed ($V)"
