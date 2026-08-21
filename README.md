@@ -172,6 +172,13 @@ No Xcode, no dependencies.
   `Downloads`); if it still won't connect, open **System Settings → Privacy &
   Security → Local Network**, toggle **WoW** off and on, and relaunch.
   Internet servers are unaffected — this is LAN-only.
+- **Sound stays on the old device (or goes silent) after switching audio
+  output** (e.g. Mac speakers → AirPods): a wine CoreAudio limitation — the
+  game's audio stream is bound to the output device that was active at
+  launch, and wine doesn't follow the macOS default-device switch. Even the
+  client's own sound-engine restart re-binds to the same device. Connect
+  the output device you want **before** hitting Play; switching mid-game
+  requires restarting the game.
 - **The game doesn't appear after Play:** normally the launcher waits for the
   game window and brings it to the front automatically. If you switched to
   another app while the game was loading, it stays in the background by
