@@ -2,6 +2,20 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+// One open panel at a time: a second click on Install/Import while a panel is
+// already up brings that panel forward instead of stacking another one.
+private var activeOpenPanel: NSOpenPanel?
+func presentOpenPanel(_ configure: (NSOpenPanel) -> Void, onOK: @escaping (NSOpenPanel) -> Void) {
+    if let open = activeOpenPanel { open.makeKeyAndOrderFront(nil); return }
+    let panel = NSOpenPanel()
+    configure(panel)
+    activeOpenPanel = panel
+    panel.begin { resp in
+        activeOpenPanel = nil
+        if resp == .OK { onOK(panel) }
+    }
+}
+
 // MARK: - Paths inside the bundle
 
 enum Paths {
@@ -448,13 +462,13 @@ final class Store: ObservableObject {
     }
 
     func importLanguagePackFromPanel() {
-        let panel = NSOpenPanel()
-        panel.title = L("Import Language Pack")
-        panel.message = LF("Choose a %@ client folder in another language — only its language pack is imported", gameVersion)
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.begin { resp in
-            guard resp == .OK, let url = panel.url else { return }
+        presentOpenPanel({ panel in
+            panel.title = L("Import Language Pack")
+            panel.message = LF("Choose a %@ client folder in another language — only its language pack is imported", self.gameVersion)
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+        }) { panel in
+            guard let url = panel.url else { return }
             self.busy = true
             self.note = LF("Importing language pack from %@…", url.lastPathComponent)
             DispatchQueue.global().async {
@@ -568,13 +582,13 @@ final class Store: ObservableObject {
     }
 
     func installGameFromPanel() {
-        let panel = NSOpenPanel()
-        panel.title = L("Install Game Client")
-        panel.message = L("Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)")
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.begin { resp in
-            guard resp == .OK, let url = panel.url else { return }
+        presentOpenPanel({ panel in
+            panel.title = L("Install Game Client")
+            panel.message = L("Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)")
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+        }) { panel in
+            guard let url = panel.url else { return }
             self.installGame(from: url)
         }
     }
@@ -757,14 +771,14 @@ final class Store: ObservableObject {
     }
 
     func installFromPanel() {
-        let panel = NSOpenPanel()
-        panel.title = L("Install AddOns")
-        panel.message = L("Choose AddOn ZIP archives or folders")
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [.zip, .folder]
-        panel.begin { resp in
-            guard resp == .OK, !panel.urls.isEmpty else { return }
+        presentOpenPanel({ panel in
+            panel.title = L("Install AddOns")
+            panel.message = L("Choose AddOn ZIP archives or folders")
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = true
+            panel.allowedContentTypes = [.zip, .folder]
+        }) { panel in
+            guard !panel.urls.isEmpty else { return }
             self.install(urls: panel.urls)
         }
     }
