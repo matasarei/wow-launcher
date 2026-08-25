@@ -168,15 +168,20 @@ if ! grep -qsE '^CHAT_CP=' "$RES/launcher.conf" \
 fi
 CHAT_CP="$(grep -sE '^CHAT_CP=' "$RES/launcher.conf" | cut -d= -f2)"
 if [ "$SRC_LOCALE" = "ruRU" ] || [ "$CHAT_CP" = "1251" ]; then
-  mkdir -p "$DEST/Fonts"
+  # A ruRU client is the authentic source: (re)extract when the stash is missing
+  # or predates the current remap (wow-client-fonts check fails on old stashes).
+  if [ "$SRC_LOCALE" = "ruRU" ] && ! "$BIN/wow-client-fonts" check "$KIT/fonts-client/"* >/dev/null 2>&1; then
+    rm -rf "$KIT/fonts-client.new"
+    if "$BIN/wow-client-fonts" "$DEST" "$KIT/fonts-client.new"; then
+      rm -rf "$KIT/fonts-client" && mv "$KIT/fonts-client.new" "$KIT/fonts-client"
+      echo "Cyrillic fonts extracted from the client and stashed"
+    fi
+  fi
   if [ -n "$(ls "$KIT/fonts-client" 2>/dev/null)" ]; then
+    mkdir -p "$DEST/Fonts"
     cp "$KIT/fonts-client/"* "$DEST/Fonts/"
-    echo "installed Cyrillic input fonts (original client fonts)"
-  elif [ -n "$SRC_LOCALE" ] && python3 "$RES/bin/wow-client-fonts.py" "$DEST" "$DEST/Fonts" 2>/dev/null; then
-    mkdir -p "$KIT/fonts-client" && cp "$DEST/Fonts/"* "$KIT/fonts-client/"
-    echo "installed Cyrillic input fonts (extracted from the client's own fonts)"
+    echo "installed Cyrillic input fonts (original client fonts, CP1251 remap)"
   else
-    rmdir "$DEST/Fonts" 2>/dev/null || true
     echo "NOTE: Cyrillic fonts unavailable — import a ruRU language pack (or install a ruRU client) once; its original fonts are then reused for any client"
   fi
 fi

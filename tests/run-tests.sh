@@ -58,6 +58,14 @@ cp "$RES/wine/bin/wine" "$RES/wine/bin/wineserver"
 ln -s wine "$RES/wine/lib/wine/x86_64-unix/WoW"
 export WINE_STUB_LOG="$WINELOG"
 
+# native font tool: compiled once into build/ (rebuilt when its source changes)
+TOOL_SRC="$ROOT/tools/wow-client-fonts.swift"; TOOL="$ROOT/build/wow-client-fonts"
+if [ ! -x "$TOOL" ] || [ "$TOOL_SRC" -nt "$TOOL" ]; then
+  mkdir -p "$ROOT/build"
+  swiftc -swift-version 5 -O -target arm64-apple-macos14.0 -o "$TOOL" "$TOOL_SRC" || { echo "cannot compile wow-client-fonts"; exit 1; }
+fi
+cp "$TOOL" "$BIN/wow-client-fonts"
+
 # ---------------------------------------------------------------- fake clients
 mk_wotlk() {  # complete 3.3.5a client with enUS locale
   local D="$1"; mkdir -p "$D/Data/enUS"
@@ -88,6 +96,7 @@ mk_wotlk_ru() {  # same build, ruRU locale
   for f in "$D/Data/ruRU/"*enUS*; do
     mv "$f" "$(echo "$f" | sed s/enUS/ruRU/g)"; done
   echo ru-exe > "$D/Wow.exe"
+  cp "$ROOT/tests/fixtures/locale-ruRU.MPQ" "$D/Data/ruRU/locale-ruRU.MPQ"
 }
 mk_wotlk   "$TMP/client-wotlk"
 mk_wotlk_ru "$TMP/client-wotlk-ru"
@@ -180,6 +189,10 @@ OUT="$("$BIN/wow-language" import "$TMP/client-wotlk-ru" 2>&1)"
 assert_contains "$OUT" "language pack imported: ruRU" "ruRU pack imported"
 assert_file "$G/locales/ruRU/pack/locale-ruRU.MPQ"
 assert_eq "$(cat "$G/locales/ruRU/Wow.exe")" "ru-exe" "pack carries its own exe"
+assert_contains "$OUT" "Cyrillic fonts extracted and stashed" "ruRU pack yields the fonts"
+for f in FRIZQT__.TTF ARIALN.TTF MORPHEUS.TTF skurri.ttf; do assert_file "$RES/patch-kit/fonts-client/$f"; done
+"$BIN/wow-client-fonts" check "$RES/patch-kit/fonts-client/"* >/dev/null && ok || bad "stashed fonts not remapped"
+assert_file "$G/Fonts/FRIZQT__.TTF"
 assert_contains "$("$BIN/wow-language" list)" "* enUS" "list marks active"
 mkdir -p "$G/Cache"; touch "$G/Cache/stale.wdb"
 ENUS_EXE="$(cat "$G/Wow.exe")"
@@ -195,6 +208,45 @@ OUT="$("$BIN/wow-language" switch enUS 2>&1)"
 assert_contains "$OUT" "language switched to enUS" "switch back runs"
 assert_file "$G/Data/enUS/locale-enUS.MPQ"
 assert_contains "$(grep "SET locale" "$G/WTF/Config.wtf")" 'SET locale "enUS"' "locale cvar restored"
+
+# ============================================================ Cyrillic fonts
+section "wow-client-fonts (native tool)"
+mkdir -p "$TMP/fx-enUS/Data/enUS"; cp "$ROOT/tests/fixtures/locale-enUS.MPQ" "$TMP/fx-enUS/Data/enUS/"
+OUT="$("$BIN/wow-client-fonts" "$TMP/fx-enUS" "$TMP/fx-out" 2>&1)"; RC=$?
+assert_eq "$RC" "1" "enUS fonts rejected (no Cyrillic glyphs)"
+assert_contains "$OUT" "no Cyrillic glyphs" "reason printed"
+assert_nofile "$TMP/fx-out"
+OUT="$("$BIN/wow-client-fonts" "$TMP/client-tbc" "$TMP/fx-out" 2>&1)"; RC=$?
+assert_eq "$RC" "1" "empty MPQ rejected"
+assert_nofile "$TMP/fx-out"
+OUT="$("$BIN/wow-client-fonts" check "$TMP/nonexistent.ttf" 2>&1)"; RC=$?
+assert_eq "$RC" "1" "check fails on unreadable font"
+OUT="$("$BIN/wow-client-fonts" "$ROOT/tests/fixtures/locale-ruRU.MPQ" "$TMP/fx-out" 2>&1)"; RC=$?
+assert_eq "$RC" "0" "a locale MPQ path works directly"
+for f in FRIZQT__.TTF ARIALN.TTF MORPHEUS.TTF skurri.ttf; do assert_file "$TMP/fx-out/$f"; done
+"$BIN/wow-client-fonts" check "$TMP/fx-out/"* >/dev/null && ok || bad "extracted fixture fonts not remapped"
+rm -rf "$TMP/fx-out"
+
+section "install: Cyrillic font flow"
+rm -rf "$RES/patch-kit/fonts-client"
+printf 'AUTO_RES=1\nCHAT_CP=1251\n' > "$RES/launcher.conf"
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "NOTE: Cyrillic fonts unavailable" "enUS install without a stash warns"
+assert_nofile "$G/Fonts"
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk-ru" 2>&1)"
+assert_contains "$OUT" "Cyrillic fonts extracted from the client and stashed" "ruRU install extracts"
+assert_contains "$OUT" "installed Cyrillic input fonts" "ruRU install installs the fonts"
+assert_file "$G/Fonts/skurri.ttf"
+assert_nofile "$RES/patch-kit/fonts-client.new"
+echo junk > "$RES/patch-kit/fonts-client/ARIALN.TTF"      # stale/corrupt stash → refreshed from a ruRU source
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk-ru" 2>&1)"
+assert_contains "$OUT" "extracted from the client and stashed" "stale stash refreshed"
+"$BIN/wow-client-fonts" check "$RES/patch-kit/fonts-client/"* >/dev/null && ok || bad "refreshed stash not remapped"
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "installed Cyrillic input fonts (original client fonts" "enUS install reuses the stash"
+assert_file "$G/Fonts/FRIZQT__.TTF"
+[ "$(grep -c "extracted" <<< "$OUT")" = 0 ] && ok || bad "enUS install must not re-extract"
+reset_conf
 
 # ============================================================ install: tbc
 section "install 2.4.3 (replaces wotlk)"

@@ -81,15 +81,25 @@ clients), `Wow.exe.{orig,icon-patched}`, `fonts-client/`.
 
 ## Language / Cyrillic (hard-won)
 
-The 3.3.5a enUS-based client inserts typed bytes into its UTF-8 chat strings
-WITHOUT codepage conversion (as Latin-1 codepoints). Things that do NOT fix it:
-wine env locale alone, the prefix ACP registry alone, patching the exe's
-`push 1252` constants (regressed behavior). The fix that works (classic
-community approach): **fonts with Cyrillic glyphs at U+00C0–U+00FF (+Ё/ё at
-A8/B8)** in `game/Fonts/` — `wow-client-fonts.py` extracts the client's own
-locale-MPQ fonts (mpyq) and remaps them (fontTools); once extracted they are
-stashed in `patch-kit/fonts-client/` and reused for any client (no other source —
-enUS MPQ fonts have no Cyrillic glyphs).
+`Wow.exe` is an all-ANSI application (`RegisterClassExA`, `GetMessageA`…)
+that derives its own input codepage from the keyboard-layout HKL. Under
+winemac.drv the app never receives `WM_INPUTLANGCHANGE`, so after the first
+RU↔EN layout toggle the client decodes wine's CP1251 bytes as Latin-1 (the
+ruRU client too — before the toggle it decodes correctly). CrossOver's wine
+doesn't have this; the standalone Wine 11.13 runtime does — the real fix
+belongs in winemac.drv. Things that do NOT fix it: wine env locale alone, the
+prefix ACP registry alone, patching the exe's `push 1252` constants (regressed
+behavior). The workaround that works (classic community approach): **fonts
+with Cyrillic glyphs at the Latin-1 positions the bytes land on** — U+00C0–U+00FF
+→ А–я, Ё/ё at A8/B8, plus CP1251's 0xA0–0xBF letters (І і Ї ї Є є Ґ ґ Ў ў Ј ј
+Ѕ ѕ №, so Ukrainian/Belarusian layouts work; without them `і` shows as `³`) —
+in `game/Fonts/`. `tools/wow-client-fonts.swift` (built into `bin/wow-client-fonts`)
+extracts the client's own locale-MPQ fonts and rewrites their unicode cmap
+subtables; native Swift, decompression via the system libz/libbz2 dylibs, so
+nothing (no Python, no Xcode CLT) is needed at run time. Once extracted they
+are stashed in `patch-kit/fonts-client/` and reused for any client (no other
+source — enUS MPQ fonts have no Cyrillic glyphs); a ruRU install/pack import
+refreshes a stash that fails `wow-client-fonts check` (older remap, corrupt).
 The wine side still must deliver CP1251 bytes: `LANG/LC_ALL=ru_RU.UTF-8` +
 system codepage ACP=1251/OEMCP=866 (wow-launch derives from game locale or
 `CHAT_CP=1251`).

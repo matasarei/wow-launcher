@@ -9,9 +9,14 @@ mkdir -p "$SRC/build" "$APP/Contents/Resources/bin"
 swiftc -swift-version 5 -parse-as-library -O -target arm64-apple-macos14.0 \
   -o "$SRC/build/WoW Launcher" "$SRC/main.swift"
 codesign --force --sign - "$SRC/build/WoW Launcher"
-rm -f "$APP/Contents/MacOS/WoW335"
+rm -f "$APP/Contents/MacOS/WoW335" "$APP/Contents/Resources/bin/wow-client-fonts.py"   # pre-native leftovers
 cp "$SRC/build/WoW Launcher" "$APP/Contents/MacOS/WoW Launcher"
 install -m 755 "$SRC/scripts/wow-"* "$APP/Contents/Resources/bin/"
+# native font tool (MPQ extraction + CP1251 remap; no Python at run time)
+swiftc -swift-version 5 -O -target arm64-apple-macos14.0 \
+  -o "$SRC/build/wow-client-fonts" "$SRC/tools/wow-client-fonts.swift"
+codesign --force --sign - "$SRC/build/wow-client-fonts"
+install -m 755 "$SRC/build/wow-client-fonts" "$APP/Contents/Resources/bin/wow-client-fonts"
 # UI translations (macOS picks the app language from the system, fallback en)
 for d in "$SRC/assets/lproj/"*.lproj; do
   ditto "$d" "$APP/Contents/Resources/$(basename "$d")"

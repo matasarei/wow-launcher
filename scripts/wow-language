@@ -89,9 +89,12 @@ case "$1" in
     mkdir -p "$G/locales/$SL"
     ditto "$SRC/Data/$SL" "$G/locales/$SL/pack"
     cp "$SRC/Wow.exe" "$G/locales/$SL/Wow.exe"
-    # a ruRU pack is also the source of the authentic Cyrillic fonts
-    if [ "$SL" = "ruRU" ] && [ -z "$(ls "$KIT/fonts-client" 2>/dev/null)" ]; then
-      if python3 "$BIN/wow-client-fonts.py" "$SRC" "$KIT/fonts-client" 2>/dev/null; then
+    # a ruRU pack is also the source of the authentic Cyrillic fonts: (re)extract
+    # when the stash is missing or predates the current remap
+    if [ "$SL" = "ruRU" ] && ! "$BIN/wow-client-fonts" check "$KIT/fonts-client/"* >/dev/null 2>&1; then
+      rm -rf "$KIT/fonts-client.new"
+      if "$BIN/wow-client-fonts" "$SRC" "$KIT/fonts-client.new"; then
+        rm -rf "$KIT/fonts-client" && mv "$KIT/fonts-client.new" "$KIT/fonts-client"
         echo "Cyrillic fonts extracted and stashed"
       fi
     fi

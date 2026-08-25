@@ -36,10 +36,6 @@ checksums verified. WoWSilicon itself is never installed or launched — its rel
 DMG is only read as a file source. (If a WoWSilicon 3.x app happens to be installed
 already, the build takes the payloads from it and skips that download.)
 
-For Cyrillic chat support: `python3 -m pip install --user mpyq fonttools` —
-used to extract and remap the original fonts from a ruRU client at install
-time (there is no bundled substitute; the authentic fonts are the only source).
-
 You will also need **a WoW client** — 3.3.5a (build 12340), 2.4.3 or 1.12; e.g.
 [chromiecraft.com](https://www.chromiecraft.com) has instructions for 3.3.5a —
 but that is installed later through the app's own GUI, not by make.

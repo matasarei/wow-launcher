@@ -93,7 +93,7 @@ Double-click **WoW.app** — a native manager window opens:
 - **Display** — window mode (maximized / windowed / fullscreen) with standard window sizes, automatic resolution & Retina matching at every launch, a renderer choice (**DXVK** by default or the Metal-native **MTLd3D** with HDR output), or pick a specific display: the game window is moved there automatically after launch (needs a one-time Accessibility permission).
 - **About** — version, links (repository, build story, third-party components), license and trademark info.
 
-**Cyrillic input** (tested on both ruRU and enUS clients): works out of the box — for ruRU clients always, and for enUS clients whenever your Mac has a Russian keyboard layout configured (the installer detects it and enables `CHAT_CP=1251` in `Contents/Resources/launcher.conf` automatically; set the key manually to force it either way). The fonts come from a ruRU client's own files, extracted and remapped automatically (requires `pip3 install mpyq fonttools`) — import a ruRU **language pack** in the Game tab (or install a ruRU client) once, and the fonts are stashed and reused for any client afterwards.
+**Cyrillic input** (tested on both ruRU and enUS clients): works out of the box — for ruRU clients always, and for enUS clients whenever your Mac has a Russian keyboard layout configured (the installer detects it and enables `CHAT_CP=1251` in `Contents/Resources/launcher.conf` automatically; set the key manually to force it either way). The fonts come from a ruRU client's own files, extracted from its MPQ archive and remapped by the bundled native tool (nothing to install) — import a ruRU **language pack** in the Game tab (or install a ruRU client) once, and the fonts are stashed and reused for any client afterwards. The remap covers the whole CP1251 alphabet, so Ukrainian and Belarusian layouts type correctly too.
 
 Everything the GUI does is also scriptable — the same tools it calls live in `Contents/Resources/bin/`:
 
@@ -134,6 +134,7 @@ with its license and source.
 | `scripts/wow-settings` | `Contents/Resources/bin/` | Config.wtf cvars, Retina mode, display detection |
 | `scripts/wow-install-client` | `Contents/Resources/bin/` | copy a client in + apply the patch kit |
 | `scripts/wow-verify-game` | `Contents/Resources/bin/` | 41-check verification with `--fix` repair |
+| `tools/wow-client-fonts.swift` | `Contents/Resources/bin/wow-client-fonts` | native MPQ font extraction + CP1251 remap (no Python) |
 
 ```sh
 make build          # the full wrapper (same as plain `make`)
@@ -162,6 +163,10 @@ No Xcode, no dependencies.
   **language pack** in the Game tab (or install a ruRU client) once. Its
   fonts are extracted, stashed, and reused for any client afterwards,
   including enUS.
+- **Cyrillic typed after switching layouts shows as `ôûâ` / `³`:** the fonts
+  in `<game>/Fonts/` are not the remapped ones (hand-copied, or from an older
+  launcher). Reinstall the ruRU client or re-import its language pack — the
+  stash is refreshed automatically.
 - **Keyboard controls don't work / keybindings dead:** a Cyrillic keyboard
   layout is active — the game binds keys by character. Switch to a Latin
   layout for playing; switch to Russian only while typing in chat.
