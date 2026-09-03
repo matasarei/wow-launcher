@@ -101,6 +101,7 @@ struct DisplayOption: Identifiable, Hashable {
 final class Store: ObservableObject {
     @Published var mode = "maximized"
     @Published var renderer = "dxvk"
+    @Published var silicon = false        // libSiliconPatch client hooks (SILICON=1), off by default
     @Published var resolution = "…"
     @Published var retina = false
     @Published var autoRes = true
@@ -119,6 +120,7 @@ final class Store: ObservableObject {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         let r = confGet("RENDERER")
         if !r.isEmpty { renderer = r }
+        silicon = confGet("SILICON") == "1"
         refreshDisplays()
         refreshGames()
         refreshRealms()
@@ -303,6 +305,15 @@ final class Store: ObservableObject {
         renderer = r
         confSet("RENDERER", r)
         note = LF("Renderer set to %@ — takes effect at the next game start.", r == "mtld3d" ? "MTLd3D" : "DXVK")
+    }
+
+    // The switch is applied by the repair path: verify's expected mod set follows
+    // SILICON=, so --fix adds or removes the DLL and its dlls.txt line.
+    func setSilicon(_ v: Bool) {
+        silicon = v
+        confSet("SILICON", v ? "1" : "0")
+        if games.isEmpty { return }
+        verifyGame(fix: true)
     }
 
     func setAuto(_ v: Bool) {
@@ -1013,6 +1024,17 @@ struct GameView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            if store.gameVersion != "2.4.3" {   // no libSiliconPatch build exists for 2.4.3
+                Section("Performance") {
+                    Toggle("libSiliconPatch speed hooks", isOn: Binding(
+                        get: { store.silicon },
+                        set: { store.setSilicon($0) }))
+                        .disabled(store.busy || store.verifyRunning)
+                    Text("Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             if store.supportsLanguagePacks {
                 Section("Language") {
                     HStack {
@@ -1302,7 +1324,7 @@ struct DisplayView: View {
             Section("Renderer") {
                 Picker("Graphics backend", selection: rendererBinding) {
                     Text("DXVK (default)").tag("dxvk")
-                    Text("MTLd3D (HDR, experimental)").tag("mtld3d")
+                    Text("MTLd3D (Metal, HDR)").tag("mtld3d")
                 }
                 .pickerStyle(.menu)
                 Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")

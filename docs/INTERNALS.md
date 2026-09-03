@@ -28,6 +28,7 @@ Contents/Resources/
 | `GAME_DISPLAY=<name>` | show the game on this display (GUI writes it) |
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |
 | `RENDERER=dxvk\|mtld3d` | graphics backend (Display pane): dxvk = game-dir DXVK d3d9 (`d3d9=n,b`); mtld3d = the runtime's builtin Metal-native d3d9, HDR-capable (`d3d9=b`) |
+| `SILICON=1\|0` | libSiliconPatch client speed hooks — **off by default** (Game pane → Performance toggle). `1`: installer/repair ship the DLL and list it in `dlls.txt`; otherwise `dlls.txt` is winerosetta only and verify stops restoring the DLL. Off by default because on the current runtime rosettax87 already carries the load (no measurable FPS change on an M4 Max), and the DLL's ~400 hooks are hardcoded addresses with no build check — on a modified client they corrupt memory instead of failing, and Sirus-style clients report the patched bytes to the server (WoWSilicon issue #15). The toggle applies via `wow-verify-game --fix` |
 | `X87=rosettax87\|sidecar` | x87 engine (conf-only, no UI): default rosettax87 from the game dir; `sidecar` uses patch-kit/x87sidecar via `X87_SIDECAR_PATH` (cooperative attach, no debugger) — fallback if rosettax87 breaks on a future macOS |
 
 ## Wine runtime (what `make runtime` / `make payloads` do)
@@ -143,7 +144,8 @@ version (`wow-game-version`, Data-MPQ fingerprint) and records it as
 `GAME_VERSION`. Per-version differences, everything else is shared:
 
 - **libSiliconPatch**: per-expansion builds in `patch-kit/libSiliconPatch/{vanilla,wotlk}`;
-  none exists for 2.4.3 (its `dlls.txt` lists only winerosetta).
+  none exists for 2.4.3 (the toggle is hidden). Opt-in via `SILICON=1`, see the
+  conf table.
 - **Divx patch**: `DivxTac.dll` is patched too when present (older clients);
   kit references are version-keyed (`DivxDecoder.dll.<version>.{orig,patched}`)
   because the DLLs differ between client builds.

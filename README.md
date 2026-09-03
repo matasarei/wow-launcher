@@ -37,7 +37,7 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 | **Wine 11 ([WineAndAqua](https://github.com/WineAndAqua/wine) build)** | runs the Windows client on macOS |
 | **DXVK (async)** | translates Direct3D 9 → Vulkan → Metal |
 | **winerosetta + rosettax87** | fast x87 FPU math under Rosetta 2 — the single biggest FPS win for 2010-era game code |
-| **libSiliconPatch** | client-side hooks for Apple Silicon |
+| **libSiliconPatch** | optional client-side speed hooks (off by default; Game → Performance) — for weaker Macs, stock clients only |
 | **SwiftUI manager** (this repo) | install, patch, verify, configure, and launch — no terminal needed |
 
 > [!IMPORTANT]
@@ -93,7 +93,7 @@ Double-click **WoW.app** — a native manager window opens:
 - **Display** — window mode (maximized / windowed / fullscreen) with standard window sizes, automatic resolution & Retina matching at every launch, a renderer choice (**DXVK** by default or the Metal-native **MTLd3D** with HDR output), or pick a specific display: the game window is moved there automatically after launch (needs a one-time Accessibility permission).
 - **About** — version, links (repository, build story, third-party components), license and trademark info.
 
-**Cyrillic input** (tested on both ruRU and enUS clients): works out of the box — for ruRU clients always, and for enUS clients whenever your Mac has a Russian keyboard layout configured (the installer detects it and enables `CHAT_CP=1251` in `Contents/Resources/launcher.conf` automatically; set the key manually to force it either way). The fonts come from a ruRU client's own files, extracted from its MPQ archive and remapped by the bundled native tool (nothing to install) — import a ruRU **language pack** in the Game tab (or install a ruRU client) once, and the fonts are stashed and reused for any client afterwards. The remap covers the whole CP1251 alphabet, so Ukrainian and Belarusian layouts type correctly too.
+**Cyrillic input** (tested on both ruRU and enUS clients): needs the Cyrillic **fonts from a ruRU client** — they are not bundled (they are Blizzard files), only the converter is. Install a ruRU client or import a ruRU **language pack** in the Game tab once; the app extracts the fonts from its MPQ archive, remaps them with the built-in native tool (nothing to install) and stashes them for any client afterwards, including enUS ones. With the fonts in place, ruRU clients type Cyrillic always, and enUS clients whenever your Mac has a Russian keyboard layout configured (the installer detects it and enables `CHAT_CP=1251` in `Contents/Resources/launcher.conf`; set the key manually to force it either way). The remap covers the whole CP1251 alphabet, so Ukrainian and Belarusian layouts type correctly too.
 
 Everything the GUI does is also scriptable — the same tools it calls live in `Contents/Resources/bin/`:
 

@@ -48,12 +48,19 @@ mkdir -p "$DEST/mods"
 cp "$KIT/d3d9.dll" "$KIT/libDllLdr.dll" "$DEST/"
 cp "$KIT/mods/winerosetta.dll" "$DEST/mods/"
 ditto "$KIT/rosettax87" "$DEST/rosettax87"
-# libSiliconPatch has per-expansion builds (none exists for 2.4.3)
+# libSiliconPatch (WoWSilicon's client speed hooks) is OFF unless SILICON=1 in
+# launcher.conf (Game pane toggle; survives reinstalls): on the current runtime
+# rosettax87 already carries the load, and its ~400 hooks are hardcoded addresses
+# for the stock 12340/5875 exes — on modified clients they corrupt memory.
+# Per-expansion builds; none exists for 2.4.3.
 case "$V" in
   3.3.5a) SILICON="$KIT/libSiliconPatch/wotlk/libSiliconPatch.dll" ;;
   1.12)   SILICON="$KIT/libSiliconPatch/vanilla/libSiliconPatch.dll" ;;
   *)      SILICON="" ;;
 esac
+if [ "$(grep -sE '^SILICON=' "$RES/launcher.conf" | cut -d= -f2)" != 1 ]; then
+  echo "libSiliconPatch off (default; SILICON=1 in launcher.conf enables it)"; SILICON=""
+fi
 if [ -n "$SILICON" ] && [ -f "$SILICON" ]; then
   cp "$SILICON" "$DEST/mods/libSiliconPatch.dll"
   printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n' > "$DEST/dlls.txt"

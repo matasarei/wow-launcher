@@ -34,6 +34,12 @@ case "$V" in
           SILICON_SUB="vanilla" ;;
   *) echo "FAIL: unrecognized client version"; echo "REINSTALL"; echo "RESULT: PROBLEMS"; exit 1 ;;
 esac
+# libSiliconPatch is opt-in (SILICON=1 in launcher.conf, Game pane toggle). Off:
+# expected dlls.txt has no entry for it and the DLL is left alone (not loaded).
+SILICON_OFF=0
+if [ "$(grep -sE '^SILICON=' "$RES/launcher.conf" | cut -d= -f2)" != 1 ]; then SILICON_OFF=1; SILICON_SUB=""; fi
+if [ -n "$SILICON_SUB" ]; then DLLS_TXT="$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n')"
+else DLLS_TXT="mods/winerosetta.dll"; fi
 
 step() { i=$((i+1)); echo "PROGRESS $i $TOTAL $1"; }
 get_cvar() { grep -iE "^SET $1 " "$CFG" 2>/dev/null | sed -E 's/.*"(.*)".*/\1/' | head -1; }
@@ -112,15 +118,16 @@ check_divx DivxTac.dll
 from_kit d3d9.dll d3d9.dll "d3d9.dll (DXVK renderer)"
 from_kit libDllLdr.dll libDllLdr.dll "libDllLdr.dll"
 step "dlls.txt"
-if grep -qs 'mods/winerosetta.dll' "$G/dlls.txt"; then echo "ok: dlls.txt"
+if [ "$(cat "$G/dlls.txt" 2>/dev/null)" = "$DLLS_TXT" ]; then echo "ok: dlls.txt"
 elif [ "$FIX" = 1 ]; then
-  if [ -n "$SILICON_SUB" ]; then printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n' > "$G/dlls.txt"
-  else printf 'mods/winerosetta.dll\n' > "$G/dlls.txt"; fi
+  printf '%s\n' "$DLLS_TXT" > "$G/dlls.txt"
   echo "ok: dlls.txt (fixed)"
-else echo "FAIL: dlls.txt missing or incomplete — repairable"; fail=$((fail+1)); canfix=1; fi
+else echo "FAIL: dlls.txt missing or does not match the mod set — repairable"; fail=$((fail+1)); canfix=1; fi
 from_kit mods/winerosetta.dll mods/winerosetta.dll "winerosetta.dll"
 step "libSiliconPatch.dll"
-if [ -z "$SILICON_SUB" ]; then
+if [ "$SILICON_OFF" = 1 ]; then
+  echo "ok: libSiliconPatch off (SILICON=1 enables it)"
+elif [ -z "$SILICON_SUB" ]; then
   echo "ok: libSiliconPatch not used for $V clients"
 elif cmp -s "$G/mods/libSiliconPatch.dll" "$KIT/libSiliconPatch/$SILICON_SUB/libSiliconPatch.dll"; then
   echo "ok: libSiliconPatch.dll ($SILICON_SUB)"

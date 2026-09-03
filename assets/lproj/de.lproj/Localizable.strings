@@ -70,7 +70,7 @@
 "Renderer" = "Renderer";
 "Graphics backend" = "Grafik-Backend";
 "DXVK (default)" = "DXVK (Standard)";
-"MTLd3D (HDR, experimental)" = "MTLd3D (HDR, experimentell)";
+"MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Wirksam beim nächsten Spielstart. DXVK übersetzt Direct3D 9 über Vulkan und ist der bewährte Standard; MTLd3D rendert direkt über Metal und kann HDR ausgeben.";
 "Version %@" = "Version %@";
 "Classic-era World of Warcraft on Apple Silicon — self-contained and fast." = "World of Warcraft der Classic-Ära auf Apple Silicon — eigenständig und schnell.";
@@ -92,3 +92,6 @@
 "Failed to install %@: %@" = "Installation von %@ fehlgeschlagen: %@";
 "Verification stopped." = "Prüfung abgebrochen.";
 "Could not start verification: %@" = "Prüfung konnte nicht gestartet werden: %@";
+"Performance" = "Leistung";
+"libSiliconPatch speed hooks" = "libSiliconPatch-Beschleunigungshooks";
+"Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start." = "Standardmäßig aus. Ersetzt langsame Teile des Spielcodes durch schnellere (eine nur als Binärdatei vorliegende Komponente von WoWSilicon, kein veröffentlichter Quellcode). Ausprobieren, wenn das Spiel an belebten Orten ruckelt. Nur für unveränderte Clients — manche Server werten es als Manipulation. Gilt ab dem nächsten Spielstart.";

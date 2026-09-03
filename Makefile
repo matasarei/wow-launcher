@@ -52,7 +52,8 @@ skeleton:
 	@echo "==> app skeleton"
 	@mkdir -p "$(APP)/Contents/MacOS" "$(RES)/bin" "$(RES)/games" "$(RES)/logs"
 	@cp assets/Info.plist "$(APP)/Contents/Info.plist"
-	@printf 'AUTO_RES=1\n' > "$(RES)/launcher.conf"
+	@# keep the conf of an already-installed wrapper (rebuilds in place must not forget the game)
+	@[ -f "$(RES)/launcher.conf" ] || printf 'AUTO_RES=1\n' > "$(RES)/launcher.conf"
 	@rm -rf /tmp/wow335.iconset && mkdir /tmp/wow335.iconset
 	@sips -z 128 128 assets/icon.png --out /tmp/wow335.iconset/icon_128x128.png >/dev/null
 	@cp assets/icon.png /tmp/wow335.iconset/icon_128x128@2x.png

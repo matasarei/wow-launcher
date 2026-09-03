@@ -70,7 +70,7 @@
 "Renderer" = "渲染器";
 "Graphics backend" = "图形后端";
 "DXVK (default)" = "DXVK（默认）";
-"MTLd3D (HDR, experimental)" = "MTLd3D（HDR，实验性）";
+"MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "下次启动游戏时生效。DXVK 通过 Vulkan 转换 Direct3D 9，是经过验证的默认选项；MTLd3D 直接通过 Metal 渲染并可输出 HDR。";
 "Version %@" = "版本 %@";
 "Classic-era World of Warcraft on Apple Silicon — self-contained and fast." = "在 Apple Silicon 上运行经典时代的《魔兽世界》——独立且快速。";
@@ -92,3 +92,6 @@
 "Failed to install %@: %@" = "安装 %@ 失败：%@";
 "Verification stopped." = "校验已停止。";
 "Could not start verification: %@" = "无法启动校验：%@";
+"Performance" = "性能";
+"libSiliconPatch speed hooks" = "libSiliconPatch 加速钩子";
+"Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start." = "默认关闭。用更快的代码替换游戏中较慢的部分（来自 WoWSilicon 的纯二进制组件，未公开源代码）。如果游戏在人多的地方卡顿，可以试试。仅限未修改的客户端——部分服务器会将其视为篡改。下次启动游戏时生效。";
