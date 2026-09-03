@@ -90,6 +90,11 @@ mk_vanilla() {  # complete 1.12 client (no locale folder, root realmlist)
   for m in dbc interface model texture; do touch "$D/Data/$m.MPQ"; done
   printf 'set realmlist logon.example.com\r\n' > "$D/realmlist.wtf"
 }
+mk_custom() {  # Sirus-style 3.3.5a client: run.exe entrypoint, no Wow.exe
+  local D="$1"; mk_wotlk "$D"
+  mv "$D/Wow.exe" "$D/run.exe"
+  rm -f "$D/Scan.dll"          # custom clients do not always ship the full set
+}
 mk_wotlk_ru() {  # same build, ruRU locale
   local D="$1"; mk_wotlk "$D"
   mv "$D/Data/enUS" "$D/Data/ruRU"
@@ -138,9 +143,9 @@ OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
 assert_contains "$OUT" "detected client version: 3.3.5a" "version detected"
 assert_contains "$OUT" "game installed (3.3.5a)" "install completed"
 G="$RES/games/main"
-assert_contains "$OUT" "libSiliconPatch off (default" "libSiliconPatch off by default"
-assert_nofile "$G/mods/libSiliconPatch.dll"
-assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "wotlk dlls.txt (winerosetta only by default)"
+assert_contains "$OUT" "patch level: all" "PATCHES defaults to all"
+assert_eq "$(cat "$G/mods/libSiliconPatch.dll")" "sil-lk" "libSiliconPatch installed by default"
+assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "wotlk dlls.txt (both mods by default)"
 assert_eq "$(cat "$G/DivxDecoder.dll")" "patcheddivx" "DivxDecoder patched from kit"
 assert_eq "$(cat "$G/DivxDecoder.dll.bak")" "origdivx" "DivxDecoder backup kept"
 assert_nofile "$G/vanilla-tweaks.exe"
@@ -167,29 +172,188 @@ OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
 assert_contains "$OUT" "RESULT: OK" "--fix repairs"
 assert_eq "$(cat "$G/d3d9.dll")" "d3d9" "d3d9 restored from kit"
 
-# ============================================================ SILICON=1 switch
-section "SILICON=1 (libSiliconPatch opt-in)"
+# ============================================================ PATCHES levels
+section "PATCHES levels (all | no-silicon | winerosetta | none)"
 OUT="$("$BIN/wow-verify-game" 2>&1)"
-assert_contains "$OUT" "ok: libSiliconPatch off (SILICON=1 enables it)" "verify reports libSiliconPatch off"
-echo 'SILICON=1' >> "$RES/launcher.conf"
+assert_contains "$OUT" "RESULT: OK" "default level (all) verifies clean"
+
+echo 'PATCHES=no-silicon' >> "$RES/launcher.conf"
 OUT="$("$BIN/wow-verify-game" 2>&1)"
-assert_contains "$OUT" "CANFIX" "SILICON=1 with libSiliconPatch absent -> CANFIX"
+assert_contains "$OUT" "CANFIX" "no-silicon with libSiliconPatch listed -> CANFIX"
 OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
-assert_contains "$OUT" "RESULT: OK" "--fix installs libSiliconPatch"
-assert_eq "$(cat "$G/mods/libSiliconPatch.dll")" "sil-lk" "wotlk libSiliconPatch build"
-assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "SILICON=1 dlls.txt"
-assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "43" "SILICON=1 keeps the step count"
+assert_contains "$OUT" "RESULT: OK" "--fix drops the libSiliconPatch entry"
+assert_contains "$OUT" "ok: libSiliconPatch off (patch level: no-silicon)" "verify names the level"
+assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "no-silicon dlls.txt"
+assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "43" "no-silicon keeps the step count"
+
+# winerosetta: the mod loader stays, the cosmetic icon patch is reverted
+printf 'origexe\n' > "$G/Wow.exe.icon-backup"; printf 'iconexe\n' > "$G/Wow.exe"
+sed -i '' 's/^PATCHES=.*/PATCHES=winerosetta/' "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "CANFIX" "winerosetta level with an icon-patched exe -> CANFIX"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_contains "$OUT" "RESULT: OK" "--fix reverts the icon patch"
+assert_eq "$(cat "$G/Wow.exe")" "origexe" "Wow.exe restored from the backup"
+assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "winerosetta level keeps the DLL"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "patcheddivx" "winerosetta level keeps the mod loader"
+assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "43" "winerosetta level keeps the step count"
+
+# none: the client goes back to exactly what it shipped
+sed -i '' 's/^PATCHES=.*/PATCHES=none/' "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "CANFIX" "none with the loader in place -> CANFIX"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_contains "$OUT" "RESULT: OK" "--fix strips every client patch"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "origdivx" "DivxDecoder restored from the backup"
+assert_nofile "$G/dlls.txt"
+assert_contains "$OUT" "ok: winerosetta.dll not loaded (no patches)" "winerosetta reported inert"
+assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "43" "none keeps the step count"
+
+# the cosmetic icon patch must converge UP as well as down (kit fast path)
+printf 'origexe\n' > "$RES/patch-kit/Wow.exe.orig"
+printf 'iconexe\n' > "$RES/patch-kit/Wow.exe.icon-patched"
+printf 'origexe\n' > "$G/Wow.exe"; rm -f "$G/Wow.exe.icon-backup"
+sed -i '' 's/^PATCHES=.*/PATCHES=all/' "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "CANFIX" "unpatched icon at level all -> CANFIX"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_eq "$(cat "$G/Wow.exe")" "iconexe" "icon patch re-applied moving back up"
+assert_eq "$(cat "$G/Wow.exe.icon-backup")" "origexe" "backup written when re-applying"
+sed -i '' 's/^PATCHES=.*/PATCHES=winerosetta/' "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_eq "$(cat "$G/Wow.exe")" "origexe" "and reverted again going down"
+rm -f "$RES/patch-kit/Wow.exe.orig" "$RES/patch-kit/Wow.exe.icon-patched" "$G/Wow.exe.icon-backup"
+: > "$G/Wow.exe"
+sed -i '' 's/^PATCHES=.*/PATCHES=none/' "$RES/launcher.conf"
+
+# with no original copy anywhere, "no patches" must not be claimed as verified
+mv "$G/DivxDecoder.dll.bak" "$TMP/divx.bak.keep"
+mv "$RES/patch-kit/DivxDecoder.dll.3.3.5a.orig" "$TMP/divx.orig.keep"
+printf 'patcheddivx\n' > "$G/DivxDecoder.dll"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "ok: DivxDecoder.dll never patched by the launcher" "unverifiable DivxDecoder states only what is true"
+assert_eq "$(echo "$OUT" | grep -c '^WARN:')" "0" "no unactionable warnings at level none"
+mv "$TMP/divx.bak.keep" "$G/DivxDecoder.dll.bak"
+mv "$TMP/divx.orig.keep" "$RES/patch-kit/DivxDecoder.dll.3.3.5a.orig"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "origdivx" "restored once the backup is back"
+
+# a reinstall at PATCHES=none must leave the client unpatched too
 OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
-assert_eq "$(cat "$G/mods/libSiliconPatch.dll")" "sil-lk" "installer honors SILICON=1"
-assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "reinstall with SILICON=1 dlls.txt"
-assert_contains "$(cat "$RES/launcher.conf")" "SILICON=1" "SILICON survives reinstall"
-sed -i '' 's/^SILICON=1/SILICON=0/' "$RES/launcher.conf"
+assert_contains "$OUT" "patch level: none" "installer reports the level"
+assert_contains "$OUT" "icon patch skipped (patch level: none)" "installer skips the icon patch"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "origdivx" "reinstall at none leaves DivxDecoder original"
+assert_file "$G/DivxDecoder.dll.bak"
+assert_nofile "$G/dlls.txt"
+assert_nofile "$G/mods/winerosetta.dll"
+
+# a fresh install at PATCHES=winerosetta: loader in, libSiliconPatch out, icon skipped
+sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"; echo 'PATCHES=winerosetta' >> "$RES/launcher.conf"
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "patch level: winerosetta" "installer reports the winerosetta level"
+assert_contains "$OUT" "icon patch skipped (patch level: winerosetta)" "winerosetta install skips the icon"
+assert_eq "$(cat "$G/mods/winerosetta.dll")" "winero" "winerosetta level ships the DLL"
+assert_nofile "$G/mods/libSiliconPatch.dll"
+assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "winerosetta level dlls.txt"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "patcheddivx" "winerosetta level patches the loader"
 OUT="$("$BIN/wow-verify-game" 2>&1)"
-assert_contains "$OUT" "CANFIX" "SILICON=0 with libSiliconPatch listed -> CANFIX"
+assert_contains "$OUT" "RESULT: OK" "winerosetta level verifies clean"
+
+# older clients ship DivxTac.dll instead of / besides DivxDecoder.dll
+printf 'origtac\n' > "$G/DivxTac.dll.bak"; printf 'patchedtac\n' > "$G/DivxTac.dll"
+sed -i '' 's/^PATCHES=.*/PATCHES=none/' "$RES/launcher.conf"
 OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
-assert_contains "$OUT" "RESULT: OK" "--fix removes the dlls.txt entry"
-assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "SILICON=0 dlls.txt (winerosetta only)"
+assert_eq "$(cat "$G/DivxTac.dll")" "origtac" "DivxTac.dll restored at level none"
+rm -f "$G/DivxTac.dll" "$G/DivxTac.dll.bak"
+
+# an unrecognised level falls back to the default rather than erroring — this is
+# what a conf left over from a pre-rename build (PATCHES=warden) now hits, and it
+# must land on `all`, not on a half-applied state
+for BAD in warden garbage ""; do
+  sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"; echo "PATCHES=$BAD" >> "$RES/launcher.conf"
+  OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+  assert_contains "$OUT" "RESULT: OK" "unknown level '$BAD' verifies without erroring"
+  assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "unknown level '$BAD' falls back to all"
+done
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "patch level: all" "installer falls back to all for an unknown level"
+
+# the three patch_level() copies must stay identical
+A="$(sed -n '/^patch_level()/,/^}/p' "$BIN/wow-install-client" | md5 -q)"
+B="$(sed -n '/^patch_level()/,/^}/p' "$BIN/wow-verify-game"   | md5 -q)"
+C="$(sed -n '/^patch_level()/,/^}/p' "$BIN/wow-language"      | md5 -q)"
+[ "$A" = "$B" ] && [ "$B" = "$C" ] && ok || bad "patch_level() has diverged between scripts"
+
+# the pre-2.4 SILICON= toggle still migrates, then the default takes over again
+sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"
+echo 'SILICON=0' >> "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_contains "$OUT" "ok: libSiliconPatch off (patch level: no-silicon)" "SILICON=0 migrates to no-silicon"
 sed -i '' '/^SILICON=/d' "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_contains "$OUT" "RESULT: OK" "--fix restores the default level"
+assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "default (all) restores libSiliconPatch"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "patcheddivx" "default restores the mod loader"
+
+# ============================================================ custom entrypoint
+section "custom client (run.exe entrypoint)"
+mk_custom "$TMP/client-custom"
+sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"; echo 'PATCHES=none' >> "$RES/launcher.conf"
+OUT="$("$BIN/wow-install-client" "$TMP/client-custom" 2>&1)"
+assert_contains "$OUT" "game installed (3.3.5a)" "run.exe client installs"
+assert_contains "$OUT" "icon patch skipped (run.exe is a custom client entrypoint)" "no icon patch for run.exe"
+assert_file "$G/run.exe"
+assert_nofile "$G/Wow.exe"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "ok: run.exe present" "verify finds the run.exe entrypoint"
+assert_contains "$OUT" "ok: run.exe is a custom client entrypoint" "no build comparison for run.exe"
+assert_contains "$OUT" "RESULT: OK" "custom client verifies"
+assert_eq "$(echo "$OUT" | grep -c '^WARN:')" "0" "a custom client at level none raises no warnings"
+assert_eq "$(echo "$OUT" | grep -c '^FAIL:')" "0" "and no failures for the missing Scan.dll"
+assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "43" "step count unchanged for run.exe"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "games/main/run.exe" "launches run.exe"
+OUT="$("$BIN/wow-language" list 2>&1 || true)"
+assert_contains "$OUT" "custom entrypoint" "language packs refused for a custom client"
+
+# missing support DLLs are only tolerated for custom/unpatched clients
+sed -i '' 's/^PATCHES=.*/PATCHES=all/' "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "ok: run.exe is a custom client entrypoint" "run.exe still recognised at level all"
+
+# both entrypoints present: Wow.exe wins. This is the case a Sirus player creates
+# by copying run.exe to Wow.exe to satisfy a launcher that hardcodes the name.
+cp -R "$TMP/client-wotlk" "$TMP/client-dual"
+printf 'wowexe\n' > "$TMP/client-dual/Wow.exe"
+printf 'runexe\n' > "$TMP/client-dual/run.exe"
+OUT="$("$BIN/wow-install-client" "$TMP/client-dual" 2>&1)"
+assert_contains "$OUT" "game installed (3.3.5a)" "client carrying both exes installs"
+assert_eq "$(cat "$G/run.exe")" "runexe" "run.exe is copied in as well"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "ok: Wow.exe present" "Wow.exe wins over run.exe in verify"
+assert_eq "$(echo "$OUT" | grep -c 'run.exe is a custom client entrypoint')" "0" "not treated as a custom client"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "games/main/Wow.exe" "Wow.exe wins over run.exe at launch"
+OUT="$("$BIN/wow-language" list 2>&1 || true)"
+assert_eq "$(echo "$OUT" | grep -c 'custom entrypoint')" "0" "language packs stay available"
+
+# neither entrypoint: rejected before the installed game is touched
+mkdir -p "$TMP/client-noexe/Data"
+for m in common common-2 expansion lichking patch patch-2; do touch "$TMP/client-noexe/Data/$m.MPQ"; done
+OUT="$("$BIN/wow-install-client" "$TMP/client-noexe" 2>&1 || true)"
+assert_contains "$OUT" "no Wow.exe or run.exe" "a client with neither entrypoint is rejected"
+assert_eq "$(cat "$G/Wow.exe")" "wowexe" "the installed game survived the rejection"
+
+# the three game_exe() copies must stay identical
+A="$(sed -n '/^game_exe()/,/^}/p' "$BIN/wow-install-client" | md5 -q)"
+B="$(sed -n '/^game_exe()/,/^}/p' "$BIN/wow-verify-game"    | md5 -q)"
+C="$(sed -n '/^game_exe()/,/^}/p' "$BIN/wow-launch"         | md5 -q)"
+[ "$A" = "$B" ] && [ "$B" = "$C" ] && ok || bad "game_exe() has diverged between scripts"
+
+# restore a stock wotlk client for the remaining sections
+sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "game installed (3.3.5a)" "stock client reinstalled"
 
 # ============================================================ launch: wotlk
 section "launch 3.3.5a"
@@ -229,8 +393,16 @@ assert_eq "$(cat "$G/Wow.exe")" "ru-exe" "active exe swapped"
 assert_eq "$(cat "$G/locales/enUS/Wow.exe")" "$ENUS_EXE" "previous exe stashed"
 assert_nofile "$G/Cache"
 assert_contains "$(grep "SET locale" "$G/WTF/Config.wtf")" 'SET locale "ruRU"' "locale cvar set"
+# an icon-patched exe carries its pre-patch original in Wow.exe.icon-backup;
+# a language switch must stash THAT (not the patched exe), or PATCHES=winerosetta|none
+# would later restore the wrong language's executable
+printf 'ru-exe-original\n' > "$G/Wow.exe.icon-backup"
+printf 'ru-exe-iconpatched\n' > "$G/Wow.exe"
 OUT="$("$BIN/wow-language" switch enUS 2>&1)"
 assert_contains "$OUT" "language switched to enUS" "switch back runs"
+assert_eq "$(cat "$G/locales/ruRU/Wow.exe")" "ru-exe-original" "switch stashes the unpatched exe"
+assert_nofile "$G/Wow.exe.icon-backup"
+assert_eq "$(cat "$G/Wow.exe")" "$ENUS_EXE" "enUS exe restored unpatched"
 assert_file "$G/Data/enUS/locale-enUS.MPQ"
 assert_contains "$(grep "SET locale" "$G/WTF/Config.wtf")" 'SET locale "enUS"' "locale cvar restored"
 
@@ -290,10 +462,18 @@ OUT="$("$BIN/wow-verify-game" 2>&1)"
 assert_contains "$OUT" "RESULT: OK" "tbc verify passes"
 assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "29" "tbc step count"
 assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" "29" "tbc TOTAL matches"
+assert_contains "$OUT" "ok: libSiliconPatch not used for 2.4.3 clients" "tbc has no libSiliconPatch build"
+echo 'PATCHES=none' >> "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_contains "$OUT" "RESULT: OK" "tbc verifies at level none"
+assert_nofile "$G/dlls.txt"
+assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "29" "tbc step count holds at level none"
+sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "tbc back to default (no libSiliconPatch build)"
 
 # ============================================================ install: vanilla
 section "install 1.12"
-echo 'SILICON=1' >> "$RES/launcher.conf"   # opt in: vanilla has its own libSiliconPatch build
 OUT="$("$BIN/wow-install-client" "$TMP/client-vanilla" 2>&1)"
 assert_contains "$OUT" "game installed (1.12)" "install completed"
 assert_eq "$(cat "$G/mods/libSiliconPatch.dll")" "sil-van" "vanilla libSiliconPatch build"
@@ -306,6 +486,13 @@ OUT="$("$BIN/wow-verify-game" 2>&1)"
 assert_contains "$OUT" "RESULT: OK" "vanilla verify passes"
 assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "25" "vanilla step count"
 assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" "25" "vanilla TOTAL matches"
+echo 'PATCHES=winerosetta' >> "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "vanilla winerosetta level drops libSiliconPatch"
+assert_contains "$OUT" "ok: libSiliconPatch off (patch level: winerosetta)" "vanilla names the level"
+sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_eq "$(cat "$G/mods/libSiliconPatch.dll")" "sil-van" "vanilla default restores libSiliconPatch"
 
 section "no language packs on 1.12"
 OUT="$("$BIN/wow-language" list 2>&1)"

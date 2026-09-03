@@ -37,7 +37,7 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 | **Wine 11 ([WineAndAqua](https://github.com/WineAndAqua/wine) build)** | runs the Windows client on macOS |
 | **DXVK (async)** | translates Direct3D 9 → Vulkan → Metal |
 | **winerosetta + rosettax87** | fast x87 FPU math under Rosetta 2 — the single biggest FPS win for 2010-era game code |
-| **libSiliconPatch** | optional client-side speed hooks (off by default; Game → Performance) — for weaker Macs, stock clients only |
+| **libSiliconPatch** | client-side speed hooks — on by default; drop them in Game → Patches if a server or a modified client objects |
 | **SwiftUI manager** (this repo) | install, patch, verify, configure, and launch — no terminal needed |
 
 > [!IMPORTANT]

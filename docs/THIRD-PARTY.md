@@ -26,7 +26,7 @@ The runtime is downloaded unmodified from
 |---|---|---|
 | `d3d9.dll` (DXVK / d9vk) | Zlib | [doitsujin/dxvk](https://github.com/doitsujin/dxvk) + [WineAndAqua/d8vk](https://github.com/WineAndAqua/d8vk); DXVK's LICENSE ships next to it in the payload |
 | `winerosetta.dll`, `libDllLdr.dll` | GPL-3.0 | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) |
-| `libSiliconPatch/{wotlk,vanilla}/libSiliconPatch.dll` | GPL-3.0 as declared by the repo, but **binary only — no source is published** anywhere | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon). Optional and **off by default** (Game → Performance): x87→SSE reimplementations of ~180 client functions installed as inline hooks at hardcoded 12340/5875 addresses; no network, file or registry access (checked from imports). For 1.12 an open-source, byte-verified alternative exists: [athei/wow-mods](https://github.com/athei/wow-mods) (`wow_turbo`) |
+| `libSiliconPatch/{wotlk,vanilla}/libSiliconPatch.dll` | GPL-3.0 as declared by the repo, but **binary only — no source is published** anywhere | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon). Applied at `PATCHES=all` (Game → Patches), the default; dropped at every lower level: x87→SSE reimplementations of ~180 client functions installed as inline hooks at hardcoded 12340/5875 addresses; no network, file or registry access (checked from imports). For 1.12 an open-source, byte-verified alternative exists: [athei/wow-mods](https://github.com/athei/wow-mods) (`wow_turbo`) |
 | `rosettax87/` | MIT | [Lifeisawful/rosettax87](https://github.com/Lifeisawful/rosettax87) |
 | `x87sidecar/` | MIT | Lifeisawful; LICENSE ships next to the binary |
 

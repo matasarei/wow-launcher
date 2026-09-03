@@ -72,7 +72,14 @@ GAME_VERSION="$(grep -sE '^GAME_VERSION=' "$RES/launcher.conf" | cut -d= -f2)"
 # vanilla: the WDB server-data cache goes stale and causes crashes — clear it
 [ "$GAME_VERSION" = "1.12" ] && rm -rf "$GAME/WDB"
 # prefer a vanilla-tweaks-generated executable when the user created one
-EXE="$GAME/Wow.exe"
+# The client's entrypoint. Sirus-style custom clients ship run.exe and no
+# Wow.exe; when both exist Wow.exe wins (it is the renamed copy people make).
+game_exe() {  # game_exe <game dir>
+  [ -f "$1/Wow.exe" ] && { echo Wow.exe; return; }
+  [ -f "$1/run.exe" ] && { echo run.exe; return; }
+  echo Wow.exe
+}
+EXE="$GAME/$(game_exe "$GAME")"
 [ -f "$GAME/WoW_tweaked.exe" ] && EXE="$GAME/WoW_tweaked.exe"
 # Auto-match the game resolution to the current display, unless disabled in launcher.conf
 AUTO=$(grep -sE '^AUTO_RES=' "$RES/launcher.conf" | cut -d= -f2)

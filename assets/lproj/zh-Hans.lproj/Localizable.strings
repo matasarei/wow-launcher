@@ -84,7 +84,7 @@
 "Choose a %@ client folder in another language — only its language pack is imported" = "选择其他语言的 %@ 客户端文件夹——仅导入其语言包";
 "Importing language pack from %@…" = "正在从 %@ 导入语言包…";
 "Install Game Client" = "安装游戏客户端";
-"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)" = "选择魔兽世界客户端文件夹——3.3.5a、2.4.3 或 1.12（包含 Wow.exe 和 Data）";
+"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)" = "选择一个 WoW 客户端文件夹 —— 3.3.5a、2.4.3 或 1.12（包含 Wow.exe 或 run.exe，以及 Data）";
 "Installing %@… copying the client can take a few minutes." = "正在安装 %@…复制客户端可能需要几分钟。";
 "Invalid server address." = "服务器地址无效。";
 "Server %@ added and selected — takes effect at next game start." = "已添加并选择服务器 %@——下次启动游戏时生效。";
@@ -92,6 +92,14 @@
 "Failed to install %@: %@" = "安装 %@ 失败：%@";
 "Verification stopped." = "校验已停止。";
 "Could not start verification: %@" = "无法启动校验：%@";
-"Performance" = "性能";
-"libSiliconPatch speed hooks" = "libSiliconPatch 加速钩子";
-"Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start." = "默认关闭。用更快的代码替换游戏中较慢的部分（来自 WoWSilicon 的纯二进制组件，未公开源代码）。如果游戏在人多的地方卡顿，可以试试。仅限未修改的客户端——部分服务器会将其视为篡改。下次启动游戏时生效。";
+"Patches" = "补丁";
+"Applied to the client" = "应用于客户端";
+"All patches (recommended)" = "全部补丁（推荐）";
+"All except libSiliconPatch" = "除 libSiliconPatch 外的全部";
+"Only winerosetta" = "仅 winerosetta";
+"No patches — original client" = "不打补丁 — 原始客户端";
+"Everything on, including libSiliconPatch — speed hooks inside the game code that can raise the frame rate." = "全部启用，包括 libSiliconPatch —— 游戏代码内部的加速钩子，可能提升帧率。";
+"Everything except libSiliconPatch. Try this if the game crashes, or if your server treats the speed hooks as tampering." = "除 libSiliconPatch 外全部启用。如果游戏崩溃，或服务器将加速钩子判定为篡改，请尝试此项。";
+"Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed." = "只保留 winerosetta —— 一个补齐 Apple Silicon 无法原生执行的 CPU 指令的小型兼容层。使用反作弊（Warden）的服务器正需要它。游戏文件夹中的其他内容不会改动。";
+"Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking." = "完全按原样运行客户端。在没有反作弊的服务器上没有问题；但如果服务器使用 Warden，检查开始时游戏可能会崩溃。";
+"Applies at the next game start." = "在下次启动游戏时生效。";

@@ -19,9 +19,22 @@ G="$RES/games/${GAME_NAME:-main}"
 V="$(grep -sE '^GAME_VERSION=' "$RES/launcher.conf" | cut -d= -f2)"
 [ -n "$V" ] || V="$("$BIN/wow-game-version" "$G" 2>/dev/null || echo unknown)"
 [ "$V" = "1.12" ] && { echo "1.12 clients have no language packs"; exit 1; }
+# packs carry a locale-matched Wow.exe; a custom entrypoint (run.exe) has none
+[ -f "$G/Wow.exe" ] || { echo "language packs need a Blizzard Wow.exe — this client uses a custom entrypoint"; exit 1; }
 CFG="$G/WTF/Config.wtf"
 
 active_locale() { basename "$(ls -d "$G"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null; }
+
+# Patch level, same rules as wow-install-client / wow-verify-game.
+patch_level() {
+  local p
+  p="$(grep -sE '^PATCHES=' "$RES/launcher.conf" | cut -d= -f2)"
+  case "$p" in all|no-silicon|winerosetta|none) echo "$p"; return ;; esac
+  case "$(grep -sE '^SILICON=' "$RES/launcher.conf" | cut -d= -f2)" in
+    0) echo no-silicon ;;
+    *) echo all ;;
+  esac
+}
 
 set_cvar() {
   mkdir -p "$G/WTF"; touch "$CFG"
@@ -31,6 +44,8 @@ set_cvar() {
 
 # cosmetic Wow.exe icon patch via the kit's md5-keyed binary diffs
 patch_icon() {
+  # the icon patch modifies the client: only the levels that allow that
+  case "$(patch_level)" in all|no-silicon) ;; *) return 0 ;; esac
   [ -x /usr/bin/bspatch ] || return 0
   local CUR_MD5 D B IN_MD5 OUT_MD5
   CUR_MD5="$(md5 -q "$G/Wow.exe")"
@@ -41,6 +56,9 @@ patch_icon() {
     [ "$CUR_MD5" = "$IN_MD5" ] || continue
     /usr/bin/bspatch "$G/Wow.exe" "$G/Wow.exe.icon-new" "$D"
     if [ "$(md5 -q "$G/Wow.exe.icon-new" 2>/dev/null)" = "$OUT_MD5" ]; then
+      # the pre-patch exe is what PATCHES=winerosetta|none restores — it must always
+      # match the exe that is active now, not the one from a previous language
+      cp "$G/Wow.exe" "$G/Wow.exe.icon-backup"
       mv "$G/Wow.exe.icon-new" "$G/Wow.exe"; chmod +x "$G/Wow.exe"
       echo "Wow.exe icon patched"
     else
@@ -114,7 +132,13 @@ case "$1" in
       rm -rf "$G/locales/$A"
       mkdir -p "$G/locales/$A"
       mv "$G/Data/$A" "$G/locales/$A/pack"
-      mv "$G/Wow.exe" "$G/locales/$A/Wow.exe"
+      # stash the unpatched exe when we have it, so every locales/*/Wow.exe is
+      # pristine and the icon patch is re-applied (and re-backed-up) on switch
+      if [ -f "$G/Wow.exe.icon-backup" ]; then
+        mv "$G/Wow.exe.icon-backup" "$G/locales/$A/Wow.exe"; rm -f "$G/Wow.exe"
+      else
+        mv "$G/Wow.exe" "$G/locales/$A/Wow.exe"
+      fi
     fi
     # bring in the target pack + its exe
     mv "$G/locales/$L/pack" "$G/Data/$L"

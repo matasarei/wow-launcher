@@ -84,7 +84,7 @@
 "Choose a %@ client folder in another language — only its language pack is imported" = "Choose a %@ client folder in another language — only its language pack is imported";
 "Importing language pack from %@…" = "Importing language pack from %@…";
 "Install Game Client" = "Install Game Client";
-"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)" = "Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)";
+"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)" = "Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)";
 "Installing %@… copying the client can take a few minutes." = "Installing %@… copying the client can take a few minutes.";
 "Invalid server address." = "Invalid server address.";
 "Server %@ added and selected — takes effect at next game start." = "Server %@ added and selected — takes effect at next game start.";
@@ -92,6 +92,14 @@
 "Failed to install %@: %@" = "Failed to install %@: %@";
 "Verification stopped." = "Verification stopped.";
 "Could not start verification: %@" = "Could not start verification: %@";
-"Performance" = "Performance";
-"libSiliconPatch speed hooks" = "libSiliconPatch speed hooks";
-"Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start." = "Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start.";
+"Patches" = "Patches";
+"Applied to the client" = "Applied to the client";
+"All patches (recommended)" = "All patches (recommended)";
+"All except libSiliconPatch" = "All except libSiliconPatch";
+"Only winerosetta" = "Only winerosetta";
+"No patches — original client" = "No patches — original client";
+"Everything on, including libSiliconPatch — speed hooks inside the game code that can raise the frame rate." = "Everything on, including libSiliconPatch — speed hooks inside the game code that can raise the frame rate.";
+"Everything except libSiliconPatch. Try this if the game crashes, or if your server treats the speed hooks as tampering." = "Everything except libSiliconPatch. Try this if the game crashes, or if your server treats the speed hooks as tampering.";
+"Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed." = "Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed.";
+"Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking." = "Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking.";
+"Applies at the next game start." = "Applies at the next game start.";
