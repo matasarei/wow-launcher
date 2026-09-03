@@ -266,6 +266,24 @@ OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
 assert_eq "$(cat "$G/DivxTac.dll")" "origtac" "DivxTac.dll restored at level none"
 rm -f "$G/DivxTac.dll" "$G/DivxTac.dll.bak"
 
+# an unrecognised level falls back to the default rather than erroring — this is
+# what a conf left over from a pre-rename build (PATCHES=warden) now hits, and it
+# must land on `all`, not on a half-applied state
+for BAD in warden garbage ""; do
+  sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"; echo "PATCHES=$BAD" >> "$RES/launcher.conf"
+  OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+  assert_contains "$OUT" "RESULT: OK" "unknown level '$BAD' verifies without erroring"
+  assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "unknown level '$BAD' falls back to all"
+done
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "patch level: all" "installer falls back to all for an unknown level"
+
+# the three patch_level() copies must stay identical
+A="$(sed -n '/^patch_level()/,/^}/p' "$BIN/wow-install-client" | md5 -q)"
+B="$(sed -n '/^patch_level()/,/^}/p' "$BIN/wow-verify-game"   | md5 -q)"
+C="$(sed -n '/^patch_level()/,/^}/p' "$BIN/wow-language"      | md5 -q)"
+[ "$A" = "$B" ] && [ "$B" = "$C" ] && ok || bad "patch_level() has diverged between scripts"
+
 # the pre-2.4 SILICON= toggle still migrates, then the default takes over again
 sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"
 echo 'SILICON=0' >> "$RES/launcher.conf"
