@@ -84,7 +84,7 @@
 "Choose a %@ client folder in another language — only its language pack is imported" = "Choisissez un dossier client %@ dans une autre langue — seul son pack de langue est importé";
 "Importing language pack from %@…" = "Importation du pack de langue depuis %@…";
 "Install Game Client" = "Installer le client du jeu";
-"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)" = "Choisissez un dossier client WoW — 3.3.5a, 2.4.3 ou 1.12 (contient Wow.exe et Data)";
+"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)" = "Choisissez un dossier client WoW — 3.3.5a, 2.4.3 ou 1.12 (contient Wow.exe ou run.exe, et Data)";
 "Installing %@… copying the client can take a few minutes." = "Installation de %@… la copie du client peut prendre quelques minutes.";
 "Invalid server address." = "Adresse de serveur non valide.";
 "Server %@ added and selected — takes effect at next game start." = "Serveur %@ ajouté et sélectionné — prend effet au prochain démarrage du jeu.";
@@ -92,6 +92,14 @@
 "Failed to install %@: %@" = "Échec de l'installation de %@ : %@";
 "Verification stopped." = "Vérification arrêtée.";
 "Could not start verification: %@" = "Impossible de démarrer la vérification : %@";
-"Performance" = "Performances";
-"libSiliconPatch speed hooks" = "Hooks d'accélération libSiliconPatch";
-"Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start." = "Désactivé par défaut. Remplace des parties lentes du code du jeu par des versions plus rapides (un composant de WoWSilicon fourni uniquement en binaire, sans code source publié). À essayer si le jeu saccade dans les lieux fréquentés. Clients non modifiés uniquement — certains serveurs y voient une altération. Prend effet au prochain démarrage du jeu.";
+"Patches" = "Correctifs";
+"Applied to the client" = "Appliqué au client";
+"All patches (recommended)" = "Tous les correctifs (recommandé)";
+"All except libSiliconPatch" = "Tous sauf libSiliconPatch";
+"Only winerosetta" = "Uniquement winerosetta";
+"No patches — original client" = "Aucun correctif — client d'origine";
+"Everything on, including libSiliconPatch — speed hooks inside the game code that can raise the frame rate." = "Tout activé, y compris libSiliconPatch — des accélérations dans le code du jeu qui peuvent augmenter le nombre d'images par seconde.";
+"Everything except libSiliconPatch. Try this if the game crashes, or if your server treats the speed hooks as tampering." = "Tout sauf libSiliconPatch. À essayer si le jeu plante ou si votre serveur considère ces accélérations comme une altération.";
+"Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed." = "Ne conserve que winerosetta — une petite couche qui supplée les instructions processeur qu'Apple Silicon n'exécute pas nativement. C'est ce dont les serveurs avec anti-triche (Warden) ont besoin. Rien d'autre n'est modifié dans le dossier du jeu.";
+"Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking." = "Exécute le client exactement tel qu'il a été distribué. Sans problème sur les serveurs sans anti-triche, mais si le serveur utilise Warden, le jeu peut planter dès le début des vérifications.";
+"Applies at the next game start." = "Prend effet au prochain démarrage du jeu.";

@@ -84,7 +84,7 @@
 "Choose a %@ client folder in another language — only its language pack is imported" = "다른 언어의 %@ 클라이언트 폴더를 선택하세요. 언어 팩만 가져옵니다.";
 "Importing language pack from %@…" = "%@에서 언어 팩 가져오는 중…";
 "Install Game Client" = "게임 클라이언트 설치";
-"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)" = "WoW 클라이언트 폴더를 선택하세요 — 3.3.5a, 2.4.3 또는 1.12(Wow.exe와 Data 포함)";
+"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)" = "WoW 클라이언트 폴더를 선택하세요 — 3.3.5a, 2.4.3 또는 1.12 (Wow.exe 또는 run.exe와 Data 포함)";
 "Installing %@… copying the client can take a few minutes." = "%@ 설치 중… 클라이언트 복사에 몇 분 걸릴 수 있습니다.";
 "Invalid server address." = "잘못된 서버 주소입니다.";
 "Server %@ added and selected — takes effect at next game start." = "서버 %@이(가) 추가되고 선택되었습니다. 다음 게임 시작 시 적용됩니다.";
@@ -92,6 +92,14 @@
 "Failed to install %@: %@" = "%@ 설치 실패: %@";
 "Verification stopped." = "검증이 중지되었습니다.";
 "Could not start verification: %@" = "검증을 시작할 수 없습니다: %@";
-"Performance" = "성능";
-"libSiliconPatch speed hooks" = "libSiliconPatch 가속 후크";
-"Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start." = "기본값은 꺼짐입니다. 게임 코드의 느린 부분을 더 빠른 코드로 교체합니다(WoWSilicon의 바이너리 전용 구성 요소, 소스 코드 미공개). 붐비는 곳에서 게임이 끊기면 시도해 보세요. 수정되지 않은 클라이언트 전용 — 일부 서버는 이를 변조로 간주합니다. 다음 게임 시작 시 적용됩니다.";
+"Patches" = "패치";
+"Applied to the client" = "클라이언트에 적용";
+"All patches (recommended)" = "모든 패치 (권장)";
+"All except libSiliconPatch" = "libSiliconPatch 제외 전체";
+"Only winerosetta" = "winerosetta만";
+"No patches — original client" = "패치 없음 — 원본 클라이언트";
+"Everything on, including libSiliconPatch — speed hooks inside the game code that can raise the frame rate." = "libSiliconPatch를 포함해 모두 켭니다. 게임 코드 내부의 속도 훅으로 프레임이 올라갈 수 있습니다.";
+"Everything except libSiliconPatch. Try this if the game crashes, or if your server treats the speed hooks as tampering." = "libSiliconPatch만 제외합니다. 게임이 충돌하거나 서버가 속도 훅을 변조로 판단하면 사용해 보세요.";
+"Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed." = "winerosetta만 남깁니다. 애플 실리콘이 기본으로 실행하지 못하는 CPU 명령을 대신 처리하는 작은 계층으로, 안티치트(Warden)를 쓰는 서버에 바로 이것이 필요합니다. 게임 폴더의 다른 것은 건드리지 않습니다.";
+"Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking." = "클라이언트를 배포된 그대로 실행합니다. 안티치트가 없는 서버에서는 문제가 없지만, 서버가 Warden을 쓰면 검사가 시작될 때 게임이 튕길 수 있습니다.";
+"Applies at the next game start." = "다음 게임 실행 시 적용됩니다.";

@@ -84,7 +84,7 @@
 "Choose a %@ client folder in another language — only its language pack is imported" = "Виберіть теку клієнта %@ іншою мовою — імпортується лише мовний пакет";
 "Importing language pack from %@…" = "Імпорт мовного пакета з %@…";
 "Install Game Client" = "Встановлення клієнта гри";
-"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)" = "Виберіть теку клієнта WoW — 3.3.5a, 2.4.3 або 1.12 (містить Wow.exe і Data)";
+"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)" = "Виберіть теку клієнта WoW — 3.3.5a, 2.4.3 або 1.12 (містить Wow.exe або run.exe і Data)";
 "Installing %@… copying the client can take a few minutes." = "Встановлення %@… копіювання клієнта може тривати кілька хвилин.";
 "Invalid server address." = "Неправильна адреса сервера.";
 "Server %@ added and selected — takes effect at next game start." = "Сервер %@ додано й вибрано — набере чинності після наступного запуску гри.";
@@ -92,6 +92,14 @@
 "Failed to install %@: %@" = "Не вдалося встановити %@: %@";
 "Verification stopped." = "Перевірку зупинено.";
 "Could not start verification: %@" = "Не вдалося запустити перевірку: %@";
-"Performance" = "Продуктивність";
-"libSiliconPatch speed hooks" = "Хуки прискорення libSiliconPatch";
-"Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start." = "Типово вимкнено. Замінює повільні частини коду гри швидшими (компонент WoWSilicon лише у бінарному вигляді, вихідний код не опубліковано). Спробуйте, якщо гра гальмує в людних місцях. Лише для немодифікованих клієнтів — деякі сервери вважають це втручанням. Набуває чинності під час наступного запуску гри.";
+"Patches" = "Патчі";
+"Applied to the client" = "Застосовується до клієнта";
+"All patches (recommended)" = "Усі патчі (рекомендовано)";
+"All except libSiliconPatch" = "Усі, крім libSiliconPatch";
+"Only winerosetta" = "Лише winerosetta";
+"No patches — original client" = "Без патчів — оригінальний клієнт";
+"Everything on, including libSiliconPatch — speed hooks inside the game code that can raise the frame rate." = "Увімкнено все, зокрема libSiliconPatch — хуки пришвидшення в коді гри, які можуть підняти частоту кадрів.";
+"Everything except libSiliconPatch. Try this if the game crashes, or if your server treats the speed hooks as tampering." = "Усе, крім libSiliconPatch. Спробуйте, якщо гра вилітає або сервер вважає хуки пришвидшення втручанням.";
+"Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed." = "Залишає лише winerosetta — невеликий шар, який заповнює інструкції процесора, що не виконуються на Apple Silicon напряму. Саме це потрібно серверам з античитом (Warden). Більше в теці гри нічого не змінюється.";
+"Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking." = "Запускає клієнт точно так, як його випустили. На серверах без античиту проблем немає, але якщо сервер використовує Warden, гра може вилетіти, щойно почнуться перевірки.";
+"Applies at the next game start." = "Набуває чинності при наступному запуску гри.";

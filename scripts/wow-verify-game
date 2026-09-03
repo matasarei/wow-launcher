@@ -34,12 +34,42 @@ case "$V" in
           SILICON_SUB="vanilla" ;;
   *) echo "FAIL: unrecognized client version"; echo "REINSTALL"; echo "RESULT: PROBLEMS"; exit 1 ;;
 esac
-# libSiliconPatch is opt-in (SILICON=1 in launcher.conf, Game pane toggle). Off:
-# expected dlls.txt has no entry for it and the DLL is left alone (not loaded).
-SILICON_OFF=0
-if [ "$(grep -sE '^SILICON=' "$RES/launcher.conf" | cut -d= -f2)" != 1 ]; then SILICON_OFF=1; SILICON_SUB=""; fi
-if [ -n "$SILICON_SUB" ]; then DLLS_TXT="$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n')"
-else DLLS_TXT="mods/winerosetta.dll"; fi
+# The client's entrypoint. Sirus-style custom clients ship run.exe and no
+# Wow.exe; when both exist Wow.exe wins (it is the renamed copy people make).
+game_exe() {  # game_exe <game dir>
+  [ -f "$1/Wow.exe" ] && { echo Wow.exe; return; }
+  [ -f "$1/run.exe" ] && { echo run.exe; return; }
+  echo Wow.exe
+}
+EXE="$(game_exe "$G")"
+
+# Patch level (launcher.conf PATCHES=, Game pane picker), migrating the pre-2.4
+# SILICON= toggle (1 -> all, 0 -> no-silicon). Each level defines the expected
+# state of the mod loader, libSiliconPatch and the Wow.exe icon patch; --fix
+# converges the game folder to it in both directions.
+patch_level() {
+  local p
+  p="$(grep -sE '^PATCHES=' "$RES/launcher.conf" | cut -d= -f2)"
+  case "$p" in all|no-silicon|winerosetta|none) echo "$p"; return ;; esac
+  case "$(grep -sE '^SILICON=' "$RES/launcher.conf" | cut -d= -f2)" in
+    0) echo no-silicon ;;
+    *) echo all ;;
+  esac
+}
+PATCHES="$(patch_level)"
+case "$PATCHES" in
+  all)         WANT_LOADER=1; WANT_SILICON=1; WANT_ICON=1 ;;
+  no-silicon)  WANT_LOADER=1; WANT_SILICON=0; WANT_ICON=1 ;;
+  winerosetta) WANT_LOADER=1; WANT_SILICON=0; WANT_ICON=0 ;;
+  none)        WANT_LOADER=0; WANT_SILICON=0; WANT_ICON=0 ;;
+esac
+[ -n "$SILICON_SUB" ] || WANT_SILICON=0   # no libSiliconPatch build for this client
+# "No patches" is the level people pick for custom clients, so not recognising the
+# build is expected there — report it, but do not raise warnings nobody can act on.
+LENIENT=0; [ "$PATCHES" = none ] && LENIENT=1
+if [ "$WANT_SILICON" = 1 ]; then DLLS_TXT="$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll\n')"
+elif [ "$WANT_LOADER" = 1 ]; then DLLS_TXT="mods/winerosetta.dll"
+else DLLS_TXT=""; fi
 
 step() { i=$((i+1)); echo "PROGRESS $i $TOTAL $1"; }
 get_cvar() { grep -iE "^SET $1 " "$CFG" 2>/dev/null | sed -E 's/.*"(.*)".*/\1/' | head -1; }
@@ -58,6 +88,10 @@ optional() {
   step "$2"
   if [ -e "$G/$1" ]; then echo "ok: $2"; else echo "WARN: $2 not present ($1)"; warn=$((warn+1)); fi
 }
+noted() {  # informational: a custom client may legitimately not ship this
+  step "$2"
+  if [ -e "$G/$1" ]; then echo "ok: $2"; else echo "ok: $2 not present (custom client)"; fi
+}
 from_kit() {  # restorable from patch kit: from_kit <game rel> <kit rel> <label>
   step "$3"
   if cmp -s "$G/$1" "$KIT/$2"; then echo "ok: $3"; return; fi
@@ -70,17 +104,76 @@ from_kit() {  # restorable from patch kit: from_kit <game rel> <kit rel> <label>
 }
 
 # --- game executable --- (2 steps)
-step "Wow.exe present"
-if [ -f "$G/Wow.exe" ]; then echo "ok: Wow.exe present"
+step "$EXE present"
+if [ -f "$G/$EXE" ]; then echo "ok: $EXE present"
 elif [ "$V" = "3.3.5a" ] && [ -f "$KIT/Wow.exe.icon-patched" ] && [ "$FIX" = 1 ]; then
   cp "$KIT/Wow.exe.icon-patched" "$G/Wow.exe" && echo "ok: Wow.exe present (restored)" || { echo "FAIL: Wow.exe missing"; fail=$((fail+1)); }
-else echo "FAIL: Wow.exe missing"; fail=$((fail+1)); reinstall=1; fi
-step "Wow.exe build check"
-if [ "$V" = "3.3.5a" ] && { [ -f "$KIT/Wow.exe.orig" ] || [ -f "$KIT/Wow.exe.icon-patched" ]; }; then
+else echo "FAIL: $EXE missing"; fail=$((fail+1)); reinstall=1; fi
+# The cosmetic icon patch follows the level in BOTH directions: reverted from the
+# in-game backup at winerosetta/none, re-applied from the kit at all/no-silicon.
+icon_possible() {  # true only when the exe is currently unpatched and a patch exists
+  local CUR D B
+  [ -f "$KIT/Wow.exe.icon-patched" ] && [ -f "$KIT/Wow.exe.orig" ] \
+    && cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig" && return 0
+  [ -x /usr/bin/bspatch ] || return 1
+  CUR="$(md5 -q "$G/Wow.exe" 2>/dev/null)"
+  for D in "$KIT"/wow-icon-*.bsdiff; do
+    [ -f "$D" ] || continue
+    B="$(basename "$D" .bsdiff)"; B="${B#wow-icon-}"
+    [ "$CUR" = "${B%%-*}" ] && return 0
+  done
+  return 1
+}
+apply_icon() {  # keeps Wow.exe.icon-backup in step with what it replaces
+  local CUR D B OUTMD5
+  if [ -f "$KIT/Wow.exe.icon-patched" ] && [ -f "$KIT/Wow.exe.orig" ] \
+     && cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig"; then
+    cp "$G/Wow.exe" "$G/Wow.exe.icon-backup" && cp "$KIT/Wow.exe.icon-patched" "$G/Wow.exe" \
+      && chmod +x "$G/Wow.exe" && return 0
+    return 1
+  fi
+  [ -x /usr/bin/bspatch ] || return 1
+  CUR="$(md5 -q "$G/Wow.exe" 2>/dev/null)"
+  for D in "$KIT"/wow-icon-*.bsdiff; do
+    [ -f "$D" ] || continue
+    B="$(basename "$D" .bsdiff)"; B="${B#wow-icon-}"; OUTMD5="${B#*-}"
+    [ "$CUR" = "${B%%-*}" ] || continue
+    /usr/bin/bspatch "$G/Wow.exe" "$G/Wow.exe.icon-new" "$D" 2>/dev/null || true
+    if [ "$(md5 -q "$G/Wow.exe.icon-new" 2>/dev/null)" = "$OUTMD5" ]; then
+      cp "$G/Wow.exe" "$G/Wow.exe.icon-backup"
+      mv "$G/Wow.exe.icon-new" "$G/Wow.exe"; chmod +x "$G/Wow.exe"; return 0
+    fi
+    rm -f "$G/Wow.exe.icon-new"; return 1
+  done
+  return 1
+}
+step "$EXE build check"
+ICON_ORIG=""
+[ -f "$G/Wow.exe.icon-backup" ] && ICON_ORIG="$G/Wow.exe.icon-backup"
+[ -z "$ICON_ORIG" ] && [ -f "$KIT/Wow.exe.orig" ] && ICON_ORIG="$KIT/Wow.exe.orig"
+if [ "$EXE" != "Wow.exe" ]; then
+  echo "ok: $EXE is a custom client entrypoint (no reference build, not patched)"
+elif [ "$WANT_ICON" = 1 ] && icon_possible; then
+  if [ "$FIX" = 1 ]; then
+    if apply_icon; then echo "ok: Wow.exe icon patch (fixed)"
+    else echo "WARN: Wow.exe icon patch could not be applied (cosmetic)"; warn=$((warn+1)); fi
+  else
+    echo "FAIL: Wow.exe icon patch missing for patch level '$PATCHES' — repairable"; fail=$((fail+1)); canfix=1
+  fi
+elif [ "$WANT_ICON" = 0 ] && [ -n "$ICON_ORIG" ] && ! cmp -s "$G/Wow.exe" "$ICON_ORIG"; then
+  if [ "$FIX" = 1 ]; then
+    cp "$ICON_ORIG" "$G/Wow.exe" && chmod +x "$G/Wow.exe" \
+      && echo "ok: Wow.exe restored to the original (fixed)" \
+      || { echo "FAIL: Wow.exe could not be restored"; fail=$((fail+1)); }
+  else
+    echo "FAIL: Wow.exe is icon-patched but the patch level is '$PATCHES' — repairable"; fail=$((fail+1)); canfix=1
+  fi
+elif [ "$V" = "3.3.5a" ] && { [ -f "$KIT/Wow.exe.orig" ] || [ -f "$KIT/Wow.exe.icon-patched" ]; }; then
   if cmp -s "$G/Wow.exe" "$KIT/Wow.exe.icon-patched" || cmp -s "$G/Wow.exe" "$KIT/Wow.exe.orig"; then
     echo "ok: Wow.exe is the known 3.3.5a (12340) build"
   else
-    echo "WARN: Wow.exe differs from the known 3.3.5a build"; warn=$((warn+1))
+    if [ "$LENIENT" = 1 ]; then echo "ok: Wow.exe is not the stock 3.3.5a build (expected with no patches)"
+    else echo "WARN: Wow.exe differs from the known 3.3.5a build"; warn=$((warn+1)); fi
   fi
 else
   echo "ok: Wow.exe ($V client, no reference build to compare against)"
@@ -89,15 +182,34 @@ fi
 # --- support libraries the client ships (not in kit) ---
 # (3.3.5a: 5 steps; others: 2 steps — as warnings, older clients vary more)
 for dll in $SUPPORT_DLLS; do
-  if [ "$V" = "3.3.5a" ]; then need_core "$dll" "$dll"; else optional "$dll" "$dll"; fi
+  if [ "$V" = "3.3.5a" ] && [ "$LENIENT" = 0 ] && [ "$EXE" = "Wow.exe" ]; then need_core "$dll" "$dll"
+  elif [ "$LENIENT" = 1 ] || [ "$EXE" != "Wow.exe" ]; then noted "$dll" "$dll"
+  else optional "$dll" "$dll"; fi
 done
 
 # --- Apple Silicon patch stack (all restorable) --- (10 steps)
 check_divx() {  # check_divx <dll name> — 1 step
-  local DLL="$1" PATCHED="$KIT/$DLL.$V.patched"
-  step "$DLL performance patch"
+  # NB: separate `local` calls — bash expands all words of one `local` before
+  # assigning any of them, so $DLL is not yet set within its own declaration.
+  local DLL="$1"
+  local PATCHED="$KIT/$DLL.$V.patched" ORIG="$KIT/$DLL.$V.orig" REF=""
+  step "$DLL mod loader"
   if [ ! -f "$G/$DLL" ] && [ ! -f "$G/$DLL.bak" ]; then
     echo "ok: $DLL not present in this client (not applicable)"
+  elif [ "$WANT_LOADER" = 0 ]; then
+    # the level wants the untouched DLL back
+    [ -f "$G/$DLL.bak" ] && REF="$G/$DLL.bak"
+    [ -z "$REF" ] && [ -f "$ORIG" ] && REF="$ORIG"
+    if [ -z "$REF" ]; then
+      # only reachable at PATCHES=none, where an unrecognised client is expected:
+      # claim only what is true — this app did not patch it — and stay quiet
+      echo "ok: $DLL never patched by the launcher (no original copy to compare against)"
+    elif cmp -s "$G/$DLL" "$REF"; then echo "ok: $DLL is the original (no patches)"
+    elif [ "$FIX" = 1 ]; then
+      cp "$REF" "$G/$DLL" && echo "ok: $DLL restored (fixed)" || { echo "FAIL: $DLL"; fail=$((fail+1)); }
+    else
+      echo "FAIL: $DLL is patched but the patch level is 'none' — repairable"; fail=$((fail+1)); canfix=1
+    fi
   elif [ ! -f "$PATCHED" ]; then
     if [ -f "$G/$DLL.bak" ] && ! cmp -s "$G/$DLL" "$G/$DLL.bak"; then
       echo "ok: $DLL performance patch (verified against local backup)"
@@ -118,15 +230,24 @@ check_divx DivxTac.dll
 from_kit d3d9.dll d3d9.dll "d3d9.dll (DXVK renderer)"
 from_kit libDllLdr.dll libDllLdr.dll "libDllLdr.dll"
 step "dlls.txt"
-if [ "$(cat "$G/dlls.txt" 2>/dev/null)" = "$DLLS_TXT" ]; then echo "ok: dlls.txt"
+if [ -z "$DLLS_TXT" ]; then
+  if [ ! -f "$G/dlls.txt" ]; then echo "ok: dlls.txt absent (no patches)"
+  elif [ "$FIX" = 1 ]; then rm -f "$G/dlls.txt"; echo "ok: dlls.txt removed (fixed)"
+  else echo "FAIL: dlls.txt present but the patch level is 'none' — repairable"; fail=$((fail+1)); canfix=1; fi
+elif [ "$(cat "$G/dlls.txt" 2>/dev/null)" = "$DLLS_TXT" ]; then echo "ok: dlls.txt"
 elif [ "$FIX" = 1 ]; then
   printf '%s\n' "$DLLS_TXT" > "$G/dlls.txt"
   echo "ok: dlls.txt (fixed)"
 else echo "FAIL: dlls.txt missing or does not match the mod set — repairable"; fail=$((fail+1)); canfix=1; fi
-from_kit mods/winerosetta.dll mods/winerosetta.dll "winerosetta.dll"
+if [ "$WANT_LOADER" = 1 ]; then
+  from_kit mods/winerosetta.dll mods/winerosetta.dll "winerosetta.dll"
+else
+  # left on disk but never loaded: nothing reads dlls.txt once Divx is unpatched
+  step "winerosetta.dll"; echo "ok: winerosetta.dll not loaded (no patches)"
+fi
 step "libSiliconPatch.dll"
-if [ "$SILICON_OFF" = 1 ]; then
-  echo "ok: libSiliconPatch off (SILICON=1 enables it)"
+if [ "$WANT_SILICON" = 0 ] && [ -n "$SILICON_SUB" ]; then
+  echo "ok: libSiliconPatch off (patch level: $PATCHES)"
 elif [ -z "$SILICON_SUB" ]; then
   echo "ok: libSiliconPatch not used for $V clients"
 elif cmp -s "$G/mods/libSiliconPatch.dll" "$KIT/libSiliconPatch/$SILICON_SUB/libSiliconPatch.dll"; then

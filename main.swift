@@ -38,8 +38,8 @@ enum Paths {
     static var addons: String { game + "/Interface/AddOns" }
     static var runPattern: String {
         let folder = activeGame.isEmpty ? "game" : activeGame
-        // matches Wow.exe / WoW.exe / WoW_tweaked.exe (vanilla-tweaks output)
-        return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\][Ww]o[Ww](_[Tt]weaked)?\\.exe"
+        // matches Wow.exe / WoW.exe / WoW_tweaked.exe (vanilla-tweaks) / run.exe (custom clients)
+        return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\]([Ww]o[Ww](_[Tt]weaked)?|run)\\.exe"
     }
     static let installTool = resources + "/bin/wow-install-client"
     static let languageTool = resources + "/bin/wow-language"
@@ -101,7 +101,7 @@ struct DisplayOption: Identifiable, Hashable {
 final class Store: ObservableObject {
     @Published var mode = "maximized"
     @Published var renderer = "dxvk"
-    @Published var silicon = false        // libSiliconPatch client hooks (SILICON=1), off by default
+    @Published var patches = "all"        // PATCHES=all|no-silicon|winerosetta|none
     @Published var resolution = "…"
     @Published var retina = false
     @Published var autoRes = true
@@ -120,7 +120,9 @@ final class Store: ObservableObject {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         let r = confGet("RENDERER")
         if !r.isEmpty { renderer = r }
-        silicon = confGet("SILICON") == "1"
+        let lvl = confGet("PATCHES")
+        if ["all", "no-silicon", "winerosetta", "none"].contains(lvl) { patches = lvl }
+        else if confGet("SILICON") == "0" { patches = "no-silicon" }   // pre-2.4 toggle
         refreshDisplays()
         refreshGames()
         refreshRealms()
@@ -307,13 +309,26 @@ final class Store: ObservableObject {
         note = LF("Renderer set to %@ — takes effect at the next game start.", r == "mtld3d" ? "MTLd3D" : "DXVK")
     }
 
-    // The switch is applied by the repair path: verify's expected mod set follows
-    // SILICON=, so --fix adds or removes the DLL and its dlls.txt line.
-    func setSilicon(_ v: Bool) {
-        silicon = v
-        confSet("SILICON", v ? "1" : "0")
+    // Applied by the repair path: verify's expected state follows PATCHES=, so
+    // --fix adds or removes the mod loader, libSiliconPatch and the icon patch.
+    func setPatches(_ v: String) {
+        patches = v
+        confSet("PATCHES", v)
         if games.isEmpty { return }
         verifyGame(fix: true)
+    }
+
+    var patchesDescription: String {
+        switch patches {
+        case "no-silicon":
+            return L("Everything except libSiliconPatch. Try this if the game crashes, or if your server treats the speed hooks as tampering.")
+        case "winerosetta":
+            return L("Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed.")
+        case "none":
+            return L("Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking.")
+        default:
+            return L("Everything on, including libSiliconPatch — speed hooks inside the game code that can raise the frame rate.")
+        }
     }
 
     func setAuto(_ v: Bool) {
@@ -417,7 +432,8 @@ final class Store: ObservableObject {
         let fm = FileManager.default
         let dirs = ((try? fm.contentsOfDirectory(atPath: Paths.gamesDir)) ?? [])
             .filter { !$0.hasPrefix(".") }
-            .filter { fm.fileExists(atPath: Paths.gamesDir + "/" + $0 + "/Wow.exe") }
+            .filter { fm.fileExists(atPath: Paths.gamesDir + "/" + $0 + "/Wow.exe")
+                   || fm.fileExists(atPath: Paths.gamesDir + "/" + $0 + "/run.exe") }
             .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
         games = dirs
         activeGame = Paths.activeGame
@@ -434,8 +450,14 @@ final class Store: ObservableObject {
     @Published var languages: [String] = []
     @Published var activeLanguage = ""
 
+    // Language packs swap Wow.exe with the pack's locale-matched build, so they
+    // only apply to Blizzard clients — a custom run.exe entrypoint has no packs.
+    var hasBlizzardExe: Bool {
+        FileManager.default.fileExists(atPath: Paths.game + "/Wow.exe")
+    }
+
     var supportsLanguagePacks: Bool {
-        !games.isEmpty && (gameVersion == "3.3.5a" || gameVersion == "2.4.3")
+        !games.isEmpty && (gameVersion == "3.3.5a" || gameVersion == "2.4.3") && hasBlizzardExe
     }
 
     func refreshLanguages() {
@@ -595,7 +617,7 @@ final class Store: ObservableObject {
     func installGameFromPanel() {
         presentOpenPanel({ panel in
             panel.title = L("Install Game Client")
-            panel.message = L("Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe and Data)")
+            panel.message = L("Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)")
             panel.canChooseFiles = false
             panel.canChooseDirectories = true
         }) { panel in
@@ -1024,16 +1046,20 @@ struct GameView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            if store.gameVersion != "2.4.3" {   // no libSiliconPatch build exists for 2.4.3
-                Section("Performance") {
-                    Toggle("libSiliconPatch speed hooks", isOn: Binding(
-                        get: { store.silicon },
-                        set: { store.setSilicon($0) }))
-                        .disabled(store.busy || store.verifyRunning)
-                    Text("Off by default. Replaces slow parts of the game code with faster ones (a binary-only component from WoWSilicon, no published source). Try it if the game stutters in crowded places. Unmodified clients only — some servers flag it as tampering. Applies at the next game start.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            Section("Patches") {
+                Picker("Applied to the client", selection: Binding(
+                    get: { store.patches },
+                    set: { store.setPatches($0) })) {
+                    Text("All patches (recommended)").tag("all")
+                    Text("All except libSiliconPatch").tag("no-silicon")
+                    Text("Only winerosetta").tag("winerosetta")
+                    Text("No patches — original client").tag("none")
                 }
+                .pickerStyle(.menu)
+                .disabled(store.busy || store.verifyRunning)
+                Text(store.patchesDescription + " " + L("Applies at the next game start."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             if store.supportsLanguagePacks {
                 Section("Language") {
