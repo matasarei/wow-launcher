@@ -321,6 +321,35 @@ sed -i '' 's/^PATCHES=.*/PATCHES=all/' "$RES/launcher.conf"
 OUT="$("$BIN/wow-verify-game" 2>&1)"
 assert_contains "$OUT" "ok: run.exe is a custom client entrypoint" "run.exe still recognised at level all"
 
+# both entrypoints present: Wow.exe wins. This is the case a Sirus player creates
+# by copying run.exe to Wow.exe to satisfy a launcher that hardcodes the name.
+cp -R "$TMP/client-wotlk" "$TMP/client-dual"
+printf 'wowexe\n' > "$TMP/client-dual/Wow.exe"
+printf 'runexe\n' > "$TMP/client-dual/run.exe"
+OUT="$("$BIN/wow-install-client" "$TMP/client-dual" 2>&1)"
+assert_contains "$OUT" "game installed (3.3.5a)" "client carrying both exes installs"
+assert_eq "$(cat "$G/run.exe")" "runexe" "run.exe is copied in as well"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "ok: Wow.exe present" "Wow.exe wins over run.exe in verify"
+assert_eq "$(echo "$OUT" | grep -c 'run.exe is a custom client entrypoint')" "0" "not treated as a custom client"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "games/main/Wow.exe" "Wow.exe wins over run.exe at launch"
+OUT="$("$BIN/wow-language" list 2>&1 || true)"
+assert_eq "$(echo "$OUT" | grep -c 'custom entrypoint')" "0" "language packs stay available"
+
+# neither entrypoint: rejected before the installed game is touched
+mkdir -p "$TMP/client-noexe/Data"
+for m in common common-2 expansion lichking patch patch-2; do touch "$TMP/client-noexe/Data/$m.MPQ"; done
+OUT="$("$BIN/wow-install-client" "$TMP/client-noexe" 2>&1 || true)"
+assert_contains "$OUT" "no Wow.exe or run.exe" "a client with neither entrypoint is rejected"
+assert_eq "$(cat "$G/Wow.exe")" "wowexe" "the installed game survived the rejection"
+
+# the three game_exe() copies must stay identical
+A="$(sed -n '/^game_exe()/,/^}/p' "$BIN/wow-install-client" | md5 -q)"
+B="$(sed -n '/^game_exe()/,/^}/p' "$BIN/wow-verify-game"    | md5 -q)"
+C="$(sed -n '/^game_exe()/,/^}/p' "$BIN/wow-launch"         | md5 -q)"
+[ "$A" = "$B" ] && [ "$B" = "$C" ] && ok || bad "game_exe() has diverged between scripts"
+
 # restore a stock wotlk client for the remaining sections
 sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"
 OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
