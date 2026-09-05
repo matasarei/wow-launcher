@@ -1,83 +1,85 @@
 # Third-party components & licensing
 
-What a freshly built `WoW.app` (no game installed) contains, where it comes
-from, and under which license. Nothing proprietary is embedded since the
-CrossOver-based stack was replaced (see INTERNALS.md), but "open source" is not
-quite true of everything — see **Known gaps** at the bottom before redistributing.
+Everything a freshly built `WoW.app` (no game installed) contains, where it came
+from, and under which licence. The app's **About** pane links here, so this file
+is the source pointer that travels with the build — keep it reachable.
 
 ## Wine runtime (`Resources/wine/`)
 
-| Component | License | Source |
-|---|---|---|
-| wine 11.13 (WineAndAqua build, winerosetta integrated) | LGPL-2.1-or-later | [WineAndAqua/wine](https://github.com/WineAndAqua/wine), branch `wine-11.13-macos` (exact commit in `share/wowsilicon/runtime-lock.json`) |
-| MTLd3D (Metal-native D3D9) | Zlib | [athei/mtld3d](https://github.com/athei/mtld3d) |
-| MoltenVK | Apache-2.0 | [KhronosGroup/MoltenVK](https://github.com/KhronosGroup/MoltenVK) |
-| SDL2 | Zlib | libsdl.org |
-| FreeType | FTL | freetype.org |
-| GnuTLS, nettle/hogweed, GMP, libtasn1, libidn2, libunistring, libintl, p11-kit, libpng | LGPL family / BSD / libpng | standard open-source libraries, shipped unmodified |
+Downloaded unmodified at build time from
+[`wine-runtime-r6`](https://github.com/WoWSilicon/WoWSilicon/releases/tag/wine-runtime-r6)
+(sha256-pinned in the Makefile). `share/wowsilicon/runtime-lock.json` inside the
+runtime records the exact upstream versions.
 
-The runtime is downloaded unmodified from
-[WoWSilicon's releases](https://github.com/WoWSilicon/WoWSilicon/releases)
-(`wine-runtime-r6.tar.xz`, sha256-pinned in the Makefile).
+| Component | Licence | Source |
+|---|---|---|
+| wine 11.13 | LGPL-2.1-or-later | [WineAndAqua/wine](https://github.com/WineAndAqua/wine), branch `wine-11.13-macos`, commit [`37540b5`](https://github.com/WineAndAqua/wine/commit/37540b5d94ac1c86e2599ef55d7f3a15e3237ce8) |
+| MTLd3D v0.7.0 (Metal-native D3D9) | Zlib | [athei/mtld3d](https://github.com/athei/mtld3d) |
+| MoltenVK | Apache-2.0 | [KhronosGroup/MoltenVK](https://github.com/KhronosGroup/MoltenVK) |
+| SDL2 | Zlib | [libsdl.org](https://www.libsdl.org/) |
+| FreeType | FTL or GPL-2.0 (dual) | [freetype.org](https://freetype.org/) |
+| GnuTLS | LGPL-2.1-or-later | [gnutls.org](https://www.gnutls.org/) |
+| nettle, hogweed | LGPL-3.0-or-later or GPL-2.0-or-later (dual) | [lysator.liu.se/~nisse/nettle](https://www.lysator.liu.se/~nisse/nettle/) |
+| GMP | LGPL-3.0-or-later or GPL-2.0-or-later (dual) | [gmplib.org](https://gmplib.org/) |
+| libtasn1 | LGPL-2.1-or-later | [gnu.org/software/libtasn1](https://www.gnu.org/software/libtasn1/) |
+| libidn2 | LGPL-3.0-or-later | [gnu.org/software/libidn](https://www.gnu.org/software/libidn/) |
+| libunistring | LGPL-3.0-or-later | [gnu.org/software/libunistring](https://www.gnu.org/software/libunistring/) |
+| libintl (gettext) | LGPL-2.1-or-later | [gnu.org/software/gettext](https://www.gnu.org/software/gettext/) |
+| p11-kit | BSD-3-Clause | [p11-glue/p11-kit](https://github.com/p11-glue/p11-kit) |
+| libpng | PNG Reference Library License | [libpng.org](http://www.libpng.org/pub/png/libpng.html) |
 
 ## Patch kit (`Resources/patch-kit/`)
 
-| Component | License | Source |
+Extracted at build time from the
+[WoWSilicon 3.0.1](https://github.com/WoWSilicon/WoWSilicon/releases) release DMG
+(sha256-pinned, mounted read-only, never launched or installed).
+
+| Component | Licence | Source |
 |---|---|---|
-| `d3d9.dll` (DXVK / d9vk) | Zlib | [doitsujin/dxvk](https://github.com/doitsujin/dxvk) + [WineAndAqua/d8vk](https://github.com/WineAndAqua/d8vk) |
-| `winerosetta.dll` | MIT | [Gcenx/winerosetta](https://github.com/Gcenx/winerosetta) — source published (`src/winerosetta.cpp`, `src/winerosetta.def`; the `.def` exports exactly `Direct3DCreate9`, matching the DLL we ship). WoWSilicon vendors this binary inside its GPL-3 repo, but a repo-level LICENSE does not relicense a third party's MIT file |
-| `libDllLdr.dll` | unclear — vendored in a GPL-3.0 repo, **no source published** | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) (`Sources/WoWSiliconSwift/Resources/Patching/winerosetta/`). Exports `PatchDivxDecoder`, `PatchDivxTac`, `RunDll32Entry`; a GitHub code search for those names returns only consumers, no source. Load-bearing: it is what applies the Divx mod-loader patch the first time |
-| `libSiliconPatch/{wotlk,vanilla}/libSiliconPatch.dll` | GPL-3.0 as declared by the repo, but **binary only — no source is published** anywhere (same situation as `libDllLdr.dll`) | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon). Applied at `PATCHES=all` (Game → Patches), the default; dropped at every lower level: x87→SSE reimplementations of ~180 client functions installed as inline hooks at hardcoded 12340/5875 addresses; no network, file or registry access (checked from imports). For 1.12 an open-source, byte-verified alternative exists: [athei/wow-mods](https://github.com/athei/wow-mods) (`wow_turbo`) |
+| `d3d9.dll` (D9VK) | Zlib | [Sikarugir-App/d9vk](https://github.com/Sikarugir-App/d9vk), a fork of [doitsujin/dxvk](https://github.com/doitsujin/dxvk) |
+| `mods/winerosetta.dll` | MIT | [Gcenx/winerosetta](https://github.com/Gcenx/winerosetta) — the Rosetta 2 instruction shim (emulates `ARPL AX,DX`, rewrites `FCOMP ST(0),ST(0)`) |
+| `libDllLdr.dll` | see **Binary-only components** below | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) |
+| `libSiliconPatch/{wotlk,vanilla}/libSiliconPatch.dll` | see **Binary-only components** below | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) |
 | `rosettax87/` | MIT | [Lifeisawful/rosettax87](https://github.com/Lifeisawful/rosettax87) |
-| `x87sidecar/` | MIT | Lifeisawful; LICENSE ships next to the binary |
+| `x87sidecar/` | MIT | [athei/x87sidecar](https://github.com/athei/x87sidecar) |
+| `vanilla-tweaks.exe` | MIT | [brndd/vanilla-tweaks](https://github.com/brndd/vanilla-tweaks) |
 
-These are standalone binaries copied or spawned at runtime. Nothing GPL is
-linked into this repo's code: `winerosetta.dll` and `libSiliconPatch.dll` are
-Windows DLLs loaded into the **game's** process by the patched `DivxDecoder`,
-and `libDllLdr.dll` is invoked out-of-process through `rundll32`. That is mere
-aggregation under GPL-3 §5, not derivation, so the launcher's own MIT license
-stands and the GPL files keep their own terms.
+None of these are linked into this repo's code. `winerosetta.dll` and
+`libSiliconPatch.dll` are Windows DLLs loaded into the **game's** process by the
+patched `DivxDecoder`; `libDllLdr.dll` is invoked out-of-process through
+`rundll32`. That is aggregation, not derivation, so this project's MIT licence
+and their licences are independent.
 
-## Blizzard-related caveats
+## Binary-only components
 
-- A fresh wrapper contains **no Blizzard files**, with one cosmetic exception:
-  the app icon (`assets/icon.png`) and the `wow-icon-*.bsdiff` patches embed
-  World of Warcraft icon artwork (Blizzard copyright/trademark) — the same
-  artwork this repo already displays.
-- A **used** wrapper is different: after a game install it contains the full
-  client, and the patch kit self-populates Blizzard-derived reference files
-  (`Wow.exe.*`, `DivxDecoder.dll.*`, `fonts-client/`). Never distribute a
-  wrapper in that state.
+`libDllLdr.dll` and `libSiliconPatch.dll` are published by the WoWSilicon project
+as compiled binaries only — **no source has been released for either**, so no
+source link can be given here. They are redistributed exactly as upstream
+publishes them, unmodified. Requests for their source belong
+[upstream](https://github.com/WoWSilicon/WoWSilicon/issues).
 
-## Known gaps
+Neither is required to play:
 
-Two things are not satisfied today. Neither is about this repo's MIT license —
-both are about redistributing other people's binaries.
+- `libSiliconPatch.dll` is used only at **Game → Patches → All patches** and
+  measurably changes nothing on the current runtime (rosettax87 already carries
+  the x87 load). Any lower level omits it entirely.
+- `libDllLdr.dll` is only used once, at install time, to apply the `DivxDecoder`
+  mod-loader patch. At **No patches** it is never invoked.
 
-1. **Two components have no corresponding source.** `libDllLdr.dll` and
-   `libSiliconPatch.dll` are binary-only and sit inside a GPL-3.0 repo. GPL-3 §6
-   requires conveying the corresponding source, or a valid written offer, when
-   the binaries are distributed — and no source exists publicly, so neither this
-   project nor upstream can satisfy it. Options, in order of preference: get
-   upstream to publish the source; fetch the binaries from WoWSilicon's release
-   on first use instead of bundling them, so upstream stays the distributor; or
-   drop them (viable for `libSiliconPatch`, which measurably changes nothing on
-   the current runtime — not for `libDllLdr`, which applies the Divx patch).
-2. **The notices do not travel with the bundle.** A built `WoW.app` contains
-   only `patch-kit/x87sidecar/LICENSE`. This file and the license texts for the
-   LGPL-2.1 wine runtime (~57 MB of the bundle), DXVK, MoltenVK and the rest
-   should be copied into `Contents/Resources/` by `make`, with
-   `share/wowsilicon/runtime-lock.json`'s commit as the wine source pointer.
+## Scope of use
 
-**This is not hypothetical: we already redistribute.** Every release from v2.0
-to v2.4 ships a `WoW-vX.Y.zip` containing `patch-kit/libDllLdr.dll` and both
-`libSiliconPatch.dll` builds, without corresponding source and without the
-license texts. Gap 1 applies to those published artifacts today, not to some
-future distribution.
+This wrapper is built for **personal use with a client you already own**.
+Classic-era clients exist to connect to private servers, which is outside
+Blizzard's terms regardless of how the client is launched — so treat a built
+wrapper as something you run, not something you publish or sell.
 
-Don't modify the upstream binaries, and point recipients at the source
-repositories above.
+Two further reasons not to hand a built wrapper around:
 
-World of Warcraft remains a Blizzard trademark; this project is unaffiliated.
+- The app icon (`assets/icon.png`) and the `wow-icon-*.bsdiff` patches embed
+  World of Warcraft icon artwork, which is Blizzard's copyright and trademark.
+- A **used** wrapper contains the entire game client, plus Blizzard-derived
+  reference files the patch kit self-populates (`Wow.exe.*`, `DivxDecoder.dll.*`,
+  `fonts-client/`). Never distribute a wrapper in that state.
 
-*Not legal advice — this is an engineering inventory, written to be corrected.*
+World of Warcraft is a trademark of Blizzard Entertainment. This project is
+unaffiliated with and unendorsed by Blizzard.
