@@ -69,9 +69,14 @@ both are about redistributing other people's binaries.
    should be copied into `Contents/Resources/` by `make`, with
    `share/wowsilicon/runtime-lock.json`'s commit as the wine source pointer.
 
-Until both are addressed, treat a built wrapper as fine for personal use and
-not ready for redistribution. Don't modify the upstream binaries, and point
-recipients at the source repositories above.
+**This is not hypothetical: we already redistribute.** Every release from v2.0
+to v2.4 ships a `WoW-vX.Y.zip` containing `patch-kit/libDllLdr.dll` and both
+`libSiliconPatch.dll` builds, without corresponding source and without the
+license texts. Gap 1 applies to those published artifacts today, not to some
+future distribution.
+
+Don't modify the upstream binaries, and point recipients at the source
+repositories above.
 
 World of Warcraft remains a Blizzard trademark; this project is unaffiliated.
 
