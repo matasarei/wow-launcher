@@ -1,0 +1,220 @@
+#!/bin/bash
+# Fingerprint a WoW client folder and report what the patch kit can do with it.
+#
+#   wow-client-profile [<game dir>]    full profile, one KEY=value per line
+#   wow-client-profile --exe [<dir>]   just the entrypoint file name (fast path)
+#
+# Always exits 0 — an unrecognised client is a valid answer (FAMILY=generic),
+# not an error. Detection runs cheapest-first and most authoritative last:
+# entrypoint -> PE machine word -> the exe's VS_VERSIONINFO -> the Data layout.
+# The version resource wins: Data/lichking.MPQ only says "WotLK era", while
+# "FileVersion 3, 3, 5, 12340" says which build, and libSiliconPatch's ~400
+# hooks are hardcoded 12340 addresses with no build check of their own.
+APP="$(cd "$(dirname "$0")/../../.." && pwd)"
+RES="$APP/Contents/Resources"
+KIT="$RES/patch-kit"
+
+# Every payload DLL is 32-bit x86 (PE machine 0x014c) and libDllLdr exports only
+# PatchDivxDecoder/PatchDivxTac — so nothing in the kit can load into a 64-bit
+# client, and the mod loader needs a Divx DLL to hook. An exe we cannot parse
+# counts as "not proven 64-bit": unknown never costs a patch that works today.
+game_exe() {  # game_exe <game dir> — the client's entrypoint
+  local D="$1" f
+  [ -f "$D/Wow.exe" ] && { echo Wow.exe; return; }
+  [ -f "$D/run.exe" ] && { echo run.exe; return; }
+  # a repack may name it anything; take the largest root .exe that is not a
+  # known helper (ls -S sorts by size, and the game exe is always the big one)
+  local IFS=$'\n'
+  for f in $(ls -S "$D"/*.exe 2>/dev/null); do
+    case "$(basename "$f" | tr 'A-Z' 'a-z')" in
+      wowerror.exe|repair.exe|launcher.exe|backgrounddownloader.exe|\
+      vanilla-tweaks.exe|wow_tweaked.exe|unins*.exe) continue ;;
+    esac
+    basename "$f"; return
+  done
+  echo Wow.exe
+}
+
+# Patch level requested by the user (launcher.conf PATCHES=), migrating the
+# pre-2.4 SILICON= toggle (1 -> all, 0 -> no-silicon).
+patch_level() {
+  local p
+  p="$(grep -sE '^PATCHES=' "$RES/launcher.conf" | cut -d= -f2)"
+  case "$p" in all|no-silicon|winerosetta|none) echo "$p"; return ;; esac
+  case "$(grep -sE '^SILICON=' "$RES/launcher.conf" | cut -d= -f2)" in
+    0) echo no-silicon ;;
+    *) echo all ;;
+  esac
+}
+
+pe_arch() {  # pe_arch <exe> — x86 | x64 | unknown
+  local f="$1" lfa sig m
+  [ -f "$f" ] || { echo unknown; return; }
+  [ "$(od -An -c -N2 "$f" 2>/dev/null | tr -d ' \n')" = "MZ" ] || { echo unknown; return; }
+  lfa="$(od -An -tu4 -j60 -N4 "$f" 2>/dev/null | tr -d ' ')"
+  [ -n "$lfa" ] && [ "$lfa" -gt 0 ] 2>/dev/null || { echo unknown; return; }
+  sig="$(od -An -c -j"$lfa" -N2 "$f" 2>/dev/null | tr -d ' \n')"
+  [ "$sig" = "PE" ] || { echo unknown; return; }
+  m="$(od -An -tx2 -j$((lfa + 4)) -N2 "$f" 2>/dev/null | tr -d ' \n')"
+  case "$m" in
+    014c) echo x86 ;;
+    8664|aa64) echo x64 ;;
+    *) echo unknown ;;
+  esac
+}
+
+# The VS_VERSIONINFO strings are UTF-16LE: dropping NULs turns them into plain
+# ASCII, then every remaining non-printable byte becomes a newline. Both passes
+# are needed — the first joins the UTF-16 text, and without the second the whole
+# binary is one multi-megabyte "line", on which BSD grep -o silently finds
+# nothing. ~0.8 s on a 7.7 MB Wow.exe; the launch fast path uses --exe instead.
+exe_version() {  # exe_version <exe> — "3,3,5,12340" or empty
+  [ -f "$1" ] || return 0
+  LC_ALL=C tr -d '\0' < "$1" 2>/dev/null | LC_ALL=C tr -c '\40-\176' '\n' \
+    | grep -aoE 'FileVersion[[:space:]]*[0-9]+,[[:space:]]*[0-9]+,[[:space:]]*[0-9]+,[[:space:]]*[0-9]+' \
+    | head -1 | sed -E 's/^FileVersion//; s/[[:space:]]//g'
+}
+
+# --- resolve the target folder ---------------------------------------------
+MODE=full
+[ "${1:-}" = "--exe" ] && { MODE=exe; shift; }
+D="${1:-}"
+if [ -z "$D" ]; then
+  N="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
+  if [ -n "$N" ] && [ -d "$RES/games/$N" ]; then D="$RES/games/$N"; else D="$RES/game"; fi
+fi
+
+EXE="$(game_exe "$D")"
+[ "$MODE" = exe ] && { echo "$EXE"; exit 0; }
+
+ARCH="$(pe_arch "$D/$EXE")"
+VER_RAW="$(exe_version "$D/$EXE")"
+BUILD=""; RESVER=""
+if [ -n "$VER_RAW" ]; then
+  IFS=, read -r V1 V2 V3 V4 <<< "$VER_RAW"
+  RESVER="$V1.$V2.$V3"; BUILD="$V4"
+fi
+
+# --- data layout ------------------------------------------------------------
+# Checked most-specific first: Cataclysm/MoP keep MPQs but name them
+# expansion1..3/world, and CASC-era clients have no MPQs at all.
+if [ -f "$D/.build.info" ] || ls "$D"/Data/data/*.idx >/dev/null 2>&1; then
+  FAMILY=casc; DATA=casc
+elif [ -f "$D/Data/expansion2.MPQ" ] || [ -f "$D/Data/expansion3.MPQ" ] \
+  || [ -f "$D/Data/world.MPQ" ] || [ -f "$D/Data/world2.MPQ" ]; then
+  FAMILY=post-wotlk; DATA=mpq
+elif [ -f "$D/Data/lichking.MPQ" ]; then FAMILY=wotlk;   DATA=mpq
+elif [ -f "$D/Data/expansion.MPQ" ]; then FAMILY=tbc;    DATA=mpq
+elif [ -f "$D/Data/dbc.MPQ" ];       then FAMILY=vanilla; DATA=mpq
+else
+  FAMILY=generic
+  ls "$D"/Data/*.MPQ >/dev/null 2>&1 && DATA=mpq || DATA=none
+fi
+
+# --- version + confidence ---------------------------------------------------
+# The canonical labels stay what the rest of the launcher already writes into
+# GAME_VERSION; anything else reports whatever the exe declared.
+case "$FAMILY" in
+  wotlk)   VERSION=3.3.5a; EXPECT=3.3.5 ;;
+  tbc)     VERSION=2.4.3;  EXPECT=2.4.3 ;;
+  vanilla) VERSION=1.12;   EXPECT=1.12  ;;
+  *)       VERSION=unknown; EXPECT="" ;;
+esac
+CONFIDENCE=likely
+case "$FAMILY" in generic|casc) CONFIDENCE=guess ;; esac
+if [ -n "$RESVER" ]; then
+  case "$EXPECT" in
+    "")    VERSION="$RESVER" ;;   # confidence stays 'guess': we know the name, not the contents
+    1.12)  case "$RESVER" in 1.12.*) CONFIDENCE=exact ;; *) VERSION="$RESVER" ;; esac ;;
+    *)     if [ "$RESVER" = "$EXPECT" ]; then CONFIDENCE=exact; else VERSION="$RESVER"; fi ;;
+  esac
+fi
+
+LOCALE="$(basename "$(ls -d "$D"/Data/????/ 2>/dev/null | head -1)" 2>/dev/null)"
+case "$LOCALE" in [a-z][a-z][A-Z][A-Z]) ;; *) LOCALE="" ;; esac
+
+# --- capabilities -----------------------------------------------------------
+NOT64=1; [ "$ARCH" = x64 ] && NOT64=0
+
+CAP_LOADER=0
+[ "$NOT64" = 1 ] && { [ -f "$D/DivxDecoder.dll" ] || [ -f "$D/DivxTac.dll" ] \
+                   || [ -f "$D/DivxDecoder.dll.bak" ] || [ -f "$D/DivxTac.dll.bak" ]; } \
+  && CAP_LOADER=1
+CAP_DXVK="$NOT64"
+
+# libSiliconPatch is per-expansion and address-keyed. WotLK: 12340 only — an
+# unreadable resource still qualifies (a packed custom exe would otherwise
+# silently lose hooks it gets today), a declared other build does not. Vanilla:
+# the payload carries no build marker, so the pin stays at 1.12 as a whole.
+CAP_SILICON=""
+if [ "$NOT64" = 1 ]; then
+  case "$FAMILY" in
+    wotlk)   if [ -z "$BUILD" ] || [ "$BUILD" = 12340 ]; then CAP_SILICON=wotlk; fi ;;
+    vanilla) CAP_SILICON=vanilla ;;
+  esac
+fi
+if [ -n "$CAP_SILICON" ] && [ ! -f "$KIT/libSiliconPatch/$CAP_SILICON/libSiliconPatch.dll" ]; then
+  CAP_SILICON=""
+fi
+
+# The icon diffs are md5-keyed to Blizzard's Wow.exe. Both ends count: an
+# already-patched exe must keep offering the levels that patch it.
+CAP_ICON=0
+if [ "$EXE" = "Wow.exe" ] && [ -f "$D/Wow.exe" ]; then
+  M="$(md5 -q "$D/Wow.exe" 2>/dev/null)"
+  for F in "$KIT"/wow-icon-*.bsdiff; do
+    [ -f "$F" ] || continue
+    B="$(basename "$F" .bsdiff)"; B="${B#wow-icon-}"
+    { [ "$M" = "${B%%-*}" ] || [ "$M" = "${B#*-}" ]; } && { CAP_ICON=1; break; }
+  done
+  [ "$CAP_ICON" = 0 ] && for F in "$KIT/Wow.exe.orig" "$KIT/Wow.exe.icon-patched"; do
+    [ -f "$F" ] && cmp -s "$D/Wow.exe" "$F" && { CAP_ICON=1; break; }
+  done
+fi
+
+CAP_TWEAKS=0
+[ "$FAMILY" = vanilla ] && [ -f "$KIT/vanilla-tweaks.exe" ] && CAP_TWEAKS=1
+CAP_LANGPACK=0
+case "$FAMILY" in wotlk|tbc) [ "$EXE" = "Wow.exe" ] && CAP_LANGPACK=1 ;; esac
+# the gx* cvars the wrapper writes are MPQ-era names; never guess at others
+CAP_CVARS=0; [ "$DATA" = mpq ] && CAP_CVARS=1
+
+# --- offered patch levels ---------------------------------------------------
+LEVELS=""
+[ -n "$CAP_SILICON" ] && LEVELS="$LEVELS all"
+{ [ "$CAP_LOADER" = 1 ] || [ "$CAP_ICON" = 1 ]; } && LEVELS="$LEVELS no-silicon"
+[ "$CAP_LOADER" = 1 ] && LEVELS="$LEVELS winerosetta"
+LEVELS="$LEVELS none"; LEVELS="${LEVELS# }"
+
+# The user's choice is remembered as-is and clamped down to the best level this
+# client can actually take, so swapping clients back restores the full set.
+rank() { case "$1" in all) echo 3 ;; no-silicon) echo 2 ;; winerosetta) echo 1 ;; *) echo 0 ;; esac; }
+REQUESTED="$(patch_level)"
+WANT="$(rank "$REQUESTED")"
+EFFECTIVE=none
+for L in all no-silicon winerosetta none; do          # highest first
+  case " $LEVELS " in *" $L "*) ;; *) continue ;; esac
+  [ "$(rank "$L")" -le "$WANT" ] || continue          # never above what was asked
+  EFFECTIVE="$L"; break
+done
+
+cat <<EOF
+FAMILY=$FAMILY
+VERSION=$VERSION
+BUILD=$BUILD
+CONFIDENCE=$CONFIDENCE
+EXE=$EXE
+ARCH=$ARCH
+DATA=$DATA
+LOCALE=$LOCALE
+CAP_LOADER=$CAP_LOADER
+CAP_DXVK=$CAP_DXVK
+CAP_SILICON=$CAP_SILICON
+CAP_ICON=$CAP_ICON
+CAP_TWEAKS=$CAP_TWEAKS
+CAP_LANGPACK=$CAP_LANGPACK
+CAP_CVARS=$CAP_CVARS
+LEVELS=$LEVELS
+PATCHES_REQUESTED=$REQUESTED
+PATCHES=$EFFECTIVE
+EOF

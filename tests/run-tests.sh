@@ -110,6 +110,138 @@ mk_vanilla "$TMP/client-vanilla"
 
 reset_conf() { printf 'AUTO_RES=1\nCHAT_CP=\n' > "$RES/launcher.conf"; }
 
+# A minimal but genuinely parseable PE: MZ, e_lfanew at 0x3C pointing at 0x40,
+# the PE signature and the machine word — plus, optionally, a UTF-16LE
+# VS_VERSIONINFO string of the shape the profile script reads out of Wow.exe.
+mk_pe() {  # mk_pe <path> <x86|x64> [<"3, 3, 5, 12340">]
+  { printf 'MZ'; head -c 58 /dev/zero
+    printf '\100\000\000\000'                                  # e_lfanew = 0x40
+    printf 'PE\000\000'
+    case "$2" in x64) printf '\144\206' ;; *) printf '\114\001' ;; esac
+    head -c 32 /dev/zero
+    if [ -n "${3:-}" ]; then
+      printf 'FileVersion' | iconv -t UTF-16LE
+      head -c 6 /dev/zero
+      printf '%s' "$3" | iconv -t UTF-16LE
+      head -c 8 /dev/zero
+    fi
+  } > "$1"
+}
+mk_post_wotlk() {  # Cataclysm/MoP-shaped: still MPQ, but expansion2/world
+  local D="$1"; mkdir -p "$D/Data/enUS"
+  mk_pe "$D/Wow.exe" x86 "4, 3, 4, 15595"
+  for m in art expansion1 expansion2 expansion3 world world2; do touch "$D/Data/$m.MPQ"; done
+  touch "$D/Data/enUS/locale-enUS.MPQ"
+  echo origdivx > "$D/DivxDecoder.dll"
+}
+mk_casc() {  # Legion-shaped: 64-bit entrypoint, CASC storage, no MPQ at all
+  local D="$1"; mkdir -p "$D/Data/data"
+  mk_pe "$D/Wow.exe" x64 "7, 3, 5, 26972"
+  touch "$D/.build.info" "$D/Data/data/0000000001.idx"
+}
+
+# ============================================================ client profile
+section "wow-client-profile"
+prof() { "$BIN/wow-client-profile" "$1" | grep -E "^$2=" | cut -d= -f2-; }
+
+# the classic three keep today's answers even with an unreadable (empty) exe
+assert_eq "$(prof "$TMP/client-wotlk" FAMILY)"      "wotlk"   "wotlk family"
+assert_eq "$(prof "$TMP/client-wotlk" VERSION)"     "3.3.5a"  "wotlk version label"
+assert_eq "$(prof "$TMP/client-wotlk" BUILD)"       ""        "no build from an unreadable exe"
+assert_eq "$(prof "$TMP/client-wotlk" CONFIDENCE)"  "likely"  "layout alone is 'likely'"
+assert_eq "$(prof "$TMP/client-wotlk" CAP_SILICON)" "wotlk"   "unknown build still gets libSiliconPatch"
+assert_eq "$(prof "$TMP/client-wotlk" LEVELS)" "all no-silicon winerosetta none" "wotlk offers every level"
+assert_eq "$(prof "$TMP/client-tbc" FAMILY)"        "tbc"     "tbc family"
+assert_eq "$(prof "$TMP/client-tbc" CAP_SILICON)"   ""        "no libSiliconPatch build for tbc"
+assert_eq "$(prof "$TMP/client-tbc" LEVELS)"        "none"    "tbc fixture ships no Divx DLL"
+cp -R "$TMP/client-tbc" "$TMP/client-tbc-divx"; echo origdivx > "$TMP/client-tbc-divx/DivxDecoder.dll"
+assert_eq "$(prof "$TMP/client-tbc-divx" LEVELS)" "no-silicon winerosetta none" "tbc with a Divx DLL has no 'all'"
+assert_eq "$(prof "$TMP/client-vanilla" FAMILY)"    "vanilla" "vanilla family"
+assert_eq "$(prof "$TMP/client-vanilla" CAP_SILICON)" "vanilla" "vanilla libSiliconPatch"
+assert_eq "$(prof "$TMP/client-vanilla" CAP_TWEAKS)" "1"      "vanilla-tweaks offered"
+assert_eq "$(prof "$TMP/client-vanilla" CAP_LOADER)" "0"      "no Divx DLL means no mod loader"
+assert_eq "$(prof "$TMP/client-vanilla" LEVELS)"    "all none" "vanilla without Divx: all or nothing"
+
+# the version resource is what turns a family into a build
+cp -R "$TMP/client-wotlk" "$TMP/client-12340"
+mk_pe "$TMP/client-12340/Wow.exe" x86 "3, 3, 5, 12340"
+assert_eq "$(prof "$TMP/client-12340" BUILD)"       "12340"   "build read from the exe"
+assert_eq "$(prof "$TMP/client-12340" CONFIDENCE)"  "exact"   "resource + layout agree"
+assert_eq "$(prof "$TMP/client-12340" VERSION)"     "3.3.5a"  "canonical label kept"
+assert_eq "$(prof "$TMP/client-12340" CAP_SILICON)" "wotlk"   "12340 gets the hooks"
+
+cp -R "$TMP/client-wotlk" "$TMP/client-309"
+mk_pe "$TMP/client-309/Wow.exe" x86 "3, 0, 9, 9551"
+assert_eq "$(prof "$TMP/client-309" BUILD)"         "9551"    "pre-3.3.5 build read"
+assert_eq "$(prof "$TMP/client-309" VERSION)"       "3.0.9"   "declared version wins over the label"
+assert_eq "$(prof "$TMP/client-309" CAP_SILICON)"   ""        "12340 hooks refused on 3.0.9"
+assert_eq "$(prof "$TMP/client-309" LEVELS)" "no-silicon winerosetta none" "and 'all' is not offered"
+
+# post-WotLK MPQ era: loader and DXVK apply, libSiliconPatch never does
+mk_post_wotlk "$TMP/client-cata"
+assert_eq "$(prof "$TMP/client-cata" FAMILY)"       "post-wotlk" "cata family"
+assert_eq "$(prof "$TMP/client-cata" VERSION)"      "4.3.4"   "cata version from the resource"
+assert_eq "$(prof "$TMP/client-cata" CAP_SILICON)"  ""        "no libSiliconPatch past wotlk"
+assert_eq "$(prof "$TMP/client-cata" CAP_LOADER)"   "1"       "cata mod loader (Divx present)"
+assert_eq "$(prof "$TMP/client-cata" CAP_CVARS)"    "1"       "cata still uses gx* cvars"
+assert_eq "$(prof "$TMP/client-cata" CAP_LANGPACK)" "0"       "no language packs past tbc"
+
+# 64-bit CASC client: nothing in the kit can load into it
+mk_casc "$TMP/client-casc"
+assert_eq "$(prof "$TMP/client-casc" FAMILY)"       "casc"    "casc family"
+assert_eq "$(prof "$TMP/client-casc" ARCH)"         "x64"     "64-bit entrypoint detected"
+assert_eq "$(prof "$TMP/client-casc" DATA)"         "casc"    "casc storage"
+assert_eq "$(prof "$TMP/client-casc" CONFIDENCE)"   "guess"   "casc is a guess"
+assert_eq "$(prof "$TMP/client-casc" CAP_LOADER)"   "0"       "no 32-bit mod loader"
+assert_eq "$(prof "$TMP/client-casc" CAP_DXVK)"     "0"       "no 32-bit DXVK"
+assert_eq "$(prof "$TMP/client-casc" CAP_CVARS)"    "0"       "no gx* cvar seeding"
+assert_eq "$(prof "$TMP/client-casc" LEVELS)"       "none"    "only 'no patches' is offered"
+
+# an unrecognised folder is an answer, not an error
+mkdir -p "$TMP/client-generic/Data"; mk_pe "$TMP/client-generic/Wow.exe" x86
+assert_eq "$(prof "$TMP/client-generic" FAMILY)"    "generic" "generic family"
+assert_eq "$(prof "$TMP/client-generic" VERSION)"   "unknown" "generic version"
+assert_eq "$(prof "$TMP/client-generic" CONFIDENCE)" "guess"  "generic is a guess"
+"$BIN/wow-client-profile" "$TMP/client-generic" >/dev/null 2>&1 && ok || bad "profile must exit 0 on a generic client"
+
+# the requested level is remembered; the effective one is clamped to the client
+printf 'AUTO_RES=1\nPATCHES=all\n' > "$RES/launcher.conf"
+assert_eq "$(prof "$TMP/client-casc" PATCHES_REQUESTED)" "all"  "request survives"
+assert_eq "$(prof "$TMP/client-casc" PATCHES)"      "none"    "clamped to what the client can take"
+assert_eq "$(prof "$TMP/client-cata" PATCHES)"      "no-silicon" "clamped to the best cata level"
+assert_eq "$(prof "$TMP/client-wotlk" PATCHES)"     "all"     "wotlk is not clamped"
+printf 'AUTO_RES=1\nPATCHES=winerosetta\n' > "$RES/launcher.conf"
+assert_eq "$(prof "$TMP/client-wotlk" PATCHES)"     "winerosetta" "a lower request is never raised"
+printf 'AUTO_RES=1\nSILICON=0\n' > "$RES/launcher.conf"
+assert_eq "$(prof "$TMP/client-wotlk" PATCHES)"     "no-silicon" "pre-2.4 SILICON=0 still migrates"
+reset_conf
+
+# entrypoints
+assert_eq "$("$BIN/wow-client-profile" --exe "$TMP/client-wotlk")" "Wow.exe" "--exe fast path"
+cp -R "$TMP/client-wotlk" "$TMP/client-runexe"
+mv "$TMP/client-runexe/Wow.exe" "$TMP/client-runexe/run.exe"
+assert_eq "$(prof "$TMP/client-runexe" EXE)"        "run.exe" "run.exe entrypoint"
+assert_eq "$(prof "$TMP/client-runexe" CAP_LANGPACK)" "0"     "no language packs for a custom entrypoint"
+assert_eq "$(prof "$TMP/client-runexe" CAP_ICON)"   "0"       "no icon patch for a custom entrypoint"
+cp -R "$TMP/client-wotlk" "$TMP/client-oddexe"
+mv "$TMP/client-oddexe/Wow.exe" "$TMP/client-oddexe/Azeroth.exe"
+head -c 4096 /dev/zero > "$TMP/client-oddexe/WowError.exe"
+assert_eq "$(prof "$TMP/client-oddexe" EXE)"        "Azeroth.exe" "largest non-helper exe wins"
+
+# the icon patch keeps its level offered on both sides of the diff
+cp -R "$TMP/client-wotlk" "$TMP/client-icon"
+rm -f "$TMP/client-icon/DivxDecoder.dll"          # loader off, so only the icon can offer no-silicon
+printf 'iconexe' > "$TMP/client-icon/Wow.exe"
+IN_MD5="$(md5 -q "$TMP/client-icon/Wow.exe")"
+touch "$RES/patch-kit/wow-icon-$IN_MD5-deadbeef.bsdiff"
+assert_eq "$(prof "$TMP/client-icon" CAP_ICON)"     "1"       "icon diff matches the stock exe"
+assert_eq "$(prof "$TMP/client-icon" LEVELS)" "all no-silicon none" "the icon alone offers no-silicon"
+printf 'patchediconexe' > "$TMP/client-icon/Wow.exe"
+OUT_MD5="$(md5 -q "$TMP/client-icon/Wow.exe")"
+mv "$RES/patch-kit/wow-icon-$IN_MD5-deadbeef.bsdiff" "$RES/patch-kit/wow-icon-cafe-$OUT_MD5.bsdiff"
+assert_eq "$(prof "$TMP/client-icon" CAP_ICON)"     "1"       "an already-patched exe still counts"
+rm -f "$RES/patch-kit/wow-icon-"*.bsdiff
+
 # ============================================================ version detection
 section "wow-game-version"
 assert_eq "$("$BIN/wow-game-version" "$TMP/client-wotlk")"   "3.3.5a" "wotlk fingerprint"
