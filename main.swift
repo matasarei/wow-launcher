@@ -568,6 +568,7 @@ final class Store: ObservableObject {
                 self.refreshLanguages()
                 self.refreshRealms()
                 self.refreshStatus()
+                self.loadProfile()   // the switch swapped Wow.exe — CAP_ICON follows it
             }
         }
     }
