@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/matasarei/wow-launcher/actions/workflows/ci.yml"><img src="https://github.com/matasarei/wow-launcher/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-black?logo=apple" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-orange" alt="Apple Silicon">
   <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
