@@ -39,11 +39,14 @@ enum Paths {
     static var runPattern: String {
         let folder = activeGame.isEmpty ? "game" : activeGame
         // The installer records the entrypoint it found (GAME_EXE=); a repack may
-        // name it anything. WoW_tweaked.exe is always allowed too — vanilla-tweaks
-        // creates it after the install, so it is never the recorded name.
+        // name it anything, including something like WoWSirus.exe that the fixed
+        // patterns below look like they cover and do not. Always append it — a
+        // duplicate alternative costs nothing, a missed one loses the game.
+        // WoW_tweaked.exe is always allowed too: vanilla-tweaks creates it after
+        // the install, so it is never the recorded name.
         var names = ["[Ww]o[Ww]\\.exe", "[Ww]o[Ww]_[Tt]weaked\\.exe", "run\\.exe"]
         let recorded = confValue("GAME_EXE")
-        if !recorded.isEmpty, !recorded.lowercased().hasPrefix("wow"), recorded != "run.exe" {
+        if !recorded.isEmpty {
             names.append(NSRegularExpression.escapedPattern(for: recorded))
         }
         return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\](" + names.joined(separator: "|") + ")"
