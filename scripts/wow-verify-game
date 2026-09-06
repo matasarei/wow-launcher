@@ -298,7 +298,7 @@ elif [ "$FAMILY" != wotlk ] && [ "$FAMILY" != tbc ]; then
   # clients pick their server another way) — report, never fail
   step "server list"
   REALMLIST="$(ls "$G"/Data/*/realmlist.wtf "$G"/realmlist.wtf 2>/dev/null | head -1)"
-  if [ -n "$REALMLIST" ]; then echo "ok: realmlist.wtf (${REALMLIST#$G/})"
+  if [ -n "$REALMLIST" ]; then echo "ok: realmlist.wtf (${REALMLIST#"$G"/})"
   else echo "ok: no realmlist.wtf (this client selects its server another way)"; fi
 else
   REALMLIST="$G/Data/$LOCALE/realmlist.wtf"
