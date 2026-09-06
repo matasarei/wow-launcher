@@ -114,14 +114,31 @@ mk_vanilla "$TMP/client-vanilla"
 reset_conf() { printf 'AUTO_RES=1\nCHAT_CP=\n' > "$RES/launcher.conf"; }
 
 # A minimal but genuinely parseable PE: MZ, e_lfanew at 0x3C pointing at 0x40,
-# the PE signature and the machine word — plus, optionally, a UTF-16LE
-# VS_VERSIONINFO string of the shape the profile script reads out of Wow.exe.
-mk_pe() {  # mk_pe <path> <x86|x64> [<"3, 3, 5, 12340">]
+# the PE signature, the machine word — and, when a version is given, a UTF-16LE
+# VS_VERSIONINFO blob of the shape the profile script reads out of Wow.exe.
+# By default it is reachable through a one-entry section table naming .rsrc,
+# which is the path the profile takes on a real client; pass "nosections" for a
+# header the section walk cannot use, so the whole-file fallback gets exercised.
+#
+#   0..59 DOS header  60 e_lfanew=64  64 'PE\0\0'  68 machine  70 nsec
+#   72..83 unused  84 SizeOfOptionalHeader=0  86 characteristics
+#   88 section table (40 bytes)  128 the version blob
+mk_pe() {  # mk_pe <path> <x86|x64> [<"3, 3, 5, 12340">] [nosections]
   { printf 'MZ'; head -c 58 /dev/zero
-    printf '\100\000\000\000'                                  # e_lfanew = 0x40
+    printf '\100\000\000\000'                       # e_lfanew = 0x40
     printf 'PE\000\000'
     case "$2" in x64) printf '\144\206' ;; *) printf '\114\001' ;; esac
-    head -c 32 /dev/zero
+    if [ -n "${3:-}" ] && [ "${4:-}" != nosections ]; then
+      printf '\001\000'; head -c 12 /dev/zero          # NumberOfSections = 1
+      printf '\000\000\000\000'                      # no optional header
+      printf '.rsrc\000\000\000'                      # section name
+      head -c 8 /dev/zero                               # VirtualSize, VirtualAddress
+      printf '\000\020\000\000'                      # SizeOfRawData  = 4096
+      printf '\200\000\000\000'                      # PointerToRawData = 128
+      head -c 16 /dev/zero
+    else
+      head -c 32 /dev/zero                              # NumberOfSections = 0
+    fi
     if [ -n "${3:-}" ]; then
       printf 'FileVersion' | iconv -t UTF-16LE
       head -c 6 /dev/zero
@@ -175,6 +192,12 @@ assert_eq "$(prof "$TMP/client-12340" BUILD)"       "12340"   "build read from t
 assert_eq "$(prof "$TMP/client-12340" CONFIDENCE)"  "exact"   "resource + layout agree"
 assert_eq "$(prof "$TMP/client-12340" VERSION)"     "3.3.5a"  "canonical label kept"
 assert_eq "$(prof "$TMP/client-12340" CAP_SILICON)" "wotlk"   "12340 gets the hooks"
+# the version blob is normally reached through the .rsrc section table; a header
+# the section walk cannot use has to fall back to scanning the whole file
+cp -R "$TMP/client-wotlk" "$TMP/client-nosect"
+mk_pe "$TMP/client-nosect/Wow.exe" x86 "3, 3, 5, 12340" nosections
+assert_eq "$(prof "$TMP/client-nosect" BUILD)"      "12340"   "build read without a section table"
+assert_eq "$(prof "$TMP/client-nosect" CONFIDENCE)" "exact"   "and it is just as exact"
 
 cp -R "$TMP/client-wotlk" "$TMP/client-309"
 mk_pe "$TMP/client-309/Wow.exe" x86 "3, 0, 9, 9551"

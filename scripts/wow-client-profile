@@ -47,15 +47,23 @@ patch_level() {
   esac
 }
 
+u16() { od -An -tu2 -j"$2" -N2 "$1" 2>/dev/null | tr -d ' '; }
+u32() { od -An -tu4 -j"$2" -N4 "$1" 2>/dev/null | tr -d ' '; }
+
+pe_lfanew() {  # pe_lfanew <exe> — offset of the PE header, or nothing (exit 1)
+  local f="$1" lfa
+  [ -f "$f" ] || return 1
+  [ "$(od -An -c -N2 "$f" 2>/dev/null | tr -d ' \n')" = "MZ" ] || return 1
+  lfa="$(u32 "$f" 60)"
+  [ -n "$lfa" ] && [ "$lfa" -gt 0 ] 2>/dev/null || return 1
+  [ "$(od -An -c -j"$lfa" -N2 "$f" 2>/dev/null | tr -d ' \n')" = "PE" ] || return 1
+  echo "$lfa"
+}
+
 pe_arch() {  # pe_arch <exe> — x86 | x64 | unknown
-  local f="$1" lfa sig m
-  [ -f "$f" ] || { echo unknown; return; }
-  [ "$(od -An -c -N2 "$f" 2>/dev/null | tr -d ' \n')" = "MZ" ] || { echo unknown; return; }
-  lfa="$(od -An -tu4 -j60 -N4 "$f" 2>/dev/null | tr -d ' ')"
-  [ -n "$lfa" ] && [ "$lfa" -gt 0 ] 2>/dev/null || { echo unknown; return; }
-  sig="$(od -An -c -j"$lfa" -N2 "$f" 2>/dev/null | tr -d ' \n')"
-  [ "$sig" = "PE" ] || { echo unknown; return; }
-  m="$(od -An -tx2 -j$((lfa + 4)) -N2 "$f" 2>/dev/null | tr -d ' \n')"
+  local lfa m
+  lfa="$(pe_lfanew "$1")" || { echo unknown; return; }
+  m="$(od -An -tx2 -j$((lfa + 4)) -N2 "$1" 2>/dev/null | tr -d ' \n')"
   case "$m" in
     014c) echo x86 ;;
     8664|aa64) echo x64 ;;
@@ -63,14 +71,41 @@ pe_arch() {  # pe_arch <exe> — x86 | x64 | unknown
   esac
 }
 
+# VS_VERSIONINFO lives in the .rsrc section, so read the section table and scan
+# only that — the whole file would be ~1 s per 9 MB, on every install and every
+# verify. Section headers are 40 bytes each, starting after the optional header:
+# name at +0, SizeOfRawData at +16, PointerToRawData at +20.
+rsrc_range() {  # rsrc_range <exe> — "<offset> <size>", or nothing
+  local f="$1" lfa nsec optsz base i name
+  lfa="$(pe_lfanew "$f")" || return 1
+  nsec="$(u16 "$f" $((lfa + 6)))"; optsz="$(u16 "$f" $((lfa + 20)))"
+  [ -n "$nsec" ] && [ -n "$optsz" ] || return 1
+  i=0
+  while [ "$i" -lt "$nsec" ]; do
+    base=$((lfa + 24 + optsz + 40 * i)); i=$((i + 1))
+    name="$(LC_ALL=C dd if="$f" bs=1 skip="$base" count=8 2>/dev/null | tr -d '\0')"
+    [ "$name" = ".rsrc" ] || continue
+    echo "$(u32 "$f" $((base + 20))) $(u32 "$f" $((base + 16)))"
+    return 0
+  done
+  return 1
+}
+
 # The VS_VERSIONINFO strings are UTF-16LE: dropping NULs turns them into plain
 # ASCII, then every remaining non-printable byte becomes a newline. Both passes
 # are needed — the first joins the UTF-16 text, and without the second the whole
-# binary is one multi-megabyte "line", on which BSD grep -o silently finds
-# nothing. ~0.8 s on a 7.7 MB Wow.exe; the launch fast path uses --exe instead.
+# section is one enormous "line", on which BSD grep -o silently finds nothing.
 exe_version() {  # exe_version <exe> — "3,3,5,12340" or empty
+  local range
   [ -f "$1" ] || return 0
-  LC_ALL=C tr -d '\0' < "$1" 2>/dev/null | LC_ALL=C tr -c '\40-\176' '\n' \
+  range="$(rsrc_range "$1")" || range=""
+  # shellcheck disable=SC2086 — two fields on purpose
+  set -- "$1" $range
+  if [ -n "${2:-}" ] && [ -n "${3:-}" ]; then
+    tail -c "+$(($2 + 1))" "$1" 2>/dev/null | head -c "$3"
+  else
+    cat "$1" 2>/dev/null              # no section table (or no .rsrc): scan it all
+  fi | LC_ALL=C tr -d '\0' | LC_ALL=C tr -c '\40-\176' '\n' \
     | grep -aoE 'FileVersion[[:space:]]*[0-9]+,[[:space:]]*[0-9]+,[[:space:]]*[0-9]+,[[:space:]]*[0-9]+' \
     | head -1 | sed -E 's/^FileVersion//; s/[[:space:]]//g'
 }

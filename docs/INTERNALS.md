@@ -162,11 +162,14 @@ version scan.
 1. **Entrypoint** — `Wow.exe` > `run.exe` > the largest root `.exe` that is not a
    known helper (`WowError.exe`, `Repair.exe`, `Launcher.exe`, …).
 2. **`ARCH`** — the PE machine word at `e_lfanew+4`: `014c` → x86, `8664` → x64.
-3. **`VERSION`/`BUILD`** — the executable's `VS_VERSIONINFO`. Two `tr` passes are
-   needed: the first deletes NULs (the strings are UTF-16LE), the second turns
-   every remaining non-printable byte into a newline. **Without the second pass
-   the whole binary is one multi-megabyte "line" and BSD `grep -o` silently finds
-   nothing.** ~0.8 s on a 7.7 MB `Wow.exe`.
+3. **`VERSION`/`BUILD`** — the executable's `VS_VERSIONINFO`, found through the
+   section table: only `.rsrc` is read, not the whole file (scanning everything
+   costs ~1 s per 9 MB, on every install and every verify — 0.09 s vs 0.83 s on
+   the 7.7 MB 3.3.5a `Wow.exe`). A header with no usable section table falls back
+   to the whole file. Two `tr` passes either way: the first deletes NULs (the
+   strings are UTF-16LE), the second turns every remaining non-printable byte
+   into a newline. **Without the second pass the input is one enormous "line" and
+   BSD `grep -o` silently finds nothing.**
 4. **`DATA` layout** — checked most-specific first: `.build.info`/`Data/data/*.idx`
    → casc; `expansion2`/`expansion3`/`world`/`world2.MPQ` → post-wotlk;
    `lichking.MPQ` → wotlk; `expansion.MPQ` → tbc; `dbc.MPQ` → vanilla.
