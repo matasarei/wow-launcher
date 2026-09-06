@@ -204,6 +204,9 @@ if [ "$CAP_CVARS" = 1 ]; then
   "$BIN/wow-settings" auto >/dev/null 2>&1 || true
   echo "display settings reset to defaults"
 else
+  # RetinaMode is a wine-prefix setting, not a client cvar — verify checks it for
+  # every client, so a fresh wrapper must not be left with it unset.
+  "$BIN/wow-settings" retina auto >/dev/null 2>&1 || true
   echo "display settings left untouched (this client does not use the classic gx* settings)"
 fi
 # Fonts (the game loads Fonts/*.TTF over its MPQ fonts):

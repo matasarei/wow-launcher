@@ -46,7 +46,8 @@ cat > "$RES/wine/bin/wine" <<'STUB'
 #!/bin/bash
 echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-}" >> "$WINE_STUB_LOG"
 case "$*" in
-  *"reg query"*RetinaMode*)  printf '    RetinaMode    REG_SZ    Y\r\n' ;;
+  *"reg query"*RetinaMode*)  [ -n "${WOW_TEST_RETINA-Y}" ] \
+                               && printf '    RetinaMode    REG_SZ    %s\r\n' "${WOW_TEST_RETINA-Y}" ;;
   *"reg query"*ProxyServer*) printf '    ProxyServer    REG_SZ    127.0.0.1:1\r\n' ;;
   *"reg query"*ProxyEnable*) printf '    ProxyEnable    REG_DWORD    0x1\r\n' ;;
   *"reg query"*ACP*)         printf '    ACP    REG_SZ    1252\r\n' ;;
@@ -682,6 +683,8 @@ assert_eq "$(echo "$OUT" | grep -c '^FAIL:')" "0" "with no failures"
 assert_contains "$OUT" "ok: libSiliconPatch not used for 4.3.4 clients" "and says why there are no hooks"
 
 section "install: a 64-bit client"
+: > "$WINELOG"
+export WOW_TEST_RETINA=""      # a fresh prefix has never had RetinaMode written
 OUT="$("$BIN/wow-install-client" "$TMP/client-casc" 2>&1)"
 assert_contains "$OUT" "game installed (7.3.5)" "a Legion-shaped client installs"
 assert_contains "$OUT" "patch level: none (asked for 'all'" "clamped all the way down"
@@ -691,6 +694,12 @@ assert_nofile "$G/mods/winerosetta.dll"
 assert_nofile "$G/dlls.txt"
 assert_nofile "$G/WTF/Config.wtf"
 assert_contains "$(cat "$RES/launcher.conf")" "AUTO_RES=0" "no resolution matching for a 64-bit client"
+# RetinaMode is a wine-prefix setting, not a client cvar, and verify checks it for
+# every client — skipping the whole of `wow-settings auto` here would leave a fresh
+# wrapper failing its own verify on a Retina Mac
+assert_contains "$(cat "$WINELOG")" "reg add HKCU\\Software\\Wine\\Mac Driver /v RetinaMode" \
+  "retina mode is still matched for a client with no cvar handling"
+unset WOW_TEST_RETINA
 OUT="$("$BIN/wow-verify-game" 2>&1)"
 assert_contains "$OUT" "RESULT: OK" "a 64-bit client verifies clean"
 assert_eq "$(echo "$OUT" | grep -c '^FAIL:')" "0" "and raises no failures"
