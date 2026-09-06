@@ -46,7 +46,8 @@ cat > "$RES/wine/bin/wine" <<'STUB'
 #!/bin/bash
 echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-}" >> "$WINE_STUB_LOG"
 case "$*" in
-  *"reg query"*RetinaMode*)  printf '    RetinaMode    REG_SZ    Y\r\n' ;;
+  *"reg query"*RetinaMode*)  [ -n "${WOW_TEST_RETINA-Y}" ] \
+                               && printf '    RetinaMode    REG_SZ    %s\r\n' "${WOW_TEST_RETINA-Y}" ;;
   *"reg query"*ProxyServer*) printf '    ProxyServer    REG_SZ    127.0.0.1:1\r\n' ;;
   *"reg query"*ProxyEnable*) printf '    ProxyEnable    REG_DWORD    0x1\r\n' ;;
   *"reg query"*ACP*)         printf '    ACP    REG_SZ    1252\r\n' ;;
@@ -80,6 +81,7 @@ mk_wotlk() {  # complete 3.3.5a client with enUS locale
 mk_tbc() {  # complete 2.4.3 client with enUS locale
   local D="$1"; mkdir -p "$D/Data/enUS"
   touch "$D/Wow.exe" "$D/ijl15.dll" "$D/unicows.dll"
+  echo origtac > "$D/DivxTac.dll"        # pre-wotlk clients carry the older name
   for m in common expansion patch; do touch "$D/Data/$m.MPQ"; done
   for m in locale-enUS expansion-locale-enUS patch-enUS speech-enUS; do touch "$D/Data/enUS/$m.MPQ"; done
   printf 'set realmlist logon.example.com\r\n' > "$D/Data/enUS/realmlist.wtf"
@@ -87,6 +89,7 @@ mk_tbc() {  # complete 2.4.3 client with enUS locale
 mk_vanilla() {  # complete 1.12 client (no locale folder, root realmlist)
   local D="$1"; mkdir -p "$D/Data" "$D/WDB"
   touch "$D/Wow.exe" "$D/ijl15.dll" "$D/unicows.dll"
+  echo origtac > "$D/DivxTac.dll"
   for m in dbc interface model texture; do touch "$D/Data/$m.MPQ"; done
   printf 'set realmlist logon.example.com\r\n' > "$D/realmlist.wtf"
 }
@@ -110,6 +113,174 @@ mk_vanilla "$TMP/client-vanilla"
 
 reset_conf() { printf 'AUTO_RES=1\nCHAT_CP=\n' > "$RES/launcher.conf"; }
 
+# A minimal but genuinely parseable PE: MZ, e_lfanew at 0x3C pointing at 0x40,
+# the PE signature, the machine word — and, when a version is given, a UTF-16LE
+# VS_VERSIONINFO blob of the shape the profile script reads out of Wow.exe.
+# By default it is reachable through a one-entry section table naming .rsrc,
+# which is the path the profile takes on a real client; pass "nosections" for a
+# header the section walk cannot use, so the whole-file fallback gets exercised.
+#
+#   0..59 DOS header  60 e_lfanew=64  64 'PE\0\0'  68 machine  70 nsec
+#   72..83 unused  84 SizeOfOptionalHeader=0  86 characteristics
+#   88 section table (40 bytes)  128 the version blob
+mk_pe() {  # mk_pe <path> <x86|x64> [<"3, 3, 5, 12340">] [nosections]
+  { printf 'MZ'; head -c 58 /dev/zero
+    printf '\100\000\000\000'                       # e_lfanew = 0x40
+    printf 'PE\000\000'
+    case "$2" in x64) printf '\144\206' ;; *) printf '\114\001' ;; esac
+    if [ -n "${3:-}" ] && [ "${4:-}" != nosections ]; then
+      printf '\001\000'; head -c 12 /dev/zero          # NumberOfSections = 1
+      printf '\000\000\000\000'                      # no optional header
+      printf '.rsrc\000\000\000'                      # section name
+      head -c 8 /dev/zero                               # VirtualSize, VirtualAddress
+      printf '\000\020\000\000'                      # SizeOfRawData  = 4096
+      printf '\200\000\000\000'                      # PointerToRawData = 128
+      head -c 16 /dev/zero
+    else
+      head -c 32 /dev/zero                              # NumberOfSections = 0
+    fi
+    if [ -n "${3:-}" ]; then
+      printf 'FileVersion' | iconv -t UTF-16LE
+      head -c 6 /dev/zero
+      printf '%s' "$3" | iconv -t UTF-16LE
+      head -c 8 /dev/zero
+    fi
+  } > "$1"
+}
+mk_post_wotlk() {  # Cataclysm/MoP-shaped: still MPQ, but expansion2/world
+  local D="$1"; mkdir -p "$D/Data/enUS"
+  mk_pe "$D/Wow.exe" x86 "4, 3, 4, 15595"
+  for m in art expansion1 expansion2 expansion3 world world2; do touch "$D/Data/$m.MPQ"; done
+  touch "$D/Data/enUS/locale-enUS.MPQ"
+  echo origdivx > "$D/DivxDecoder.dll"
+}
+mk_casc() {  # Legion-shaped: 64-bit entrypoint, CASC storage, no MPQ at all
+  local D="$1"; mkdir -p "$D/Data/data"
+  mk_pe "$D/Wow.exe" x64 "7, 3, 5, 26972"
+  touch "$D/.build.info" "$D/Data/data/0000000001.idx"
+}
+
+# ============================================================ client profile
+section "wow-client-profile"
+prof() { "$BIN/wow-client-profile" "$1" | grep -E "^$2=" | cut -d= -f2-; }
+
+# the classic three keep today's answers even with an unreadable (empty) exe
+assert_eq "$(prof "$TMP/client-wotlk" FAMILY)"      "wotlk"   "wotlk family"
+assert_eq "$(prof "$TMP/client-wotlk" VERSION)"     "3.3.5a"  "wotlk version label"
+assert_eq "$(prof "$TMP/client-wotlk" BUILD)"       ""        "no build from an unreadable exe"
+assert_eq "$(prof "$TMP/client-wotlk" CONFIDENCE)"  "likely"  "layout alone is 'likely'"
+assert_eq "$(prof "$TMP/client-wotlk" CAP_SILICON)" "wotlk"   "unknown build still gets libSiliconPatch"
+assert_eq "$(prof "$TMP/client-wotlk" LEVELS)" "all no-silicon winerosetta none" "wotlk offers every level"
+assert_eq "$(prof "$TMP/client-tbc" FAMILY)"        "tbc"     "tbc family"
+assert_eq "$(prof "$TMP/client-tbc" CAP_SILICON)"   ""        "no libSiliconPatch build for tbc"
+assert_eq "$(prof "$TMP/client-tbc" LEVELS)" "no-silicon winerosetta none" "tbc has no 'all'"
+cp -R "$TMP/client-tbc" "$TMP/client-tbc-nodivx"; rm -f "$TMP/client-tbc-nodivx/DivxTac.dll"
+assert_eq "$(prof "$TMP/client-tbc-nodivx" CAP_LOADER)" "0" "no Divx DLL means no mod loader"
+assert_eq "$(prof "$TMP/client-tbc-nodivx" LEVELS)" "none" "and then nothing can be applied at all"
+assert_eq "$(prof "$TMP/client-vanilla" FAMILY)"    "vanilla" "vanilla family"
+assert_eq "$(prof "$TMP/client-vanilla" CAP_SILICON)" "vanilla" "vanilla libSiliconPatch"
+assert_eq "$(prof "$TMP/client-vanilla" CAP_TWEAKS)" "1"      "vanilla-tweaks offered"
+assert_eq "$(prof "$TMP/client-vanilla" LEVELS)" "all no-silicon winerosetta none" "vanilla offers every level"
+# libSiliconPatch is loaded by the Divx mod loader, so it cannot outlive it
+cp -R "$TMP/client-vanilla" "$TMP/client-van-nodivx"; rm -f "$TMP/client-van-nodivx/DivxTac.dll"
+assert_eq "$(prof "$TMP/client-van-nodivx" CAP_SILICON)" "" "no loader means no libSiliconPatch"
+
+# the version resource is what turns a family into a build
+cp -R "$TMP/client-wotlk" "$TMP/client-12340"
+mk_pe "$TMP/client-12340/Wow.exe" x86 "3, 3, 5, 12340"
+assert_eq "$(prof "$TMP/client-12340" BUILD)"       "12340"   "build read from the exe"
+assert_eq "$(prof "$TMP/client-12340" CONFIDENCE)"  "exact"   "resource + layout agree"
+assert_eq "$(prof "$TMP/client-12340" VERSION)"     "3.3.5a"  "canonical label kept"
+assert_eq "$(prof "$TMP/client-12340" CAP_SILICON)" "wotlk"   "12340 gets the hooks"
+# the version blob is normally reached through the .rsrc section table; a header
+# the section walk cannot use has to fall back to scanning the whole file
+cp -R "$TMP/client-wotlk" "$TMP/client-nosect"
+mk_pe "$TMP/client-nosect/Wow.exe" x86 "3, 3, 5, 12340" nosections
+assert_eq "$(prof "$TMP/client-nosect" BUILD)"      "12340"   "build read without a section table"
+assert_eq "$(prof "$TMP/client-nosect" CONFIDENCE)" "exact"   "and it is just as exact"
+
+cp -R "$TMP/client-wotlk" "$TMP/client-309"
+mk_pe "$TMP/client-309/Wow.exe" x86 "3, 0, 9, 9551"
+assert_eq "$(prof "$TMP/client-309" BUILD)"         "9551"    "pre-3.3.5 build read"
+assert_eq "$(prof "$TMP/client-309" VERSION)"       "3.0.9"   "declared version wins over the label"
+assert_eq "$(prof "$TMP/client-309" CAP_SILICON)"   ""        "12340 hooks refused on 3.0.9"
+assert_eq "$(prof "$TMP/client-309" LEVELS)" "no-silicon winerosetta none" "and 'all' is not offered"
+
+# post-WotLK MPQ era: loader and DXVK apply, libSiliconPatch never does
+mk_post_wotlk "$TMP/client-cata"
+assert_eq "$(prof "$TMP/client-cata" FAMILY)"       "post-wotlk" "cata family"
+assert_eq "$(prof "$TMP/client-cata" VERSION)"      "4.3.4"   "cata version from the resource"
+assert_eq "$(prof "$TMP/client-cata" CAP_SILICON)"  ""        "no libSiliconPatch past wotlk"
+assert_eq "$(prof "$TMP/client-cata" CAP_LOADER)"   "1"       "cata mod loader (Divx present)"
+assert_eq "$(prof "$TMP/client-cata" CAP_CVARS)"    "1"       "cata still uses gx* cvars"
+assert_eq "$(prof "$TMP/client-cata" CAP_LANGPACK)" "0"       "no language packs past tbc"
+
+# 64-bit CASC client: nothing in the kit can load into it
+mk_casc "$TMP/client-casc"
+assert_eq "$(prof "$TMP/client-casc" FAMILY)"       "casc"    "casc family"
+assert_eq "$(prof "$TMP/client-casc" ARCH)"         "x64"     "64-bit entrypoint detected"
+assert_eq "$(prof "$TMP/client-casc" DATA)"         "casc"    "casc storage"
+assert_eq "$(prof "$TMP/client-casc" CONFIDENCE)"   "guess"   "casc is a guess"
+assert_eq "$(prof "$TMP/client-casc" CAP_LOADER)"   "0"       "no 32-bit mod loader"
+assert_eq "$(prof "$TMP/client-casc" CAP_DXVK)"     "0"       "no 32-bit DXVK"
+assert_eq "$(prof "$TMP/client-casc" CAP_CVARS)"    "0"       "no gx* cvar seeding"
+assert_eq "$(prof "$TMP/client-casc" LEVELS)"       "none"    "only 'no patches' is offered"
+
+# an unrecognised folder is an answer, not an error
+mkdir -p "$TMP/client-generic/Data"; mk_pe "$TMP/client-generic/Wow.exe" x86
+assert_eq "$(prof "$TMP/client-generic" FAMILY)"    "generic" "generic family"
+assert_eq "$(prof "$TMP/client-generic" VERSION)"   "unknown" "generic version"
+assert_eq "$(prof "$TMP/client-generic" CONFIDENCE)" "guess"  "generic is a guess"
+"$BIN/wow-client-profile" "$TMP/client-generic" >/dev/null 2>&1 && ok || bad "profile must exit 0 on a generic client"
+
+# the requested level is remembered; the effective one is clamped to the client
+printf 'AUTO_RES=1\nPATCHES=all\n' > "$RES/launcher.conf"
+assert_eq "$(prof "$TMP/client-casc" PATCHES_REQUESTED)" "all"  "request survives"
+assert_eq "$(prof "$TMP/client-casc" PATCHES)"      "none"    "clamped to what the client can take"
+assert_eq "$(prof "$TMP/client-cata" PATCHES)"      "no-silicon" "clamped to the best cata level"
+assert_eq "$(prof "$TMP/client-wotlk" PATCHES)"     "all"     "wotlk is not clamped"
+printf 'AUTO_RES=1\nPATCHES=winerosetta\n' > "$RES/launcher.conf"
+assert_eq "$(prof "$TMP/client-wotlk" PATCHES)"     "winerosetta" "a lower request is never raised"
+printf 'AUTO_RES=1\nSILICON=0\n' > "$RES/launcher.conf"
+assert_eq "$(prof "$TMP/client-wotlk" PATCHES)"     "no-silicon" "pre-2.4 SILICON=0 still migrates"
+reset_conf
+
+# entrypoints
+assert_eq "$("$BIN/wow-client-profile" --exe "$TMP/client-wotlk")" "Wow.exe" "--exe fast path"
+cp -R "$TMP/client-wotlk" "$TMP/client-runexe"
+mv "$TMP/client-runexe/Wow.exe" "$TMP/client-runexe/run.exe"
+assert_eq "$(prof "$TMP/client-runexe" EXE)"        "run.exe" "run.exe entrypoint"
+assert_eq "$(prof "$TMP/client-runexe" CAP_LANGPACK)" "0"     "no language packs for a custom entrypoint"
+assert_eq "$(prof "$TMP/client-runexe" CAP_ICON)"   "0"       "no icon patch for a custom entrypoint"
+cp -R "$TMP/client-wotlk" "$TMP/client-oddexe"
+mv "$TMP/client-oddexe/Wow.exe" "$TMP/client-oddexe/Azeroth.exe"
+head -c 4096 /dev/zero > "$TMP/client-oddexe/WowError.exe"
+assert_eq "$(prof "$TMP/client-oddexe" EXE)"        "Azeroth.exe" "largest non-helper exe wins"
+# The output is a line-oriented protocol callers parse with grep, so every key
+# must appear exactly once whatever the folder holds — including a client whose
+# only executable is named something that looks like a profile line itself.
+cp -R "$TMP/client-wotlk" "$TMP/client-nlexe"
+rm -f "$TMP/client-nlexe/Wow.exe"
+head -c 4096 /dev/zero > "$TMP/client-nlexe/$(printf 'a\nCAP_SILICON=wotlk')-x.exe" 2>/dev/null || true
+OUT="$("$BIN/wow-client-profile" "$TMP/client-nlexe")"
+assert_eq "$(echo "$OUT" | grep -c '^CAP_SILICON=')" "1" "one CAP_SILICON line, always"
+assert_eq "$(echo "$OUT" | grep -cE '^[A-Z_]+=')" "$(echo "$OUT" | grep -c .)" \
+  "every line of the profile is a key=value pair"
+
+# the icon patch keeps its level offered on both sides of the diff
+cp -R "$TMP/client-wotlk" "$TMP/client-icon"
+rm -f "$TMP/client-icon/DivxDecoder.dll"          # loader off, so only the icon can offer no-silicon
+printf 'iconexe' > "$TMP/client-icon/Wow.exe"
+IN_MD5="$(md5 -q "$TMP/client-icon/Wow.exe")"
+touch "$RES/patch-kit/wow-icon-$IN_MD5-deadbeef.bsdiff"
+assert_eq "$(prof "$TMP/client-icon" CAP_ICON)"     "1"       "icon diff matches the stock exe"
+assert_eq "$(prof "$TMP/client-icon" LEVELS)" "no-silicon none" "the icon alone offers no-silicon"
+printf 'patchediconexe' > "$TMP/client-icon/Wow.exe"
+OUT_MD5="$(md5 -q "$TMP/client-icon/Wow.exe")"
+mv "$RES/patch-kit/wow-icon-$IN_MD5-deadbeef.bsdiff" "$RES/patch-kit/wow-icon-cafe-$OUT_MD5.bsdiff"
+assert_eq "$(prof "$TMP/client-icon" CAP_ICON)"     "1"       "an already-patched exe still counts"
+rm -f "$RES/patch-kit/wow-icon-"*.bsdiff
+
 # ============================================================ version detection
 section "wow-game-version"
 assert_eq "$("$BIN/wow-game-version" "$TMP/client-wotlk")"   "3.3.5a" "wotlk fingerprint"
@@ -117,13 +288,13 @@ assert_eq "$("$BIN/wow-game-version" "$TMP/client-tbc")"     "2.4.3"  "tbc finge
 assert_eq "$("$BIN/wow-game-version" "$TMP/client-vanilla")" "1.12"   "vanilla fingerprint"
 mkdir -p "$TMP/client-junk/Data"; touch "$TMP/client-junk/Wow.exe"
 assert_eq "$("$BIN/wow-game-version" "$TMP/client-junk" || true)" "unknown" "unknown fingerprint"
+assert_eq "$("$BIN/wow-game-version" "$TMP/client-cata")"    "4.3.4"  "post-wotlk reports its declared version"
+"$BIN/wow-game-version" "$TMP/client-junk" >/dev/null 2>&1 && bad "unknown must still exit non-zero" || ok
 
 # ============================================================ install: rejections
 section "wow-install-client rejections (nothing changed)"
 OUT="$("$BIN/wow-install-client" "$TMP/nonexistent" 2>&1)"
 assert_contains "$OUT" "not a WoW client" "missing client rejected"
-OUT="$("$BIN/wow-install-client" "$TMP/client-junk" 2>&1)"
-assert_contains "$OUT" "unrecognized client version" "unknown version rejected"
 rm "$TMP/client-tbc/Data/expansion.MPQ"; mkdir -p "$TMP/client-tbc2"; cp -R "$TMP/client-tbc/" "$TMP/client-tbc2/"; touch "$TMP/client-tbc/Data/expansion.MPQ"
 mkdir -p "$TMP/client-nl/Data"; touch "$TMP/client-nl/Wow.exe" "$TMP/client-nl/Data/common.MPQ" "$TMP/client-nl/Data/expansion.MPQ" "$TMP/client-nl/Data/patch.MPQ"
 OUT="$("$BIN/wow-install-client" "$TMP/client-nl" 2>&1)"
@@ -133,6 +304,20 @@ OUT="$("$BIN/wow-install-client" "$TMP/client-vanilla" 2>&1)"
 assert_contains "$OUT" "incomplete 1.12 client" "incomplete vanilla rejected"
 touch "$TMP/client-vanilla/Data/texture.MPQ"
 assert_eq "$(ls "$RES/games" | wc -l | tr -d ' ')" "0" "games dir untouched by rejections"
+
+# ...but a client we simply do not recognise is installed as it is
+OUT="$("$BIN/wow-install-client" "$TMP/client-junk" 2>&1)"
+assert_contains "$OUT" "not one the launcher recognises" "unknown client is noted, not refused"
+assert_contains "$OUT" "game installed (unknown)" "unknown client installs"
+assert_contains "$(cat "$RES/launcher.conf")" "GAME_FAMILY=generic" "family recorded"
+assert_contains "$(cat "$RES/launcher.conf")" "AUTO_RES=0" "no cvar seeding for an unknown client"
+assert_nofile "$RES/games/main/WTF/Config.wtf"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "RESULT: OK" "an unknown client verifies clean"
+assert_eq "$(echo "$OUT" | grep -c '^FAIL:')" "0" "and raises no failures"
+assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" \
+          "$(echo "$OUT" | grep -c '^PROGRESS ')" "computed TOTAL matches the steps run"
+rm -rf "$RES/games"/*; reset_conf
 
 # ============================================================ install: wotlk
 section "install 3.3.5a"
@@ -278,11 +463,12 @@ done
 OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
 assert_contains "$OUT" "patch level: all" "installer falls back to all for an unknown level"
 
-# the three patch_level() copies must stay identical
-A="$(sed -n '/^patch_level()/,/^}/p' "$BIN/wow-install-client" | md5 -q)"
-B="$(sed -n '/^patch_level()/,/^}/p' "$BIN/wow-verify-game"   | md5 -q)"
-C="$(sed -n '/^patch_level()/,/^}/p' "$BIN/wow-language"      | md5 -q)"
-[ "$A" = "$B" ] && [ "$B" = "$C" ] && ok || bad "patch_level() has diverged between scripts"
+# patch_level() and game_exe() live in wow-client-profile and nowhere else —
+# the copies these scripts used to carry are what the profile replaced
+for f in wow-install-client wow-verify-game wow-launch wow-language; do
+  grep -qE '^(patch_level|game_exe)\(\)' "$BIN/$f" \
+    && bad "$f carries its own copy of patch_level()/game_exe() again" || ok
+done
 
 # the pre-2.4 SILICON= toggle still migrates, then the default takes over again
 sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"
@@ -341,14 +527,9 @@ assert_eq "$(echo "$OUT" | grep -c 'custom entrypoint')" "0" "language packs sta
 mkdir -p "$TMP/client-noexe/Data"
 for m in common common-2 expansion lichking patch patch-2; do touch "$TMP/client-noexe/Data/$m.MPQ"; done
 OUT="$("$BIN/wow-install-client" "$TMP/client-noexe" 2>&1 || true)"
-assert_contains "$OUT" "no Wow.exe or run.exe" "a client with neither entrypoint is rejected"
+assert_contains "$OUT" "no game executable" "a client with neither entrypoint is rejected"
 assert_eq "$(cat "$G/Wow.exe")" "wowexe" "the installed game survived the rejection"
 
-# the three game_exe() copies must stay identical
-A="$(sed -n '/^game_exe()/,/^}/p' "$BIN/wow-install-client" | md5 -q)"
-B="$(sed -n '/^game_exe()/,/^}/p' "$BIN/wow-verify-game"    | md5 -q)"
-C="$(sed -n '/^game_exe()/,/^}/p' "$BIN/wow-launch"         | md5 -q)"
-[ "$A" = "$B" ] && [ "$B" = "$C" ] && ok || bad "game_exe() has diverged between scripts"
 
 # restore a stock wotlk client for the remaining sections
 sed -i '' '/^PATCHES=/d' "$RES/launcher.conf"
@@ -447,11 +628,15 @@ reset_conf
 
 # ============================================================ install: tbc
 section "install 2.4.3 (replaces wotlk)"
+cp "$TMP/client-tbc/DivxTac.dll" "$RES/patch-kit/DivxTac.dll.2.4.3.orig"
+echo patchedtac > "$RES/patch-kit/DivxTac.dll.2.4.3.patched"
 printf 'RENDERER=mtld3d\n' >> "$RES/launcher.conf"
 OUT="$("$BIN/wow-install-client" "$TMP/client-tbc" 2>&1)"
 assert_contains "$OUT" "game installed (2.4.3)" "install completed"
 assert_nofile "$G/mods/libSiliconPatch.dll"
 assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "tbc dlls.txt (winerosetta only)"
+assert_eq "$(cat "$G/DivxTac.dll")" "patchedtac" "the older DivxTac.dll is the loader hook"
+assert_eq "$(cat "$G/DivxTac.dll.bak")" "origtac" "DivxTac backup kept"
 CONF="$(cat "$RES/launcher.conf")"
 assert_contains "$CONF" "GAME_VERSION=2.4.3" "GAME_VERSION replaced"
 echo "$CONF" | grep -q "RENDERER=" && bad "RENDERER not reset on install" || ok
@@ -474,6 +659,8 @@ assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "tbc back to default (no
 
 # ============================================================ install: vanilla
 section "install 1.12"
+cp "$TMP/client-vanilla/DivxTac.dll" "$RES/patch-kit/DivxTac.dll.1.12.orig"
+echo patchedtac > "$RES/patch-kit/DivxTac.dll.1.12.patched"
 OUT="$("$BIN/wow-install-client" "$TMP/client-vanilla" 2>&1)"
 assert_contains "$OUT" "game installed (1.12)" "install completed"
 assert_eq "$(cat "$G/mods/libSiliconPatch.dll")" "sil-van" "vanilla libSiliconPatch build"
@@ -507,6 +694,75 @@ touch "$G/WoW_tweaked.exe"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(cat "$WINELOG")" "games/main/WoW_tweaked.exe" "prefers WoW_tweaked.exe"
 rm "$G/WoW_tweaked.exe"
+
+# ============================================================ other clients
+section "install: clients past WotLK"
+reset_conf
+OUT="$("$BIN/wow-install-client" "$TMP/client-cata" 2>&1)"
+assert_contains "$OUT" "game installed (4.3.4)" "a Cataclysm-shaped client installs"
+assert_contains "$OUT" "patch level: no-silicon (asked for 'all'" "the level is clamped, and says so"
+assert_file "$G/d3d9.dll"
+assert_file "$G/libDllLdr.dll"
+assert_file "$G/mods/winerosetta.dll"
+assert_nofile "$G/mods/libSiliconPatch.dll"
+assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "no libSiliconPatch past wotlk"
+CONF="$(cat "$RES/launcher.conf")"
+assert_contains "$CONF" "GAME_FAMILY=post-wotlk" "family recorded"
+assert_contains "$CONF" "GAME_BUILD=15595" "build recorded"
+assert_contains "$CONF" "AUTO_RES=1" "MPQ-era clients still get cvar handling"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "RESULT: OK" "a Cataclysm-shaped client verifies"
+assert_eq "$(echo "$OUT" | grep -c '^FAIL:')" "0" "with no failures"
+assert_contains "$OUT" "ok: libSiliconPatch not used for 4.3.4 clients" "and says why there are no hooks"
+
+section "install: a 64-bit client"
+: > "$WINELOG"
+export WOW_TEST_RETINA=""      # a fresh prefix has never had RetinaMode written
+OUT="$("$BIN/wow-install-client" "$TMP/client-casc" 2>&1)"
+assert_contains "$OUT" "game installed (7.3.5)" "a Legion-shaped client installs"
+assert_contains "$OUT" "patch level: none (asked for 'all'" "clamped all the way down"
+assert_nofile "$G/d3d9.dll"
+assert_nofile "$G/libDllLdr.dll"
+assert_nofile "$G/mods/winerosetta.dll"
+assert_nofile "$G/dlls.txt"
+assert_nofile "$G/WTF/Config.wtf"
+assert_contains "$(cat "$RES/launcher.conf")" "AUTO_RES=0" "no resolution matching for a 64-bit client"
+# RetinaMode is a wine-prefix setting, not a client cvar, and verify checks it for
+# every client — skipping the whole of `wow-settings auto` here would leave a fresh
+# wrapper failing its own verify on a Retina Mac
+assert_contains "$(cat "$WINELOG")" "reg add HKCU\\Software\\Wine\\Mac Driver /v RetinaMode" \
+  "retina mode is still matched for a client with no cvar handling"
+unset WOW_TEST_RETINA
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "RESULT: OK" "a 64-bit client verifies clean"
+assert_eq "$(echo "$OUT" | grep -c '^FAIL:')" "0" "and raises no failures"
+assert_contains "$OUT" "ok: DXVK not applicable (this client is 64-bit)" "verify says why DXVK is absent"
+assert_contains "$OUT" "ok: no realmlist.wtf" "and does not demand a realmlist"
+assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" \
+          "$(echo "$OUT" | grep -c '^PROGRESS ')" "computed TOTAL matches the steps run"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "games/main/Wow.exe" "a 64-bit client still launches"
+OUT="$("$BIN/wow-language" list 2>&1 || true)"
+assert_contains "$OUT" "only available for 3.3.5a and 2.4.3" "no language packs for it"
+
+# the request is remembered across a client swap, so going back restores it
+assert_eq "$("$BIN/wow-client-profile" | grep '^PATCHES=' | cut -d= -f2)" "none" "clamped while installed"
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "patch level: all" "swapping back to wotlk restores the full level"
+assert_eq "$(cat "$G/mods/libSiliconPatch.dll")" "sil-lk" "and libSiliconPatch with it"
+
+section "install: a repack with its own executable name"
+OUT="$("$BIN/wow-install-client" "$TMP/client-oddexe" 2>&1)"
+assert_contains "$OUT" "game installed (3.3.5a)" "a repack with a renamed exe installs"
+assert_contains "$(cat "$RES/launcher.conf")" "GAME_EXE=Azeroth.exe" "the entrypoint is recorded for the GUI"
+assert_contains "$OUT" "icon patch skipped (Azeroth.exe is a custom client entrypoint)" "no icon patch for it"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "ok: Azeroth.exe present" "verify follows the same entrypoint"
+assert_contains "$OUT" "RESULT: OK" "and the repack verifies"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "games/main/Azeroth.exe" "and launches it"
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1   # restore for what follows
+
 
 # ============================================================ self-install guard
 section "self-install guard"

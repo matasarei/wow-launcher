@@ -26,7 +26,7 @@
 "Verify" = "Verify";
 "Check game files and Apple Silicon patches for integrity" = "Check game files and Apple Silicon patches for integrity";
 "Install New Game…" = "Install New Game…";
-"Choose a WoW client folder (3.3.5a, 2.4.3 or 1.12) — it is copied into the app and patched for Apple Silicon automatically." = "Choose a WoW client folder (3.3.5a, 2.4.3 or 1.12) — it is copied into the app and patched for Apple Silicon automatically.";
+"Choose any WoW client folder — it is copied into the app and gets the Apple Silicon patches that apply to it. 3.3.5a, 2.4.3 and 1.12 clients get the full treatment." = "Choose any WoW client folder — it is copied into the app and gets the Apple Silicon patches that apply to it. 3.3.5a, 2.4.3 and 1.12 clients get the full treatment.";
 "Language" = "Language";
 "Game language" = "Game language";
 "Import Language Pack…" = "Import Language Pack…";
@@ -84,7 +84,7 @@
 "Choose a %@ client folder in another language — only its language pack is imported" = "Choose a %@ client folder in another language — only its language pack is imported";
 "Importing language pack from %@…" = "Importing language pack from %@…";
 "Install Game Client" = "Install Game Client";
-"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)" = "Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)";
+"Choose a WoW client folder — it needs a game executable and a Data folder" = "Choose a WoW client folder — it needs a game executable and a Data folder";
 "Installing %@… copying the client can take a few minutes." = "Installing %@… copying the client can take a few minutes.";
 "Invalid server address." = "Invalid server address.";
 "Server %@ added and selected — takes effect at next game start." = "Server %@ added and selected — takes effect at next game start.";
@@ -103,3 +103,12 @@
 "Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed." = "Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed.";
 "Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking." = "Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking.";
 "Applies at the next game start." = "Applies at the next game start.";
+"Checking the client…" = "Checking the client…";
+"None of the launcher's patches apply to this client" = "None of the launcher's patches apply to this client";
+"It is a 64-bit client, and everything the launcher adds — the DXVK renderer, the mod loader, the speed hooks — is 32-bit only. The client will be copied in and started exactly as it shipped, which may well not work at all." = "It is a 64-bit client, and everything the launcher adds — the DXVK renderer, the mod loader, the speed hooks — is 32-bit only. The client will be copied in and started exactly as it shipped, which may well not work at all.";
+"The client will be copied in and started exactly as it shipped. Copying takes a while and uses as much disk space as the client folder." = "The client will be copied in and started exactly as it shipped. Copying takes a while and uses as much disk space as the client folder.";
+"Install Anyway" = "Install Anyway";
+"Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped." = "Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped.";
+"This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game." = "This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game.";
+"This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it.";
+"libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual.";

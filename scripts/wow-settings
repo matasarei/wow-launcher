@@ -7,7 +7,7 @@
 #   wow-settings maximized          borderless window filling the screen (default setup)
 #   wow-settings fullscreen [WxH]   true fullscreen
 #   wow-settings resolution WxH     just change resolution
-#   wow-settings retina on|off      render at native pixels (sharper, more GPU)
+#   wow-settings retina on|off|auto render at native pixels (sharper, more GPU)
 set -e
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
@@ -49,16 +49,25 @@ if best:
 '
 }
 
-auto_resolution() {
-  read -r PX PTS RET <<< "$(detect_display)"
-  [ -n "$PX" ] || { echo "could not detect display"; return 1; }
-  # Match wine RetinaMode to the physical display
-  if [ "$RET" = yes ]; then WANT=Y; TARGET="$PX"; MODE_DESC="retina/native"; else WANT=N; TARGET="$PTS"; MODE_DESC="standard"; fi
+# RetinaMode lives in the wine prefix, not in the client's Config.wtf — so it is
+# matched to the display for every client, including ones whose settings the
+# wrapper otherwise leaves alone (verify checks it for every client too).
+auto_retina() {  # auto_retina <retina-yes/no>
+  local RET="$1" WANT HAVE
+  [ -n "$RET" ] || return 1
+  [ "$RET" = yes ] && WANT=Y || WANT=N
   HAVE=$("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*RetinaMode/ {print toupper($NF)}' | tail -1)
   if [ "${HAVE:-N}" != "$WANT" ]; then
     "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d "$WANT" /f >/dev/null 2>&1
     echo "retina mode -> $([ "$WANT" = Y ] && echo on || echo off) (display is $([ "$RET" = yes ] && echo retina || echo non-retina))"
   fi
+}
+
+auto_resolution() {
+  read -r PX PTS RET <<< "$(detect_display)"
+  [ -n "$PX" ] || { echo "could not detect display"; return 1; }
+  auto_retina "$RET"
+  if [ "$RET" = yes ]; then TARGET="$PX"; MODE_DESC="retina/native"; else TARGET="$PTS"; MODE_DESC="standard"; fi
   CUR="$(get_cvar gxResolution)"
   if [ "$CUR" = "$TARGET" ]; then
     echo "resolution already $TARGET ($MODE_DESC)"
@@ -84,9 +93,13 @@ case "$1" in
   resolution) set_res "$2"; [ -n "$2" ] || { echo "usage: wow-settings resolution WxH"; exit 1; }; echo "resolution $2 — restart the game" ;;
   retina)
     case "$2" in
+      auto)
+        read -r _PX _PTS RET <<< "$(detect_display)"
+        auto_retina "$RET" || { echo "could not detect display"; exit 1; }
+        echo "retina mode matched to the display" ;;
       on)  "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d Y /f >/dev/null 2>&1; echo "retina on — restart the game (consider a higher resolution too)" ;;
       off) "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d N /f >/dev/null 2>&1; echo "retina off — restart the game" ;;
-      *) echo "usage: wow-settings retina on|off"; exit 1 ;;
+      *) echo "usage: wow-settings retina on|off|auto"; exit 1 ;;
     esac ;;
   *) grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

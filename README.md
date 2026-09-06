@@ -5,7 +5,7 @@
 <h1 align="center">WoW Launcher</h1>
 
 <p align="center">
-  A native macOS launcher &amp; manager for <b>classic-era World of Warcraft</b> (3.3.5a, 2.4.3, 1.12) on <b>Apple Silicon</b> — high performance in a single self-contained app.
+  A native macOS launcher &amp; manager for <b>World of Warcraft</b> on <b>Apple Silicon</b> — high performance in a single self-contained app, tuned for the <b>classic era</b> (3.3.5a, 2.4.3, 1.12) and happy to install anything else you point it at.
 </p>
 
 <p align="center">
@@ -37,7 +37,7 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 | **Wine 11 ([WineAndAqua](https://github.com/WineAndAqua/wine) build)** | runs the Windows client on macOS |
 | **DXVK (async)** | translates Direct3D 9 → Vulkan → Metal |
 | **winerosetta + rosettax87** | fast x87 FPU math under Rosetta 2 — the single biggest FPS win for 2010-era game code |
-| **libSiliconPatch** | client-side speed hooks — on by default; drop them in Game → Patches if a server or a modified client objects |
+| **libSiliconPatch** | client-side speed hooks — on by default for the builds they were written for; drop them in Game → Patches if a server or a modified client objects |
 | **SwiftUI manager** (this repo) | install, patch, verify, configure, and launch — no terminal needed |
 
 > [!IMPORTANT]
@@ -46,7 +46,7 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 > Tools: the build downloads the wine runtime and the patch payloads from
 > [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)'s releases (checksum-verified)
 > and bakes them into the app bundle. The finished `WoW.app` is fully self-contained;
-> you bring your own client (3.3.5a, 2.4.3 or 1.12) and install it through the app.
+> you bring your own client and install it through the app.
 > Don't want to build? Every [release](https://github.com/matasarei/wow-launcher/releases)
 > ships the same ready-to-use `WoW.app`.
 
@@ -61,9 +61,25 @@ The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup,
 **Why this exists:** for fun and discovery — making a 2010 Windows game run *great* on
 modern Apple hardware is the whole point. This is not a piracy project: it ships no
 game data, and it is built around **original classic-era clients** — WotLK 3.3.5a (12340),
-TBC 2.4.3 and vanilla 1.12.
-Modified or repacked clients might work, but they are untested and unsupported — if
-one misbehaves, try a clean original client first.
+TBC 2.4.3 and vanilla 1.12. Those are the ones that are tested, supported, and fast.
+
+### Other clients
+
+The launcher will install and start **any** client folder that has a game
+executable and a `Data` folder — a repack, a custom build, a later expansion. It
+fingerprints what you gave it (the executable's own version resource first, the
+`Data` layout second) and applies only the patches that can physically work on
+it; the **Game → Patches** menu shrinks to match, and a caption says why.
+
+| What you install | What it gets |
+|---|---|
+| **3.3.5a (12340), 2.4.3, 1.12** | everything: DXVK, the mod loader, winerosetta, libSiliconPatch where a build exists, the icon patch, display matching, language packs |
+| **A repack or custom build of those** | the same, minus anything keyed to a Blizzard executable (icon patch, language packs). libSiliconPatch is still offered unless the executable declares a build other than 12340 — its hooks are hardcoded 12340 addresses |
+| **Cataclysm / MoP** (32-bit, still MPQ) | DXVK, the mod loader and winerosetta; **never** libSiliconPatch. Untested — no such client was available while building this |
+| **WoD / Legion and later** (64-bit, CASC) | nothing. Every DLL in the patch kit is 32-bit x86 and cannot be loaded into a 64-bit process, so the client is copied in and started exactly as it shipped. The app tells you this and asks for confirmation **before** the copy — expect it not to run |
+
+"Supported" still means the classic three. The rest is there because refusing
+to try is worse than trying and saying honestly what happened.
 
 **Not a WoWSilicon copy or fork:** [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)
 is the upstream that makes the performance possible — this project gratefully reuses its
@@ -88,7 +104,7 @@ matching, the Cyrillic input layer, the fast-exit fix, and a proper "WoW" Dock i
 Double-click **WoW.app** — a native manager window opens:
 
 - **Play** — one big button. Shows current mode/resolution/retina state, a one-click "re-detect display" refresh, a live *running* indicator with force-stop, and an **Install** button instead when no game is present.
-- **Game** — install a client (pick a 3.3.5a, 2.4.3 or 1.12 client folder — the version is detected and it's copied in and patched for Apple Silicon automatically, then verified), **Verify** integrity (up to 43 version-aware checks: files, patches, settings) with one-click **Fix Issues** repair, or a reinstall suggestion if game data is damaged beyond repair. Below: the **language packs** (3.3.5a/2.4.3) — import a pack from a client in another language and switch the game language from a dropdown (the pack's data and matching executable are swapped, the cache cleared); and the **server list** editor (realmlist.wtf) — radio-select the active server, add or remove entries.
+- **Game** — install a client (pick any client folder — what it is gets detected, it's copied in, and it gets the Apple Silicon patches that apply to it, then it's verified), choose how much of the patch stack to apply (**Patches**: the menu lists only the levels this client can take), **Verify** integrity (client-aware checks: files, patches, settings — 43 of them for 3.3.5a) with one-click **Fix Issues** repair, or a reinstall suggestion if game data is damaged beyond repair. Below: the **language packs** (3.3.5a/2.4.3) — import a pack from a client in another language and switch the game language from a dropdown (the pack's data and matching executable are swapped, the cache cleared); and the **server list** editor (realmlist.wtf) — radio-select the active server, add or remove entries.
 - **AddOns** — list installed addons (with versions from their .toc), install from ZIP or folder, remove to Trash, reveal in Finder. Blizzard built-ins are hidden.
 - **Display** — window mode (maximized / windowed / fullscreen) with standard window sizes, automatic resolution & Retina matching at every launch, a renderer choice (**DXVK** by default or the Metal-native **MTLd3D** with HDR output), or pick a specific display: the game window is moved there automatically after launch (needs a one-time Accessibility permission).
 - **About** — version, links (repository, build story, third-party components), license and trademark info.
@@ -99,8 +115,9 @@ Everything the GUI does is also scriptable — the same tools it calls live in `
 
 ```sh
 wow-settings show|auto|windowed|maximized|fullscreen|resolution WxH|retina on|off
+wow-client-profile [/path/to/client]    # what it is, and what applies to it
 wow-verify-game [--fix]
-wow-install-client /path/to/client [Name]
+wow-install-client /path/to/client
 wow-launch
 ```
 
@@ -132,8 +149,9 @@ with its license and source.
 | `main.swift` | `Contents/MacOS/WoW Launcher` | the SwiftUI manager (single file) |
 | `scripts/wow-launch` | `Contents/Resources/bin/` | game starter: env, auto-resolution, display mover |
 | `scripts/wow-settings` | `Contents/Resources/bin/` | Config.wtf cvars, Retina mode, display detection |
-| `scripts/wow-install-client` | `Contents/Resources/bin/` | copy a client in + apply the patch kit |
-| `scripts/wow-verify-game` | `Contents/Resources/bin/` | 41-check verification with `--fix` repair |
+| `scripts/wow-client-profile` | `Contents/Resources/bin/` | fingerprint a client and report which patches can apply to it |
+| `scripts/wow-install-client` | `Contents/Resources/bin/` | copy a client in + apply the parts of the patch kit that fit it |
+| `scripts/wow-verify-game` | `Contents/Resources/bin/` | client-aware verification with `--fix` repair |
 | `tools/wow-client-fonts.swift` | `Contents/Resources/bin/wow-client-fonts` | native MPQ font extraction + CP1251 remap (no Python) |
 
 ```sh

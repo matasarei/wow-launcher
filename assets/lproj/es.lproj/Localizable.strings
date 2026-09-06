@@ -26,7 +26,7 @@
 "Verify" = "Verificar";
 "Check game files and Apple Silicon patches for integrity" = "Comprobar la integridad de los archivos del juego y los parches de Apple Silicon";
 "Install New Game…" = "Instalar nuevo juego…";
-"Choose a WoW client folder (3.3.5a, 2.4.3 or 1.12) — it is copied into the app and patched for Apple Silicon automatically." = "Elige una carpeta de cliente de WoW (3.3.5a, 2.4.3 o 1.12): se copia en la aplicación y se parchea automáticamente para Apple Silicon.";
+"Choose any WoW client folder — it is copied into the app and gets the Apple Silicon patches that apply to it. 3.3.5a, 2.4.3 and 1.12 clients get the full treatment." = "Elige cualquier carpeta de cliente de WoW: se copia en la app y recibe los parches de Apple Silicon que le correspondan. Los clientes 3.3.5a, 2.4.3 y 1.12 reciben todo el tratamiento.";
 "Language" = "Idioma";
 "Game language" = "Idioma del juego";
 "Import Language Pack…" = "Importar paquete de idioma…";
@@ -84,7 +84,7 @@
 "Choose a %@ client folder in another language — only its language pack is imported" = "Elige una carpeta de cliente %@ en otro idioma: solo se importa su paquete de idioma";
 "Importing language pack from %@…" = "Importando paquete de idioma de %@…";
 "Install Game Client" = "Instalar cliente del juego";
-"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)" = "Elige una carpeta de cliente de WoW: 3.3.5a, 2.4.3 o 1.12 (contiene Wow.exe o run.exe, y Data)";
+"Choose a WoW client folder — it needs a game executable and a Data folder" = "Elige una carpeta de cliente de WoW: necesita un ejecutable del juego y una carpeta Data";
 "Installing %@… copying the client can take a few minutes." = "Instalando %@… copiar el cliente puede tardar unos minutos.";
 "Invalid server address." = "Dirección de servidor no válida.";
 "Server %@ added and selected — takes effect at next game start." = "Servidor %@ añadido y seleccionado: surte efecto al próximo inicio del juego.";
@@ -103,3 +103,12 @@
 "Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed." = "Conserva solo winerosetta: una pequeña capa que suple instrucciones de CPU que Apple Silicon no ejecuta de forma nativa. Es lo que necesitan los servidores con anti-trampas (Warden). No se cambia nada más en la carpeta del juego.";
 "Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking." = "Ejecuta el cliente exactamente como venía. Sin problemas en servidores sin anti-trampas, pero si el servidor usa Warden el juego puede cerrarse cuando empiecen las comprobaciones.";
 "Applies at the next game start." = "Se aplica al iniciar el juego la próxima vez.";
+"Checking the client…" = "Comprobando el cliente…";
+"None of the launcher's patches apply to this client" = "Ningún parche del lanzador se aplica a este cliente";
+"It is a 64-bit client, and everything the launcher adds — the DXVK renderer, the mod loader, the speed hooks — is 32-bit only. The client will be copied in and started exactly as it shipped, which may well not work at all." = "Es un cliente de 64 bits, y todo lo que añade el lanzador —el renderizador DXVK, el cargador de mods, los hooks de velocidad— es solo de 32 bits. El cliente se copiará y se iniciará tal cual vino, lo que puede no funcionar en absoluto.";
+"The client will be copied in and started exactly as it shipped. Copying takes a while and uses as much disk space as the client folder." = "El cliente se copiará y se iniciará tal cual vino. Copiarlo lleva un rato y ocupa tanto espacio como la carpeta del cliente.";
+"Install Anyway" = "Instalar de todos modos";
+"Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped." = "Nada que elegir: ningún parche del lanzador se aplica a este cliente, así que se ejecuta tal cual vino.";
+"This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game." = "Este cliente es de 64 bits: todo lo que añade el lanzador es solo de 32 bits, así que nada puede cargarse en el juego.";
+"This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "Este cliente no tiene un decodificador Divx al que enganchar el cargador de mods, así que no se le puede añadir ninguna DLL.";
+"libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch solo existe para clientes 3.3.5a (12340) y 1.12; los demás niveles se aplican con normalidad.";
