@@ -709,6 +709,19 @@ OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
 assert_contains "$OUT" "patch level: all" "swapping back to wotlk restores the full level"
 assert_eq "$(cat "$G/mods/libSiliconPatch.dll")" "sil-lk" "and libSiliconPatch with it"
 
+section "install: a repack with its own executable name"
+OUT="$("$BIN/wow-install-client" "$TMP/client-oddexe" 2>&1)"
+assert_contains "$OUT" "game installed (3.3.5a)" "a repack with a renamed exe installs"
+assert_contains "$(cat "$RES/launcher.conf")" "GAME_EXE=Azeroth.exe" "the entrypoint is recorded for the GUI"
+assert_contains "$OUT" "icon patch skipped (Azeroth.exe is a custom client entrypoint)" "no icon patch for it"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "ok: Azeroth.exe present" "verify follows the same entrypoint"
+assert_contains "$OUT" "RESULT: OK" "and the repack verifies"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "games/main/Azeroth.exe" "and launches it"
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1   # restore for what follows
+
+
 # ============================================================ self-install guard
 section "self-install guard"
 OUT="$("$BIN/wow-install-client" "$G" 2>&1)"

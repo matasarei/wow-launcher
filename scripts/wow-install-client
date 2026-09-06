@@ -193,9 +193,11 @@ if [ "$FAMILY" = wotlk ]; then
 fi
 fi
 # record the game + what it is, and reset display/renderer settings to defaults
-grep -vE '^(GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|AUTO_RES|GAME_DISPLAY|DISPLAY_RECT|RENDERER)=' "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
-printf 'AUTO_RES=%s\nGAME=main\nGAME_VERSION=%s\nGAME_FAMILY=%s\nGAME_BUILD=%s\n' \
-  "$CAP_CVARS" "$V" "$FAMILY" "$BUILD" >> "$RES/launcher.conf.tmp"
+grep -vE '^(GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|GAME_EXE|AUTO_RES|GAME_DISPLAY|DISPLAY_RECT|RENDERER)=' "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
+# GAME_EXE lets the GUI recognise the running game by name — a repack may call
+# its executable anything, and pgrep needs to know what to look for.
+printf 'AUTO_RES=%s\nGAME=main\nGAME_VERSION=%s\nGAME_FAMILY=%s\nGAME_BUILD=%s\nGAME_EXE=%s\n' \
+  "$CAP_CVARS" "$V" "$FAMILY" "$BUILD" "$EXE" >> "$RES/launcher.conf.tmp"
 mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
 if [ "$CAP_CVARS" = 1 ]; then
   # match resolution + retina mode to the current display right away

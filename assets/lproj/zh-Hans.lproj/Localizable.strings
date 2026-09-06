@@ -26,7 +26,7 @@
 "Verify" = "校验";
 "Check game files and Apple Silicon patches for integrity" = "检查游戏文件与 Apple Silicon 补丁的完整性";
 "Install New Game…" = "安装新游戏…";
-"Choose a WoW client folder (3.3.5a, 2.4.3 or 1.12) — it is copied into the app and patched for Apple Silicon automatically." = "选择一个魔兽世界客户端文件夹（3.3.5a、2.4.3 或 1.12）——它将被复制到应用中并自动应用 Apple Silicon 补丁。";
+"Choose any WoW client folder — it is copied into the app and gets the Apple Silicon patches that apply to it. 3.3.5a, 2.4.3 and 1.12 clients get the full treatment." = "选择任意 WoW 客户端文件夹——它会被复制进 App，并获得适用于它的 Apple Silicon 补丁。3.3.5a、2.4.3 和 1.12 客户端可获得全部补丁。";
 "Language" = "语言";
 "Game language" = "游戏语言";
 "Import Language Pack…" = "导入语言包…";
@@ -84,7 +84,7 @@
 "Choose a %@ client folder in another language — only its language pack is imported" = "选择其他语言的 %@ 客户端文件夹——仅导入其语言包";
 "Importing language pack from %@…" = "正在从 %@ 导入语言包…";
 "Install Game Client" = "安装游戏客户端";
-"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)" = "选择一个 WoW 客户端文件夹 —— 3.3.5a、2.4.3 或 1.12（包含 Wow.exe 或 run.exe，以及 Data）";
+"Choose a WoW client folder — it needs a game executable and a Data folder" = "选择 WoW 客户端文件夹——需要游戏可执行文件和 Data 文件夹";
 "Installing %@… copying the client can take a few minutes." = "正在安装 %@…复制客户端可能需要几分钟。";
 "Invalid server address." = "服务器地址无效。";
 "Server %@ added and selected — takes effect at next game start." = "已添加并选择服务器 %@——下次启动游戏时生效。";
@@ -103,3 +103,12 @@
 "Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed." = "只保留 winerosetta —— 一个补齐 Apple Silicon 无法原生执行的 CPU 指令的小型兼容层。使用反作弊（Warden）的服务器正需要它。游戏文件夹中的其他内容不会改动。";
 "Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking." = "完全按原样运行客户端。在没有反作弊的服务器上没有问题；但如果服务器使用 Warden，检查开始时游戏可能会崩溃。";
 "Applies at the next game start." = "在下次启动游戏时生效。";
+"Checking the client…" = "正在检查客户端…";
+"None of the launcher's patches apply to this client" = "没有任何启动器补丁适用于此客户端";
+"It is a 64-bit client, and everything the launcher adds — the DXVK renderer, the mod loader, the speed hooks — is 32-bit only. The client will be copied in and started exactly as it shipped, which may well not work at all." = "这是 64 位客户端，而启动器添加的一切——DXVK 渲染器、模组加载器、加速挂钩——都只有 32 位版本。客户端会被原样复制并启动，很可能根本无法运行。";
+"The client will be copied in and started exactly as it shipped. Copying takes a while and uses as much disk space as the client folder." = "客户端会被原样复制并启动。复制需要一些时间，占用的磁盘空间与客户端文件夹相同。";
+"Install Anyway" = "仍然安装";
+"Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped." = "无可选择——没有任何启动器补丁适用于此客户端，它将原样运行。";
+"This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game." = "此客户端为 64 位——启动器添加的一切都只有 32 位版本，无法加载进游戏。";
+"This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "此客户端没有可供模组加载器挂钩的 Divx 解码器，因此无法为它添加任何 DLL。";
+"libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch 仅存在于 3.3.5a（12340）和 1.12 客户端；其他级别照常适用。";

@@ -38,9 +38,25 @@ enum Paths {
     static var addons: String { game + "/Interface/AddOns" }
     static var runPattern: String {
         let folder = activeGame.isEmpty ? "game" : activeGame
-        // matches Wow.exe / WoW.exe / WoW_tweaked.exe (vanilla-tweaks) / run.exe (custom clients)
-        return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\]([Ww]o[Ww](_[Tt]weaked)?|run)\\.exe"
+        // The installer records the entrypoint it found (GAME_EXE=); a repack may
+        // name it anything. WoW_tweaked.exe is always allowed too — vanilla-tweaks
+        // creates it after the install, so it is never the recorded name.
+        var names = ["[Ww]o[Ww]\\.exe", "[Ww]o[Ww]_[Tt]weaked\\.exe", "run\\.exe"]
+        let recorded = confValue("GAME_EXE")
+        if !recorded.isEmpty, !recorded.lowercased().hasPrefix("wow"), recorded != "run.exe" {
+            names.append(NSRegularExpression.escapedPattern(for: recorded))
+        }
+        return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\](" + names.joined(separator: "|") + ")"
     }
+    // Paths is used before any Store exists, so it reads the conf itself.
+    static func confValue(_ key: String) -> String {
+        guard let text = try? String(contentsOfFile: conf, encoding: .utf8) else { return "" }
+        for line in text.split(separator: "\n") where line.hasPrefix(key + "=") {
+            return String(line.dropFirst(key.count + 1))
+        }
+        return ""
+    }
+    static let profileTool = resources + "/bin/wow-client-profile"
     static let installTool = resources + "/bin/wow-install-client"
     static let languageTool = resources + "/bin/wow-language"
     static let verifyTool  = resources + "/bin/wow-verify-game"
@@ -111,6 +127,9 @@ final class Store: ObservableObject {
     @Published var games: [String] = []
     @Published var activeGame = ""
     @Published var gameVersion = ""
+    // What wow-client-profile says about the installed client: what it is, and
+    // which parts of the patch kit can physically apply to it.
+    @Published var profile: [String: String] = [:]
     @Published var gameRunning = false
     @Published var loadingStatus = true
     @Published var busy = false
@@ -316,6 +335,19 @@ final class Store: ObservableObject {
         confSet("PATCHES", v)
         if games.isEmpty { return }
         verifyGame(fix: true)
+        loadProfile()
+    }
+
+    // Why the list is shorter than the usual four, in this client's own terms.
+    var patchLimitNote: String {
+        guard !games.isEmpty, patchLevels.count < 4 else { return "" }
+        if profile["ARCH"] == "x64" {
+            return L("This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game.")
+        }
+        if profile["CAP_LOADER"] != "1" {
+            return L("This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it.")
+        }
+        return L("libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual.")
     }
 
     var patchesDescription: String {
@@ -432,8 +464,10 @@ final class Store: ObservableObject {
         let fm = FileManager.default
         let dirs = ((try? fm.contentsOfDirectory(atPath: Paths.gamesDir)) ?? [])
             .filter { !$0.hasPrefix(".") }
-            .filter { fm.fileExists(atPath: Paths.gamesDir + "/" + $0 + "/Wow.exe")
-                   || fm.fileExists(atPath: Paths.gamesDir + "/" + $0 + "/run.exe") }
+            .filter { name in   // any client, so any .exe in the folder root counts
+                ((try? fm.contentsOfDirectory(atPath: Paths.gamesDir + "/" + name)) ?? [])
+                    .contains { $0.lowercased().hasSuffix(".exe") }
+            }
             .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
         games = dirs
         activeGame = Paths.activeGame
@@ -441,8 +475,53 @@ final class Store: ObservableObject {
             confSet("GAME", first)
             activeGame = first
         }
-        gameVersion = detectGameVersion()
-        refreshLanguages()
+        loadProfile()
+    }
+
+    static func readProfile(_ dir: String?) -> [String: String] {
+        let out = shell(Paths.profileTool, dir.map { [$0] } ?? [])
+        var d: [String: String] = [:]
+        for line in out.split(separator: "\n") {
+            guard let eq = line.firstIndex(of: "=") else { continue }
+            d[String(line[line.startIndex..<eq])] = String(line[line.index(after: eq)...])
+        }
+        return d
+    }
+
+    // Reading the client's version resource takes about a second, so never on
+    // the main thread — the window would stall on every refresh.
+    func loadProfile() {
+        guard !games.isEmpty else {
+            profile = [:]; gameVersion = ""; refreshLanguages(); return
+        }
+        DispatchQueue.global().async {
+            let p = Store.readProfile(nil)
+            DispatchQueue.main.async {
+                self.profile = p
+                let v = p["VERSION"] ?? ""
+                self.gameVersion = (v == "unknown") ? "" : v
+                // show the level that is actually in force, not one this client
+                // cannot take — the request itself stays recorded in PATCHES=
+                if let eff = p["PATCHES"], !eff.isEmpty { self.patches = eff }
+                self.refreshLanguages()
+            }
+        }
+    }
+
+    // The levels this client can actually take, highest first. Empty profile
+    // (no game installed yet) shows the full set — the picker is disabled then.
+    var patchLevels: [String] {
+        let offered = (profile["LEVELS"] ?? "").split(separator: " ").map(String.init)
+        return offered.isEmpty ? ["all", "no-silicon", "winerosetta", "none"] : offered
+    }
+
+    func patchLevelLabel(_ level: String) -> String {
+        switch level {
+        case "no-silicon":  return L("All except libSiliconPatch")
+        case "winerosetta": return L("Only winerosetta")
+        case "none":        return L("No patches — original client")
+        default:            return L("All patches (recommended)")
+        }
     }
 
     // MARK: language packs
@@ -451,13 +530,9 @@ final class Store: ObservableObject {
     @Published var activeLanguage = ""
 
     // Language packs swap Wow.exe with the pack's locale-matched build, so they
-    // only apply to Blizzard clients — a custom run.exe entrypoint has no packs.
-    var hasBlizzardExe: Bool {
-        FileManager.default.fileExists(atPath: Paths.game + "/Wow.exe")
-    }
-
+    // only apply to Blizzard 3.3.5a/2.4.3 clients — a custom entrypoint has none.
     var supportsLanguagePacks: Bool {
-        !games.isEmpty && (gameVersion == "3.3.5a" || gameVersion == "2.4.3") && hasBlizzardExe
+        !games.isEmpty && profile["CAP_LANGPACK"] == "1"
     }
 
     func refreshLanguages() {
@@ -513,18 +588,6 @@ final class Store: ObservableObject {
                 }
             }
         }
-    }
-
-    private func detectGameVersion() -> String {
-        guard !games.isEmpty else { return "" }
-        let recorded = confGet("GAME_VERSION")
-        if !recorded.isEmpty { return recorded }
-        let fm = FileManager.default
-        let data = Paths.game + "/Data/"
-        if fm.fileExists(atPath: data + "lichking.MPQ") { return "3.3.5a" }
-        if fm.fileExists(atPath: data + "expansion.MPQ") { return "2.4.3" }
-        if fm.fileExists(atPath: data + "dbc.MPQ") { return "1.12" }
-        return ""
     }
 
     struct VerifyItem: Identifiable {
@@ -617,7 +680,7 @@ final class Store: ObservableObject {
     func installGameFromPanel() {
         presentOpenPanel({ panel in
             panel.title = L("Install Game Client")
-            panel.message = L("Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)")
+            panel.message = L("Choose a WoW client folder — it needs a game executable and a Data folder")
             panel.canChooseFiles = false
             panel.canChooseDirectories = true
         }) { panel in
@@ -627,6 +690,36 @@ final class Store: ObservableObject {
     }
 
     func installGame(from url: URL) {
+        busy = true
+        note = L("Checking the client…")
+        DispatchQueue.global().async {
+            let p = Store.readProfile(url.path)
+            DispatchQueue.main.async {
+                self.busy = false
+                guard self.confirmNothingApplies(p) else { self.note = ""; return }
+                self.startInstall(from: url)
+            }
+        }
+    }
+
+    // Copying a client takes minutes and as much disk as the folder holds, so a
+    // client the launcher can do nothing for is confirmed before, not after.
+    private func confirmNothingApplies(_ p: [String: String]) -> Bool {
+        guard (p["LEVELS"] ?? "") == "none" else { return true }
+        let a = NSAlert()
+        a.alertStyle = .warning
+        a.messageText = L("None of the launcher's patches apply to this client")
+        if p["ARCH"] == "x64" {
+            a.informativeText = L("It is a 64-bit client, and everything the launcher adds — the DXVK renderer, the mod loader, the speed hooks — is 32-bit only. The client will be copied in and started exactly as it shipped, which may well not work at all.")
+        } else {
+            a.informativeText = L("The client will be copied in and started exactly as it shipped. Copying takes a while and uses as much disk space as the client folder.")
+        }
+        a.addButton(withTitle: L("Install Anyway"))
+        a.addButton(withTitle: L("Cancel"))
+        return a.runModal() == .alertFirstButtonReturn
+    }
+
+    private func startInstall(from url: URL) {
         busy = true
         note = LF("Installing %@… copying the client can take a few minutes.", url.lastPathComponent)
         DispatchQueue.global().async {
@@ -1042,24 +1135,33 @@ struct GameView: View {
                     .disabled(store.busy)
                     if store.busy { ProgressView().controlSize(.small) }
                 }
-                Text("Choose a WoW client folder (3.3.5a, 2.4.3 or 1.12) — it is copied into the app and patched for Apple Silicon automatically.")
+                Text("Choose any WoW client folder — it is copied into the app and gets the Apple Silicon patches that apply to it. 3.3.5a, 2.4.3 and 1.12 clients get the full treatment.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Section("Patches") {
-                Picker("Applied to the client", selection: Binding(
-                    get: { store.patches },
-                    set: { store.setPatches($0) })) {
-                    Text("All patches (recommended)").tag("all")
-                    Text("All except libSiliconPatch").tag("no-silicon")
-                    Text("Only winerosetta").tag("winerosetta")
-                    Text("No patches — original client").tag("none")
+                if store.patchLevels == ["none"] {
+                    Label("Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped.",
+                          systemImage: "info.circle")
+                } else {
+                    Picker("Applied to the client", selection: Binding(
+                        get: { store.patches },
+                        set: { store.setPatches($0) })) {
+                        ForEach(store.patchLevels, id: \.self) { level in
+                            Text(store.patchLevelLabel(level)).tag(level)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(store.busy || store.verifyRunning)
+                    Text(store.patchesDescription + " " + L("Applies at the next game start."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .pickerStyle(.menu)
-                .disabled(store.busy || store.verifyRunning)
-                Text(store.patchesDescription + " " + L("Applies at the next game start."))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if !store.patchLimitNote.isEmpty {
+                    Text(store.patchLimitNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             if store.supportsLanguagePacks {
                 Section("Language") {

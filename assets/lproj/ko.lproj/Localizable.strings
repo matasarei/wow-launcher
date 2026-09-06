@@ -26,7 +26,7 @@
 "Verify" = "검증";
 "Check game files and Apple Silicon patches for integrity" = "게임 파일과 Apple Silicon 패치 무결성 검사";
 "Install New Game…" = "새 게임 설치…";
-"Choose a WoW client folder (3.3.5a, 2.4.3 or 1.12) — it is copied into the app and patched for Apple Silicon automatically." = "WoW 클라이언트 폴더(3.3.5a, 2.4.3 또는 1.12)를 선택하세요. 앱으로 복사되어 Apple Silicon용 패치가 자동 적용됩니다.";
+"Choose any WoW client folder — it is copied into the app and gets the Apple Silicon patches that apply to it. 3.3.5a, 2.4.3 and 1.12 clients get the full treatment." = "어떤 WoW 클라이언트 폴더든 선택하세요 — 앱 안으로 복사되고, 해당 클라이언트에 적용 가능한 Apple Silicon 패치가 적용됩니다. 3.3.5a, 2.4.3, 1.12 클라이언트는 전체 패치를 받습니다.";
 "Language" = "언어";
 "Game language" = "게임 언어";
 "Import Language Pack…" = "언어 팩 가져오기…";
@@ -84,7 +84,7 @@
 "Choose a %@ client folder in another language — only its language pack is imported" = "다른 언어의 %@ 클라이언트 폴더를 선택하세요. 언어 팩만 가져옵니다.";
 "Importing language pack from %@…" = "%@에서 언어 팩 가져오는 중…";
 "Install Game Client" = "게임 클라이언트 설치";
-"Choose a WoW client folder — 3.3.5a, 2.4.3 or 1.12 (contains Wow.exe or run.exe, and Data)" = "WoW 클라이언트 폴더를 선택하세요 — 3.3.5a, 2.4.3 또는 1.12 (Wow.exe 또는 run.exe와 Data 포함)";
+"Choose a WoW client folder — it needs a game executable and a Data folder" = "WoW 클라이언트 폴더를 선택하세요 — 게임 실행 파일과 Data 폴더가 필요합니다";
 "Installing %@… copying the client can take a few minutes." = "%@ 설치 중… 클라이언트 복사에 몇 분 걸릴 수 있습니다.";
 "Invalid server address." = "잘못된 서버 주소입니다.";
 "Server %@ added and selected — takes effect at next game start." = "서버 %@이(가) 추가되고 선택되었습니다. 다음 게임 시작 시 적용됩니다.";
@@ -103,3 +103,12 @@
 "Keeps just winerosetta — a small shim that fills in CPU instructions Apple Silicon does not run natively. That is what servers with anti-cheat (Warden) need. Nothing else in the game folder is changed." = "winerosetta만 남깁니다. 애플 실리콘이 기본으로 실행하지 못하는 CPU 명령을 대신 처리하는 작은 계층으로, 안티치트(Warden)를 쓰는 서버에 바로 이것이 필요합니다. 게임 폴더의 다른 것은 건드리지 않습니다.";
 "Runs the client exactly as it shipped. Fine on servers without anti-cheat — but if the server runs Warden, the game can crash once it starts checking." = "클라이언트를 배포된 그대로 실행합니다. 안티치트가 없는 서버에서는 문제가 없지만, 서버가 Warden을 쓰면 검사가 시작될 때 게임이 튕길 수 있습니다.";
 "Applies at the next game start." = "다음 게임 실행 시 적용됩니다.";
+"Checking the client…" = "클라이언트 확인 중…";
+"None of the launcher's patches apply to this client" = "이 클라이언트에 적용할 수 있는 런처 패치가 없습니다";
+"It is a 64-bit client, and everything the launcher adds — the DXVK renderer, the mod loader, the speed hooks — is 32-bit only. The client will be copied in and started exactly as it shipped, which may well not work at all." = "64비트 클라이언트이며, 런처가 추가하는 모든 것(DXVK 렌더러, 모드 로더, 속도 훅)은 32비트 전용입니다. 클라이언트는 배포된 그대로 복사되어 실행되며, 아예 동작하지 않을 수도 있습니다.";
+"The client will be copied in and started exactly as it shipped. Copying takes a while and uses as much disk space as the client folder." = "클라이언트는 배포된 그대로 복사되어 실행됩니다. 복사에는 시간이 걸리고 클라이언트 폴더만큼의 디스크 공간을 사용합니다.";
+"Install Anyway" = "그래도 설치";
+"Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped." = "선택할 것이 없습니다 — 이 클라이언트에 적용되는 런처 패치가 없어 배포된 그대로 실행됩니다.";
+"This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game." = "이 클라이언트는 64비트입니다 — 런처가 추가하는 것은 모두 32비트 전용이라 게임에 로드될 수 없습니다.";
+"This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "이 클라이언트에는 모드 로더가 후킹할 Divx 디코더가 없어 DLL을 추가할 수 없습니다.";
+"libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch는 3.3.5a(12340)와 1.12 클라이언트에만 있습니다. 나머지 단계는 평소대로 적용됩니다.";
