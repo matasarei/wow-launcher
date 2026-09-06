@@ -120,6 +120,10 @@ if [ -z "$D" ]; then
 fi
 
 EXE="$(game_exe "$D")"
+# The output is a KEY=value protocol callers parse line by line, and this is the
+# one value that comes from a filename. game_exe cannot currently return a
+# newline (its IFS split eats it); this keeps that true if the scan changes.
+EXE="${EXE//[$'\n\r']/}"
 [ "$MODE" = exe ] && { echo "$EXE"; exit 0; }
 
 ARCH="$(pe_arch "$D/$EXE")"

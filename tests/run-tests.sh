@@ -256,6 +256,16 @@ cp -R "$TMP/client-wotlk" "$TMP/client-oddexe"
 mv "$TMP/client-oddexe/Wow.exe" "$TMP/client-oddexe/Azeroth.exe"
 head -c 4096 /dev/zero > "$TMP/client-oddexe/WowError.exe"
 assert_eq "$(prof "$TMP/client-oddexe" EXE)"        "Azeroth.exe" "largest non-helper exe wins"
+# The output is a line-oriented protocol callers parse with grep, so every key
+# must appear exactly once whatever the folder holds — including a client whose
+# only executable is named something that looks like a profile line itself.
+cp -R "$TMP/client-wotlk" "$TMP/client-nlexe"
+rm -f "$TMP/client-nlexe/Wow.exe"
+head -c 4096 /dev/zero > "$TMP/client-nlexe/$(printf 'a\nCAP_SILICON=wotlk')-x.exe" 2>/dev/null || true
+OUT="$("$BIN/wow-client-profile" "$TMP/client-nlexe")"
+assert_eq "$(echo "$OUT" | grep -c '^CAP_SILICON=')" "1" "one CAP_SILICON line, always"
+assert_eq "$(echo "$OUT" | grep -cE '^[A-Z_]+=')" "$(echo "$OUT" | grep -c .)" \
+  "every line of the profile is a key=value pair"
 
 # the icon patch keeps its level offered on both sides of the diff
 cp -R "$TMP/client-wotlk" "$TMP/client-icon"
