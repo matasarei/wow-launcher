@@ -1,0 +1,48 @@
+# The wrapper is assembled from two artifacts hosted on someone else's GitHub
+# releases, pinned in the Makefile by URL and sha256. If either is retagged,
+# replaced or deleted, `make build` breaks for every new user and nothing here
+# would notice until somebody reported it. This asks, monthly, whether they are
+# still there and still the bytes we pinned.
+name: Upstream artifacts
+
+on:
+  schedule:
+    - cron: '17 6 1 * *'      # 06:17 UTC on the 1st of each month
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pins:
+    name: Pinned downloads still resolve
+    runs-on: ubuntu-latest    # no macOS tooling needed: curl and shasum only
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The URLs still resolve
+        run: |
+          fail=0
+          for key in RUNTIME_URL PAYLOAD_URL; do
+            url=$(sed -nE "s/^$key[[:space:]]*=[[:space:]]*(.*)$/\1/p" Makefile)
+            printf '%-12s %s\n' "$key" "$url"
+            curl -fsIL --retry 3 -o /dev/null "$url" \
+              && echo "  ok: reachable" \
+              || { echo "::error::$key no longer resolves: $url"; fail=1; }
+          done
+          exit $fail
+
+      - name: The wine runtime is still the bytes we pinned
+        run: |
+          url=$(sed -nE 's/^RUNTIME_URL[[:space:]]*=[[:space:]]*(.*)$/\1/p' Makefile)
+          want=$(sed -nE 's/^RUNTIME_SHA256[[:space:]]*=[[:space:]]*(.*)$/\1/p' Makefile)
+          curl -fsL --retry 3 -o runtime.tar.xz "$url"
+          got=$(shasum -a 256 runtime.tar.xz | cut -d' ' -f1)
+          echo "want $want"
+          echo "got  $got"
+          [ "$want" = "$got" ] || {
+            echo "::error::RUNTIME_SHA256 no longer matches — the pinned release was replaced"
+            exit 1
+          }
+          # The payload DMG is ~150 MB and only a file source; its checksum is
+          # verified at build time, so reachability above is enough for it here.

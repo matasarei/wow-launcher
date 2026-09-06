@@ -1,0 +1,59 @@
+# Everything here needs macOS: the scripts use md5, ditto, bspatch, sips and
+# iconutil, and the Swift sources need the macOS SDK. Free for public repos.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Script tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: make test
+        run: make test
+
+  compile:
+    name: Swift compiles
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: make compile
+        run: make compile
+
+  strings:
+    name: Localization parity
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      # Also covered by `make test`, but as its own job the red X names the
+      # problem without anyone having to read a log.
+      - name: make check-strings
+        run: make check-strings
+
+  version:
+    name: Tag matches the bundle version
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare the tag with CFBundleShortVersionString
+        run: |
+          plist=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" assets/Info.plist)
+          tag="${GITHUB_REF_NAME#v}"
+          echo "Info.plist: $plist   tag: $tag"
+          [ "$plist" = "$tag" ] || {
+            echo "::error::tag $GITHUB_REF_NAME does not match CFBundleShortVersionString $plist"
+            exit 1
+          }

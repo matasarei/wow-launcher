@@ -3,6 +3,8 @@
 # (checksum-verified) — nothing needs to be installed beforehand except the
 # Xcode Command Line Tools. See docs/BUILD-WRAPPER.md.
 #
+#   make test                    hermetic script tests + localization parity
+#   make compile                 type-check the Swift sources, no bundle
 #   make (or make build)         build the full wrapper into ~/Applications/WoW.app
 #   make build APP=/path/App.app build it somewhere else
 #   make launcher                rebuild just the manager GUI + scripts into it
@@ -27,7 +29,7 @@ PAYLOAD_SHA256 = 4d6fd5aa42d53dbdec86b31cf1c166368cba41a3a01a0bd5e2aba6d11b904ca
 WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))
 LOCAL_PAY   = $(WOWSILICON)/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching
 
-.PHONY: build wrapper check skeleton runtime payloads patch-kit prefix launcher sign install test zip
+.PHONY: build wrapper check skeleton runtime payloads patch-kit prefix launcher sign install test check-strings compile zip
 
 build: check skeleton runtime patch-kit prefix launcher sign
 	@echo ""
@@ -120,8 +122,21 @@ launcher:
 	@echo "==> building the manager GUI"
 	@./build.sh "$(APP)"
 
-test:
+test: check-strings
 	@bash tests/run-tests.sh
+
+# Localization parity: a key missing from one .strings file falls back to
+# English silently, so nothing but a check like this ever notices.
+check-strings:
+	@bash tests/check-strings.sh
+
+# Type-check the manager without assembling a bundle (what CI runs, and the
+# quickest way to find out whether main.swift still compiles).
+compile:
+	@swiftc -swift-version 5 -parse-as-library -O -target arm64-apple-macos14.0 \
+	  -o /dev/null main.swift && echo "main.swift compiles"
+	@swiftc -swift-version 5 -O -target arm64-apple-macos14.0 \
+	  -o /dev/null tools/wow-client-fonts.swift && echo "wow-client-fonts.swift compiles"
 
 install:
 	@[ -d "$(APP)" ] || { echo "ERROR: $(APP) not found — run 'make build' first"; exit 1; }

@@ -108,6 +108,22 @@ fontTools). Seconds to run, no game data needed (compiles the font tool with
 swiftc once). Run it after ANY script change; add assertions for new
 behavior. What it cannot cover stays manual (below).
 
+`make test` also runs `tests/check-strings.sh` (`make check-strings` alone),
+which is the only thing that notices a localization mistake: every
+`Localizable.strings` parses, all eight carry exactly the same key set, every
+localized literal in `main.swift` has a key, and every key is still reachable
+from the code. Literals meant to read the same in every language — the app
+name, a brand, the licence line — are listed in `NEVER_TRANSLATED` in that
+script. `make compile` type-checks both Swift sources without assembling a
+bundle.
+
+CI (`.github/workflows/ci.yml`, macOS runners, free while the repo is public)
+runs those three on every push and pull request, and checks that a `v*` tag
+matches `CFBundleShortVersionString`. A second workflow asks monthly whether
+the `RUNTIME_URL`/`PAYLOAD_URL` pins still resolve and whether the wine runtime
+is still the bytes `RUNTIME_SHA256` claims — they live in someone else's
+releases, and a retag there breaks `make build` for every new user silently.
+
 ## Manual test matrix (after any runtime/installer/launcher change)
 
 - Fresh `make build`, open the app.
@@ -142,4 +158,6 @@ behavior. What it cannot cover stays manual (below).
 | `build.sh` | internal helper of `make launcher`: compiles main.swift + the font tool (swiftc, no Xcode) + installs scripts |
 | `assets/` | Info.plist, icon, icon bsdiffs |
 | `tests/run-tests.sh` | hermetic script tests (`make test`) — no game data or wine needed |
+| `tests/check-strings.sh` | localization parity (`make check-strings`, also part of `make test`) |
+| `.github/workflows/` | CI: tests, Swift compile, strings parity, tag/version match; monthly upstream-pin check |
 | `tests/fixtures/` | synthetic `locale-*.MPQ` font fixtures + their generator |
