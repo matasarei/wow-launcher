@@ -1,8 +1,12 @@
 #!/bin/bash
-# Detect the WoW client version of a game folder by its Data fingerprint.
-# Prints "3.3.5a", "2.4.3" or "1.12"; prints "unknown" and exits 1 otherwise.
+# Detect the WoW client version of a game folder.
+# Thin front end for wow-client-profile: prints the canonical label of a client
+# the launcher knows ("3.3.5a", "2.4.3", "1.12"), otherwise whatever version the
+# client's own executable declares (e.g. "4.3.4"); prints "unknown" and exits 1
+# when neither the Data layout nor the executable says anything.
 D="${1:?usage: wow-game-version /path/to/game}"
-if   [ -f "$D/Data/lichking.MPQ" ];  then echo "3.3.5a"
-elif [ -f "$D/Data/expansion.MPQ" ]; then echo "2.4.3"
-elif [ -f "$D/Data/dbc.MPQ" ];       then echo "1.12"
-else echo "unknown"; exit 1; fi
+V="$("$(dirname "$0")/wow-client-profile" "$D" | grep -E '^VERSION=' | cut -d= -f2-)"
+case "$V" in
+  ""|unknown) echo unknown; exit 1 ;;
+  *) echo "$V" ;;
+esac

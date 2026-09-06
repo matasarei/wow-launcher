@@ -146,8 +146,10 @@ CAP_DXVK="$NOT64"
 # unreadable resource still qualifies (a packed custom exe would otherwise
 # silently lose hooks it gets today), a declared other build does not. Vanilla:
 # the payload carries no build marker, so the pin stays at 1.12 as a whole.
+# It is the Divx mod loader that loads libSiliconPatch, so without one nothing
+# would ever read dlls.txt and the DLL would just sit in the folder unused.
 CAP_SILICON=""
-if [ "$NOT64" = 1 ]; then
+if [ "$CAP_LOADER" = 1 ]; then
   case "$FAMILY" in
     wotlk)   if [ -z "$BUILD" ] || [ "$BUILD" = 12340 ]; then CAP_SILICON=wotlk; fi ;;
     vanilla) CAP_SILICON=vanilla ;;
