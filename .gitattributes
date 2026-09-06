@@ -1,0 +1,5 @@
+# GitHub's language bar counts bytes of source. The hermetic test harness is
+# the single largest shell file in the repo and is not part of the shipped
+# product, so it is excluded from the statistics — the runtime scripts under
+# scripts/ still count, because they ship inside the app bundle.
+tests/run-tests.sh linguist-detectable=false
