@@ -134,6 +134,18 @@ identity directly (`awk '/^PROGRESS/ {print $3}' | sort -u` against the step cou
 
 ## Assorted gotchas
 
+- **`tools/wow-client-fonts.swift` must be compiled `-Onone`.** At `-O` the
+  Swift 6.1.2 toolchain — the one on macOS 15, the minimum this app supports —
+  miscompiles it: the binary dies with `EXC_BAD_ACCESS (code=1, address=0x7)` in
+  `swift_unknownObjectRetain` before extracting anything, so Cyrillic font
+  extraction silently fails and the installer reports the fonts as unavailable.
+  The same source at `-Onone` produces byte-identical output. It does not
+  reproduce on the newer toolchain shipped with macOS 26, which is why local
+  testing never caught it; CI on `macos-15` did, on its first run. Whether the
+  bug is in the optimiser or in latent UB in this file has not been determined —
+  if you go looking, `-Onone` vs `-O` on the same source is the reproducer, and
+  the cost of the workaround is 0.16 s instead of 0.02 s once per install.
+
 - **Fast exit**: Wow.exe phones dead Blizzard tracker endpoints on quit (~5 min
   hang); fixed by dead-proxy registry keys (`ProxyEnable=1`, `ProxyServer=127.0.0.1:1`)
   in the prefix — wininet fails instantly, realm/world traffic (winsock) unaffected.

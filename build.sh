@@ -13,7 +13,14 @@ rm -f "$APP/Contents/MacOS/WoW335" "$APP/Contents/Resources/bin/wow-client-fonts
 cp "$SRC/build/WoW Launcher" "$APP/Contents/MacOS/WoW Launcher"
 install -m 755 "$SRC/scripts/wow-"* "$APP/Contents/Resources/bin/"
 # native font tool (MPQ extraction + CP1251 remap; no Python at run time)
-swiftc -swift-version 5 -O -target arm64-apple-macos14.0 \
+# NB -Onone, deliberately. At -O this file is miscompiled by Swift 6.1.2 (the
+# toolchain on macOS 15): the binary dies with EXC_BAD_ACCESS in
+# swift_unknownObjectRetain on a garbage pointer before it extracts anything,
+# while the same source at -Onone produces byte-identical output. macOS 15 is
+# the minimum this app supports and the tool is what makes Cyrillic work, so it
+# is not optional there. The cost is nothing that matters: 0.16 s instead of
+# 0.02 s over a real 30 MB ruRU locale MPQ, once per install.
+swiftc -swift-version 5 -Onone -target arm64-apple-macos14.0 \
   -o "$SRC/build/wow-client-fonts" "$SRC/tools/wow-client-fonts.swift"
 codesign --force --sign - "$SRC/build/wow-client-fonts"
 install -m 755 "$SRC/build/wow-client-fonts" "$APP/Contents/Resources/bin/wow-client-fonts"

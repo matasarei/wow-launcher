@@ -63,7 +63,9 @@ export WINE_STUB_LOG="$WINELOG"
 TOOL_SRC="$ROOT/tools/wow-client-fonts.swift"; TOOL="$ROOT/build/wow-client-fonts"
 if [ ! -x "$TOOL" ] || [ "$TOOL_SRC" -nt "$TOOL" ]; then
   mkdir -p "$ROOT/build"
-  swiftc -swift-version 5 -O -target arm64-apple-macos14.0 -o "$TOOL" "$TOOL_SRC" || { echo "cannot compile wow-client-fonts"; exit 1; }
+  # -Onone matches build.sh — see the note there; at -O this file is
+  # miscompiled by the Swift 6.1.2 toolchain and the tool segfaults.
+  swiftc -swift-version 5 -Onone -target arm64-apple-macos14.0 -o "$TOOL" "$TOOL_SRC" || { echo "cannot compile wow-client-fonts"; exit 1; }
 fi
 cp "$TOOL" "$BIN/wow-client-fonts"
 
