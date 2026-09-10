@@ -7,9 +7,13 @@ is the source pointer that travels with the build — keep it reachable.
 ## Wine runtime (`Resources/wine/`)
 
 Downloaded unmodified at build time from
-[`wine-runtime-r6`](https://github.com/WoWSilicon/WoWSilicon/releases/tag/wine-runtime-r6)
+[`wine-runtime-r15`](https://github.com/WoWSilicon/WoWSilicon/releases/tag/wine-runtime-r15)
 (sha256-pinned in the Makefile). `share/wowsilicon/runtime-lock.json` inside the
-runtime records the exact upstream versions.
+runtime records the exact upstream versions. The build carries WoWSilicon's twelve
+wine patches (device following, spatial audio, x87sidecar attach, winemac input and
+present fixes); their sources are `Packaging/WineRuntime/patches/` in the
+[WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) repository (GPL-3.0), applied
+to the LGPL wine tree below.
 
 | Component | Licence | Source |
 |---|---|---|

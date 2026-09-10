@@ -41,7 +41,18 @@ Contents/Resources/
   `wine-runtime-r<N>.tar.xz` on WoWSilicon's releases. The Makefile downloads it
   sha256-pinned (`RUNTIME_URL`/`RUNTIME_SHA256` — update both together) and untars
   into `Resources/wine/`. `share/wowsilicon/runtime-lock.json` inside records the
-  exact wine commit and component versions.
+  exact wine commit and component versions. Pinned at **r15** (same wine commit as r6,
+  plus WoWSilicon's twelve patches).
+- **Audio follows the macOS default device** (r15+): `winecoreaudio.drv` re-targets a
+  running stream to the system default output every ~250 ms and `dsound` migrates its
+  buffers along, so switching to AirPods mid-game just works. The driver reads a
+  `WOWSILICON_*` environment contract: `WOWSILICON_FOLLOW_SYSTEM_OUTPUT` (default `1` —
+  never set it), `WOWSILICON_SPATIAL_AUDIO_MODE=off|fixed`,
+  `WOWSILICON_NORMALIZE_AUDIO=0|1`, and two control-file paths
+  (`WOWSILICON_SPATIAL_AUDIO_CONTROL`, `WOWSILICON_NORMALIZE_AUDIO_CONTROL`) that it
+  polls for live changes. Unset, those default to
+  `~/Library/Application Support/WoWSilicon/…` — a co-installed WoWSilicon's settings
+  would leak in — so `wow-launch` always points them at `Resources/audio/`.
 - **winerosetta is integrated**: this wine's `ntdll.so` natively contains the fast-x87
   hooks (the biggest FPS win) and reads the same `ROSETTA_X87_PATH` env var as the
   old patched-CrossOver stack (plus a newer `X87_SIDECAR_PATH` alternative, unused here).

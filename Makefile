@@ -20,8 +20,8 @@ UNIX  = $(WINE)/lib/wine/x86_64-unix
 DEPS  = build/deps
 
 # Pinned upstream artifacts (update the URL and hash together).
-RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/wine-runtime-r6/WoWSilicon-WineRuntime-r6.tar.xz
-RUNTIME_SHA256 = f1ed55fe60b1ced305543844a6b47b08844f6d0600c4ebcc007dac35ffaacb27
+RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/wine-runtime-r15/WoWSilicon-WineRuntime-r15.tar.xz
+RUNTIME_SHA256 = 2414cb391159ea7272bfd74e1c65db8d490299de7651adcb173a65cbe6bbae7e
 PAYLOAD_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/v3.0.1/WoWSilicon-3.0.1.dmg
 PAYLOAD_SHA256 = 4d6fd5aa42d53dbdec86b31cf1c166368cba41a3a01a0bd5e2aba6d11b904ca0
 
@@ -65,7 +65,7 @@ skeleton:
 
 runtime:
 	@if [ -x "$(WINE)/bin/wine" ]; then echo "==> wine runtime already present, skipping"; else \
-	  echo "==> wine runtime (WineAndAqua wine 11.13 + mtld3d, ~57 MB download)"; \
+	  echo "==> wine runtime (WineAndAqua wine 11.13 + mtld3d, ~59 MB download)"; \
 	  mkdir -p "$(DEPS)"; \
 	  [ -f "$(DEPS)/wine-runtime.tar.xz" ] || curl -fL --progress-bar -o "$(DEPS)/wine-runtime.tar.xz" "$(RUNTIME_URL)"; \
 	  echo "$(RUNTIME_SHA256)  $(DEPS)/wine-runtime.tar.xz" | shasum -a 256 -c - >/dev/null || { echo "ERROR: wine runtime checksum mismatch — delete $(DEPS)/wine-runtime.tar.xz and retry"; exit 1; }; \
