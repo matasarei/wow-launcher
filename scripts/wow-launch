@@ -35,6 +35,21 @@ export DXVK_ASYNC=1
 export WINE_LARGE_ADDRESS_AWARE=1
 export MTL_HUD_ENABLED=0
 export WINEDEBUG=-all
+# Audio (runtime r15+, WoWSilicon's winecoreaudio patch): the driver follows the
+# macOS default output device on its own — WOWSILICON_FOLLOW_SYSTEM_OUTPUT stays
+# unset (default 1). SPATIAL_AUDIO=1 / NORMALIZE_AUDIO=1 in launcher.conf turn on
+# Apple's spatial mixer and the volume normalizer; both are exported explicitly so
+# a stale variable in the user's shell cannot leak in. The driver also polls two
+# control files for live changes and, unless told where, reads them from
+# ~/Library/Application Support/WoWSilicon/ — a co-installed WoWSilicon's settings
+# would leak into this wrapper. Point them inside the bundle (they need not exist:
+# an unreadable file falls back to the environment value).
+SPATIAL_AUDIO="$(grep -sE '^SPATIAL_AUDIO=' "$RES/launcher.conf" | cut -d= -f2)"
+NORMALIZE_AUDIO="$(grep -sE '^NORMALIZE_AUDIO=' "$RES/launcher.conf" | cut -d= -f2)"
+if [ "$SPATIAL_AUDIO" = "1" ]; then export WOWSILICON_SPATIAL_AUDIO_MODE=fixed; else export WOWSILICON_SPATIAL_AUDIO_MODE=off; fi
+if [ "$NORMALIZE_AUDIO" = "1" ]; then export WOWSILICON_NORMALIZE_AUDIO=1; else export WOWSILICON_NORMALIZE_AUDIO=0; fi
+export WOWSILICON_SPATIAL_AUDIO_CONTROL="$RES/audio/spatial-audio-mode"
+export WOWSILICON_NORMALIZE_AUDIO_CONTROL="$RES/audio/normalize-audio"
 # Wine's keyboard input conversion follows the unix locale, and the prefix's
 # system codepage must match it (like Windows' "language for non-Unicode
 # programs"). Derive both from the game's locale; CHAT_CP=1251 in launcher.conf
