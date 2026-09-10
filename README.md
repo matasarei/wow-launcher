@@ -202,6 +202,10 @@ No Xcode, no dependencies.
   the device is the **default** output in System Settings → Sound; the game
   follows the default, not a device picked in another app. Wrappers built
   before r15 need a rebuild.
+- **Stutter or uneven frame pacing in Low Power Mode** (also on a fast Mac —
+  seen on an M4 Max with both renderers): macOS caps the display at 60 Hz and
+  throttles the GPU, and an unlocked frame rate paces badly against that.
+  Turn on **Vertical Sync** in the game's Video options — a solid 60 FPS, smooth.
 - **The game doesn't appear after Play:** normally the launcher waits for the
   game window and brings it to the front automatically. If you switched to
   another app while the game was loading, it stays in the background by
