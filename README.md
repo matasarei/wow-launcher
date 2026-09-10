@@ -125,7 +125,7 @@ wow-launch
 ## Building the wrapper
 
 The app bundle is **built locally with one command** — the build downloads the wine
-runtime (~57 MB) and the patch payloads from WoWSilicon's GitHub releases,
+runtime (~59 MB) and the patch payloads from WoWSilicon's GitHub releases,
 verifies their checksums, and assembles everything:
 
 1. Get this repo: **Code → Download ZIP**, double-click to unpack (no git needed)

@@ -71,7 +71,7 @@ it left off.
 ## What `make` does
 
 1. **skeleton** — app bundle structure, Info.plist, icon
-2. **runtime** — downloads the wine runtime (~57 MB, sha256-verified) and unpacks it into the bundle. This wine has winerosetta's fast-x87-under-Rosetta support built in — the biggest FPS win. Also creates the `WoW` loader symlink so the game shows as "WoW" in the Dock instead of "wine"
+2. **runtime** — downloads the wine runtime (~59 MB, sha256-verified) and unpacks it into the bundle. This wine has winerosetta's fast-x87-under-Rosetta support built in — the biggest FPS win. Also creates the `WoW` loader symlink so the game shows as "WoW" in the Dock instead of "wine"
 3. **payloads / patch-kit** — collects the open-source payloads (DXVK `d3d9.dll`, `libDllLdr.dll`, `winerosetta.dll`, `libSiliconPatch.dll`, `rosettax87`) from a local WoWSilicon 3.x app or the release DMG (~150 MB, sha256-verified). These patch game clients at install time. No game files are included — `DivxDecoder.dll` is patched live, in your own client, on first install
 4. **prefix** — creates a fresh wine prefix and applies the fast-exit fix (WoW 3.3.5 phones dead Blizzard tracker endpoints on quit and hangs ~5 min; a dead-proxy registry entry makes those fail instantly without affecting game traffic)
 5. **launcher** — compiles the SwiftUI manager and installs it plus the helper scripts
