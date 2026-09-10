@@ -550,21 +550,22 @@ printf 'RENDERER=mtld3d\nX87=sidecar\n' >> "$RES/launcher.conf"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(cat "$WINELOG")" "OVR=d3d9=b" "mtld3d override"
 assert_contains "$(cat "$WINELOG")" "SIDECAR=$RES/patch-kit/x87sidecar/x87sidecar" "sidecar engine"
-# audio (runtime r15 winecoreaudio contract): off/0 exported explicitly by default,
-# device following left to the driver's default, control files pinned inside the bundle
-assert_contains "$(cat "$WINELOG")" "SPATIAL=off" "spatial audio off by default"
-assert_contains "$(cat "$WINELOG")" "NORM=0" "normalize audio off by default"
+# audio (runtime r15 winecoreaudio contract): spatial mixer and normalizer on unless
+# the conf says 0 (absent = on, like AUTO_RES), device following left to the driver's
+# default, control files pinned inside the bundle
+assert_contains "$(cat "$WINELOG")" "SPATIAL=fixed" "spatial audio on by default (no key)"
+assert_contains "$(cat "$WINELOG")" "NORM=1" "normalize audio on by default (no key)"
 assert_contains "$(cat "$WINELOG")" "FOLLOW=unset" "device following left at the driver default"
 assert_contains "$(cat "$WINELOG")" "ACTL=$RES/audio/spatial-audio-mode" "spatial control file pinned inside the bundle"
 assert_contains "$(cat "$WINELOG")" "NCTL=$RES/audio/normalize-audio" "normalize control file pinned inside the bundle"
-printf 'SPATIAL_AUDIO=1\nNORMALIZE_AUDIO=1\n' >> "$RES/launcher.conf"
+printf 'SPATIAL_AUDIO=0\nNORMALIZE_AUDIO=0\n' >> "$RES/launcher.conf"
 : > "$WINELOG"; WOWSILICON_SPATIAL_AUDIO_MODE=garbage "$BIN/wow-launch"; sleep 0.3
-assert_contains "$(cat "$WINELOG")" "SPATIAL=fixed" "SPATIAL_AUDIO=1 turns the spatial mixer on (and overrides a stale shell value)"
-assert_contains "$(cat "$WINELOG")" "NORM=1" "NORMALIZE_AUDIO=1 turns the normalizer on"
-sed -i '' 's/^SPATIAL_AUDIO=.*/SPATIAL_AUDIO=0/; s/^NORMALIZE_AUDIO=.*/NORMALIZE_AUDIO=yes/' "$RES/launcher.conf"
+assert_contains "$(cat "$WINELOG")" "SPATIAL=off" "SPATIAL_AUDIO=0 turns the spatial mixer off (and overrides a stale shell value)"
+assert_contains "$(cat "$WINELOG")" "NORM=0" "NORMALIZE_AUDIO=0 turns the normalizer off"
+sed -i '' 's/^SPATIAL_AUDIO=.*/SPATIAL_AUDIO=1/; s/^NORMALIZE_AUDIO=.*/NORMALIZE_AUDIO=yes/' "$RES/launcher.conf"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
-assert_contains "$(cat "$WINELOG")" "SPATIAL=off" "SPATIAL_AUDIO=0 is off"
-assert_contains "$(cat "$WINELOG")" "NORM=0" "anything but NORMALIZE_AUDIO=1 is off"
+assert_contains "$(cat "$WINELOG")" "SPATIAL=fixed" "SPATIAL_AUDIO=1 is on"
+assert_contains "$(cat "$WINELOG")" "NORM=0" "a value other than 1 or absent is off (AUTO_RES idiom)"
 sed -i '' '/^SPATIAL_AUDIO=/d; /^NORMALIZE_AUDIO=/d' "$RES/launcher.conf"
 
 # ============================================================ language packs
