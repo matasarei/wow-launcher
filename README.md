@@ -206,7 +206,6 @@ No Xcode, no dependencies.
   seen on an M4 Max with both renderers): macOS caps the display at 60 Hz and
   throttles the GPU, and an unlocked frame rate paces badly against that.
   Turn on **Vertical Sync** in the game's Video options — a solid 60 FPS, smooth.
-  Alternatively set *Max Foreground FPS* there to 60.
 - **The game doesn't appear after Play:** normally the launcher waits for the
   game window and brings it to the front automatically. If you switched to
   another app while the game was loading, it stays in the background by
