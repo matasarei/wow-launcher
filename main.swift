@@ -120,6 +120,8 @@ struct DisplayOption: Identifiable, Hashable {
 final class Store: ObservableObject {
     @Published var mode = "maximized"
     @Published var renderer = "dxvk"
+    @Published var spatialAudio = false    // SPATIAL_AUDIO=1 → WOWSILICON_SPATIAL_AUDIO_MODE=fixed
+    @Published var normalizeAudio = false  // NORMALIZE_AUDIO=1 → WOWSILICON_NORMALIZE_AUDIO=1
     @Published var patches = "all"        // PATCHES=all|no-silicon|winerosetta|none
     @Published var resolution = "…"
     @Published var retina = false
@@ -142,6 +144,8 @@ final class Store: ObservableObject {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         let r = confGet("RENDERER")
         if !r.isEmpty { renderer = r }
+        spatialAudio = confGet("SPATIAL_AUDIO") == "1"
+        normalizeAudio = confGet("NORMALIZE_AUDIO") == "1"
         let lvl = confGet("PATCHES")
         if ["all", "no-silicon", "winerosetta", "none"].contains(lvl) { patches = lvl }
         else if confGet("SILICON") == "0" { patches = "no-silicon" }   // pre-2.4 toggle
@@ -329,6 +333,22 @@ final class Store: ObservableObject {
         renderer = r
         confSet("RENDERER", r)
         note = LF("Renderer set to %@ — takes effect at the next game start.", r == "mtld3d" ? "MTLd3D" : "DXVK")
+    }
+
+    // Both are read by wow-launch and exported into the runtime's environment;
+    // the winecoreaudio driver picks them up when the game's audio stream opens.
+    func setSpatialAudio(_ on: Bool) {
+        spatialAudio = on
+        confSet("SPATIAL_AUDIO", on ? "1" : "0")
+        note = on ? L("Spatial audio turned on — takes effect at the next game start.")
+                  : L("Spatial audio turned off — takes effect at the next game start.")
+    }
+
+    func setNormalizeAudio(_ on: Bool) {
+        normalizeAudio = on
+        confSet("NORMALIZE_AUDIO", on ? "1" : "0")
+        note = on ? L("Volume normalization turned on — takes effect at the next game start.")
+                  : L("Volume normalization turned off — takes effect at the next game start.")
     }
 
     // Applied by the repair path: verify's expected state follows PATCHES=, so
@@ -1397,6 +1417,12 @@ struct DisplayView: View {
     var rendererBinding: Binding<String> {
         Binding(get: { store.renderer }, set: { store.setRenderer($0) })
     }
+    var spatialBinding: Binding<Bool> {
+        Binding(get: { store.spatialAudio }, set: { store.setSpatialAudio($0) })
+    }
+    var normalizeBinding: Binding<Bool> {
+        Binding(get: { store.normalizeAudio }, set: { store.setNormalizeAudio($0) })
+    }
 
     // Standard sizes that fit on the chosen display (window size is in points).
     var fittingSizes: [String] {
@@ -1460,6 +1486,13 @@ struct DisplayView: View {
                 }
                 .pickerStyle(.menu)
                 Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Audio") {
+                Toggle("Spatial audio (headphones)", isOn: spatialBinding)
+                Toggle("Normalize volume", isOn: normalizeBinding)
+                Text("Takes effect at the next game start. Spatial audio renders through Apple's spatial mixer for a wider headphone soundscape; Normalize volume brings quiet sounds up and loud sounds down. Sound always follows the macOS output device — AirPods can be connected or removed while the game runs.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

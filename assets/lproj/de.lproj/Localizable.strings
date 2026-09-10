@@ -72,6 +72,14 @@
 "DXVK (default)" = "DXVK (Standard)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Wirksam beim nächsten Spielstart. DXVK übersetzt Direct3D 9 über Vulkan und ist der bewährte Standard; MTLd3D rendert direkt über Metal und kann HDR ausgeben.";
+"Audio" = "Audio";
+"Spatial audio (headphones)" = "Räumliches Audio (Kopfhörer)";
+"Normalize volume" = "Lautstärke normalisieren";
+"Takes effect at the next game start. Spatial audio renders through Apple's spatial mixer for a wider headphone soundscape; Normalize volume brings quiet sounds up and loud sounds down. Sound always follows the macOS output device — AirPods can be connected or removed while the game runs." = "Wirksam beim nächsten Spielstart. Räumliches Audio nutzt Apples Spatial-Mixer für ein weiteres Klangbild auf Kopfhörern; Lautstärke normalisieren hebt leise Klänge an und dämpft laute. Der Ton folgt immer dem macOS-Ausgabegerät — AirPods können bei laufendem Spiel verbunden oder abgenommen werden.";
+"Spatial audio turned on — takes effect at the next game start." = "Räumliches Audio eingeschaltet — wirksam beim nächsten Spielstart.";
+"Spatial audio turned off — takes effect at the next game start." = "Räumliches Audio ausgeschaltet — wirksam beim nächsten Spielstart.";
+"Volume normalization turned on — takes effect at the next game start." = "Lautstärke-Normalisierung eingeschaltet — wirksam beim nächsten Spielstart.";
+"Volume normalization turned off — takes effect at the next game start." = "Lautstärke-Normalisierung ausgeschaltet — wirksam beim nächsten Spielstart.";
 "Version %@" = "Version %@";
 "Classic-era World of Warcraft on Apple Silicon — self-contained and fast." = "World of Warcraft der Classic-Ära auf Apple Silicon — eigenständig und schnell.";
 "How it was built" = "Wie es entstand";
