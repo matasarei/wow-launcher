@@ -73,6 +73,7 @@
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Вступает в силу при следующем запуске игры. DXVK транслирует Direct3D 9 через Vulkan — проверенный вариант по умолчанию; MTLd3D рендерит напрямую через Metal и поддерживает HDR.";
 "Audio" = "Звук";
+"Output" = "Вывод";
 "Spatial audio (headphones)" = "Пространственный звук (наушники)";
 "Normalize volume" = "Нормализовать громкость";
 "Takes effect at the next game start. Spatial audio renders through Apple's spatial mixer for a wider headphone soundscape; Normalize volume brings quiet sounds up and loud sounds down. Sound always follows the macOS output device — AirPods can be connected or removed while the game runs." = "Вступает в силу при следующем запуске игры. Пространственный звук использует пространственный микшер Apple для более широкой звуковой картины в наушниках; нормализация громкости поднимает тихие звуки и приглушает громкие. Звук всегда следует за устройством вывода macOS — AirPods можно подключать и снимать прямо во время игры.";

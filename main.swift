@@ -988,7 +988,7 @@ final class Store: ObservableObject {
 // MARK: - Views
 
 enum Pane: String, CaseIterable, Identifiable {
-    case play = "Play", game = "Game", addons = "AddOns", display = "Display", about = "About"
+    case play = "Play", game = "Game", addons = "AddOns", display = "Display", audio = "Audio", about = "About"
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -996,6 +996,7 @@ enum Pane: String, CaseIterable, Identifiable {
         case .game: return "gamecontroller"
         case .addons: return "puzzlepiece.extension"
         case .display: return "display"
+        case .audio: return "speaker.wave.2"
         case .about: return "info.circle"
         }
     }
@@ -1006,7 +1007,7 @@ struct ContentView: View {
     @State private var pane: Pane? = .play
 
     private func needsGame(_ p: Pane) -> Bool {
-        store.games.isEmpty && (p == .addons || p == .display)
+        store.games.isEmpty && (p == .addons || p == .display || p == .audio)
     }
 
     var body: some View {
@@ -1024,6 +1025,7 @@ struct ContentView: View {
             case .game: GameView()
             case .addons: AddOnsView()
             case .display: DisplayView()
+            case .audio: AudioView()
             case .about: AboutView()
             }
         }
@@ -1032,7 +1034,7 @@ struct ContentView: View {
             VerifySheet().environmentObject(store)
         }
         .onChange(of: store.games.isEmpty) { _, empty in
-            if empty, pane == .addons || pane == .display { pane = .play }
+            if empty, pane == .addons || pane == .display || pane == .audio { pane = .play }
         }
     }
 }
@@ -1417,12 +1419,6 @@ struct DisplayView: View {
     var rendererBinding: Binding<String> {
         Binding(get: { store.renderer }, set: { store.setRenderer($0) })
     }
-    var spatialBinding: Binding<Bool> {
-        Binding(get: { store.spatialAudio }, set: { store.setSpatialAudio($0) })
-    }
-    var normalizeBinding: Binding<Bool> {
-        Binding(get: { store.normalizeAudio }, set: { store.setNormalizeAudio($0) })
-    }
 
     // Standard sizes that fit on the chosen display (window size is in points).
     var fittingSizes: [String] {
@@ -1489,13 +1485,6 @@ struct DisplayView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Section("Audio") {
-                Toggle("Spatial audio (headphones)", isOn: spatialBinding)
-                Toggle("Normalize volume", isOn: normalizeBinding)
-                Text("Takes effect at the next game start. Spatial audio renders through Apple's spatial mixer for a wider headphone soundscape; Normalize volume brings quiet sounds up and loud sounds down. Sound always follows the macOS output device — AirPods can be connected or removed while the game runs.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
             if !store.note.isEmpty {
                 Section {
                     Text(store.note).font(.caption).foregroundStyle(.secondary)
@@ -1512,6 +1501,35 @@ struct DisplayView: View {
             store.refreshDisplays()
             store.refreshStatus()
         }
+    }
+}
+
+struct AudioView: View {
+    @EnvironmentObject var store: Store
+
+    var spatialBinding: Binding<Bool> {
+        Binding(get: { store.spatialAudio }, set: { store.setSpatialAudio($0) })
+    }
+    var normalizeBinding: Binding<Bool> {
+        Binding(get: { store.normalizeAudio }, set: { store.setNormalizeAudio($0) })
+    }
+
+    var body: some View {
+        Form {
+            Section("Output") {
+                Toggle("Spatial audio (headphones)", isOn: spatialBinding)
+                Toggle("Normalize volume", isOn: normalizeBinding)
+                Text("Takes effect at the next game start. Spatial audio renders through Apple's spatial mixer for a wider headphone soundscape; Normalize volume brings quiet sounds up and loud sounds down. Sound always follows the macOS output device — AirPods can be connected or removed while the game runs.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if !store.note.isEmpty {
+                Section {
+                    Text(store.note).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 
