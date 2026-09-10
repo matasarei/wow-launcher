@@ -72,6 +72,15 @@
 "DXVK (default)" = "DXVK (типово)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Набирає чинності після наступного запуску гри. DXVK транслює Direct3D 9 через Vulkan — перевірений типовий варіант; MTLd3D рендерить безпосередньо через Metal і підтримує HDR.";
+"Audio" = "Звук";
+"Output" = "Вивід";
+"Spatial audio (headphones)" = "Просторовий звук (навушники)";
+"Normalize volume" = "Нормалізувати гучність";
+"Takes effect at the next game start. Spatial audio renders through Apple's spatial mixer for a wider headphone soundscape; Normalize volume brings quiet sounds up and loud sounds down. Sound always follows the macOS output device — AirPods can be connected or removed while the game runs." = "Набирає чинності після наступного запуску гри. Просторовий звук використовує просторовий мікшер Apple для ширшої звукової картини в навушниках; нормалізація гучності підіймає тихі звуки й притишує гучні. Звук завжди йде за пристроєм виводу macOS — AirPods можна під’єднувати й знімати просто під час гри.";
+"Spatial audio turned on — takes effect at the next game start." = "Просторовий звук увімкнено — набере чинності після наступного запуску гри.";
+"Spatial audio turned off — takes effect at the next game start." = "Просторовий звук вимкнено — набере чинності після наступного запуску гри.";
+"Volume normalization turned on — takes effect at the next game start." = "Нормалізацію гучності увімкнено — набере чинності після наступного запуску гри.";
+"Volume normalization turned off — takes effect at the next game start." = "Нормалізацію гучності вимкнено — набере чинності після наступного запуску гри.";
 "Version %@" = "Версія %@";
 "Classic-era World of Warcraft on Apple Silicon — self-contained and fast." = "World of Warcraft класичної епохи на Apple Silicon — автономно та швидко.";
 "How it was built" = "Як це створювалося";

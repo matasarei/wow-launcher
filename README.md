@@ -125,7 +125,7 @@ wow-launch
 ## Building the wrapper
 
 The app bundle is **built locally with one command** — the build downloads the wine
-runtime (~57 MB) and the patch payloads from WoWSilicon's GitHub releases,
+runtime (~59 MB) and the patch payloads from WoWSilicon's GitHub releases,
 verifies their checksums, and assembles everything:
 
 1. Get this repo: **Code → Download ZIP**, double-click to unpack (no git needed)
@@ -196,13 +196,12 @@ No Xcode, no dependencies.
   `Downloads`); if it still won't connect, open **System Settings → Privacy &
   Security → Local Network**, toggle **WoW** off and on, and relaunch.
   Internet servers are unaffected — this is LAN-only.
-- **Sound stays on the old device (or goes silent) after switching audio
-  output** (e.g. Mac speakers → AirPods): a wine CoreAudio limitation — the
-  game's audio stream is bound to the output device that was active at
-  launch, and wine doesn't follow the macOS default-device switch. Even the
-  client's own sound-engine restart re-binds to the same device. Connect
-  the output device you want **before** hitting Play; switching mid-game
-  requires restarting the game.
+- **Sound stays on the old device after switching audio output** (e.g. Mac
+  speakers → AirPods): the game follows the macOS output device within a few
+  seconds (wine runtime r15+) — no restart needed. If it doesn't, check that
+  the device is the **default** output in System Settings → Sound; the game
+  follows the default, not a device picked in another app. Wrappers built
+  before r15 need a rebuild.
 - **The game doesn't appear after Play:** normally the launcher waits for the
   game window and brings it to the front automatically. If you switched to
   another app while the game was loading, it stays in the background by

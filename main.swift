@@ -120,6 +120,8 @@ struct DisplayOption: Identifiable, Hashable {
 final class Store: ObservableObject {
     @Published var mode = "maximized"
     @Published var renderer = "dxvk"
+    @Published var spatialAudio = true     // SPATIAL_AUDIO=0 → WOWSILICON_SPATIAL_AUDIO_MODE=off (else fixed)
+    @Published var normalizeAudio = true   // NORMALIZE_AUDIO=0 → WOWSILICON_NORMALIZE_AUDIO=0 (else 1)
     @Published var patches = "all"        // PATCHES=all|no-silicon|winerosetta|none
     @Published var resolution = "…"
     @Published var retina = false
@@ -142,6 +144,10 @@ final class Store: ObservableObject {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         let r = confGet("RENDERER")
         if !r.isEmpty { renderer = r }
+        // on unless launcher.conf says 0 — absent = on, the AUTO_RES idiom wow-launch mirrors
+        let sp = confGet("SPATIAL_AUDIO"), nm = confGet("NORMALIZE_AUDIO")
+        spatialAudio = sp.isEmpty || sp == "1"
+        normalizeAudio = nm.isEmpty || nm == "1"
         let lvl = confGet("PATCHES")
         if ["all", "no-silicon", "winerosetta", "none"].contains(lvl) { patches = lvl }
         else if confGet("SILICON") == "0" { patches = "no-silicon" }   // pre-2.4 toggle
@@ -329,6 +335,22 @@ final class Store: ObservableObject {
         renderer = r
         confSet("RENDERER", r)
         note = LF("Renderer set to %@ — takes effect at the next game start.", r == "mtld3d" ? "MTLd3D" : "DXVK")
+    }
+
+    // Both are read by wow-launch and exported into the runtime's environment;
+    // the winecoreaudio driver picks them up when the game's audio stream opens.
+    func setSpatialAudio(_ on: Bool) {
+        spatialAudio = on
+        confSet("SPATIAL_AUDIO", on ? "1" : "0")
+        note = on ? L("Spatial audio turned on — takes effect at the next game start.")
+                  : L("Spatial audio turned off — takes effect at the next game start.")
+    }
+
+    func setNormalizeAudio(_ on: Bool) {
+        normalizeAudio = on
+        confSet("NORMALIZE_AUDIO", on ? "1" : "0")
+        note = on ? L("Volume normalization turned on — takes effect at the next game start.")
+                  : L("Volume normalization turned off — takes effect at the next game start.")
     }
 
     // Applied by the repair path: verify's expected state follows PATCHES=, so
@@ -968,7 +990,7 @@ final class Store: ObservableObject {
 // MARK: - Views
 
 enum Pane: String, CaseIterable, Identifiable {
-    case play = "Play", game = "Game", addons = "AddOns", display = "Display", about = "About"
+    case play = "Play", game = "Game", addons = "AddOns", display = "Display", audio = "Audio", about = "About"
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -976,6 +998,7 @@ enum Pane: String, CaseIterable, Identifiable {
         case .game: return "gamecontroller"
         case .addons: return "puzzlepiece.extension"
         case .display: return "display"
+        case .audio: return "speaker.wave.2"
         case .about: return "info.circle"
         }
     }
@@ -986,7 +1009,7 @@ struct ContentView: View {
     @State private var pane: Pane? = .play
 
     private func needsGame(_ p: Pane) -> Bool {
-        store.games.isEmpty && (p == .addons || p == .display)
+        store.games.isEmpty && (p == .addons || p == .display || p == .audio)
     }
 
     var body: some View {
@@ -1004,6 +1027,7 @@ struct ContentView: View {
             case .game: GameView()
             case .addons: AddOnsView()
             case .display: DisplayView()
+            case .audio: AudioView()
             case .about: AboutView()
             }
         }
@@ -1012,7 +1036,7 @@ struct ContentView: View {
             VerifySheet().environmentObject(store)
         }
         .onChange(of: store.games.isEmpty) { _, empty in
-            if empty, pane == .addons || pane == .display { pane = .play }
+            if empty, pane == .addons || pane == .display || pane == .audio { pane = .play }
         }
     }
 }
@@ -1479,6 +1503,35 @@ struct DisplayView: View {
             store.refreshDisplays()
             store.refreshStatus()
         }
+    }
+}
+
+struct AudioView: View {
+    @EnvironmentObject var store: Store
+
+    var spatialBinding: Binding<Bool> {
+        Binding(get: { store.spatialAudio }, set: { store.setSpatialAudio($0) })
+    }
+    var normalizeBinding: Binding<Bool> {
+        Binding(get: { store.normalizeAudio }, set: { store.setNormalizeAudio($0) })
+    }
+
+    var body: some View {
+        Form {
+            Section("Output") {
+                Toggle("Spatial audio (headphones)", isOn: spatialBinding)
+                Toggle("Normalize volume", isOn: normalizeBinding)
+                Text("Takes effect at the next game start. Spatial audio renders through Apple's spatial mixer for a wider headphone soundscape; Normalize volume brings quiet sounds up and loud sounds down. Sound always follows the macOS output device — AirPods can be connected or removed while the game runs.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if !store.note.isEmpty {
+                Section {
+                    Text(store.note).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

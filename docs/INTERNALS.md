@@ -31,6 +31,8 @@ Contents/Resources/
 | `GAME_DISPLAY=<name>` | show the game on this display (GUI writes it) |
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |
 | `RENDERER=dxvk\|mtld3d` | graphics backend (Display pane): dxvk = game-dir DXVK d3d9 (`d3d9=n,b`); mtld3d = the runtime's builtin Metal-native d3d9, HDR-capable (`d3d9=b`) |
+| `SPATIAL_AUDIO=1\|0` | Apple spatial audio for headphones (Audio pane) — **on by default** (absent = on, like `AUTO_RES`): `wow-launch` exports `WOWSILICON_SPATIAL_AUDIO_MODE=fixed`, `0` → `off`; takes effect at the next game start |
+| `NORMALIZE_AUDIO=1\|0` | volume normalizer — quiet up, loud down (Audio pane) — **on by default**: exports `WOWSILICON_NORMALIZE_AUDIO=1`, `0` → `0`; next game start |
 | `PATCHES=all\|no-silicon\|winerosetta\|none` | how much of the patch stack is applied to the client — **`all` by default** (Game pane → Patches picker). This records what the **user asked for**; `wow-client-profile` clamps it down to the best level the installed client can actually take and every tool uses the clamped value, so swapping to a client that cannot take libSiliconPatch and back again restores the full set. The picker only offers the levels in the profile's `LEVELS`. `all`: every patch, libSiliconPatch included. `no-silicon`: everything but libSiliconPatch — its ~400 hooks are hardcoded addresses with no build check, so on a modified client they corrupt memory instead of failing, and Sirus-style clients report the patched bytes to the server (WoWSilicon issue #15). `winerosetta`: only the Divx mod loader + `mods/winerosetta.dll`. That DLL's `DllMain` installs a vectored exception handler which fills two Rosetta 2 instruction gaps — it emulates `ARPL AX,DX` and rewrites `FCOMP ST(0),ST(0)` in place; neither encoding appears in the client itself, so what needs them is server-pushed Warden code. (It also exports `Direct3DCreate9` and can proxy to `d9vk.dll` / `<known folder>\d3d9.dll`; that path is dormant here, since DXVK's own `d3d9.dll` sits in the game dir and the exe imports it directly.) `none`: the client is left exactly as it shipped (Warden servers will most likely disconnect). Levels apply via `wow-verify-game --fix`, which converges the mod set, the Divx DLL and the `Wow.exe` icon patch in both directions. The pre-2.4 `SILICON=` toggle still migrates (`1`→`all`, `0`→`no-silicon`) |
 | `X87=rosettax87\|sidecar` | x87 engine (conf-only, no UI): default rosettax87 from the game dir; `sidecar` uses patch-kit/x87sidecar via `X87_SIDECAR_PATH` (cooperative attach, no debugger) — fallback if rosettax87 breaks on a future macOS |
 
@@ -41,7 +43,18 @@ Contents/Resources/
   `wine-runtime-r<N>.tar.xz` on WoWSilicon's releases. The Makefile downloads it
   sha256-pinned (`RUNTIME_URL`/`RUNTIME_SHA256` — update both together) and untars
   into `Resources/wine/`. `share/wowsilicon/runtime-lock.json` inside records the
-  exact wine commit and component versions.
+  exact wine commit and component versions. Pinned at **r15** (same wine commit as r6,
+  plus WoWSilicon's twelve patches).
+- **Audio follows the macOS default device** (r15+): `winecoreaudio.drv` re-targets a
+  running stream to the system default output every ~250 ms and `dsound` migrates its
+  buffers along, so switching to AirPods mid-game just works. The driver reads a
+  `WOWSILICON_*` environment contract: `WOWSILICON_FOLLOW_SYSTEM_OUTPUT` (default `1` —
+  never set it), `WOWSILICON_SPATIAL_AUDIO_MODE=off|fixed`,
+  `WOWSILICON_NORMALIZE_AUDIO=0|1`, and two control-file paths
+  (`WOWSILICON_SPATIAL_AUDIO_CONTROL`, `WOWSILICON_NORMALIZE_AUDIO_CONTROL`) that it
+  polls for live changes. Unset, those default to
+  `~/Library/Application Support/WoWSilicon/…` — a co-installed WoWSilicon's settings
+  would leak in — so `wow-launch` always points them at `Resources/audio/`.
 - **winerosetta is integrated**: this wine's `ntdll.so` natively contains the fast-x87
   hooks (the biggest FPS win) and reads the same `ROSETTA_X87_PATH` env var as the
   old patched-CrossOver stack (plus a newer `X87_SIDECAR_PATH` alternative, unused here).
