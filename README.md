@@ -186,9 +186,14 @@ No Xcode, no dependencies.
   in `<game>/Fonts/` are not the remapped ones (hand-copied, or from an older
   launcher). Reinstall the ruRU client or re-import its language pack — the
   stash is refreshed automatically.
-- **Keyboard controls don't work / keybindings dead:** a Cyrillic keyboard
-  layout is active — the game binds keys by character. Switch to a Latin
-  layout for playing; switch to Russian only while typing in chat.
+- **Keyboard controls don't work with a Cyrillic layout active:** the game
+  names keys by the active layout — with a Russian layout the W key is "Ц",
+  so the default `W`/`S`/`A`/`D` bindings go dead (the client does the same
+  on Windows). Bind the Cyrillic letters as **Key 2** for the actions you use
+  (Ц/Ы/Ф/В next to W/S/A/D) and both layouts work — no more switching to type
+  in chat:
+
+  <img src="assets/screenshots/keybindings-cyrillic.png" width="70%" alt="Key bindings: W/S/A/D as Key 1, Ц/Ы/Ф/В as Key 2">
 - **Stuck at "Connecting" on a local-network server** (a `192.168.x.x` /
   `10.x.x.x` / `.local` address): macOS gates local-network access per app
   copy — and for unsigned apps it silently blocks a copy it doesn't recognize,
