@@ -121,3 +121,5 @@
 "This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game." = "This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game.";
 "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it.";
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual.";
+"Close the launcher when the game starts" = "Close the launcher when the game starts";
+"Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf.";

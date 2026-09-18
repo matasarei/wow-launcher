@@ -121,3 +121,5 @@
 "This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game." = "此客户端为 64 位——启动器添加的一切都只有 32 位版本，无法加载进游戏。";
 "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "此客户端没有可供模组加载器挂钩的 Divx 解码器，因此无法为它添加任何 DLL。";
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch 仅存在于 3.3.5a（12340）和 1.12 客户端；其他级别照常适用。";
+"Close the launcher when the game starts" = "游戏启动后关闭启动器";
+"Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "如果你的服务器在局域网中，请保持启动器打开——macOS 会以启动器的名义请求本地网络访问权限。";

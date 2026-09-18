@@ -121,3 +121,5 @@
 "This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game." = "이 클라이언트는 64비트입니다 — 런처가 추가하는 것은 모두 32비트 전용이라 게임에 로드될 수 없습니다.";
 "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "이 클라이언트에는 모드 로더가 후킹할 Divx 디코더가 없어 DLL을 추가할 수 없습니다.";
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch는 3.3.5a(12340)와 1.12 클라이언트에만 있습니다. 나머지 단계는 평소대로 적용됩니다.";
+"Close the launcher when the game starts" = "게임이 시작되면 런처 닫기";
+"Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "서버가 로컬 네트워크에 있다면 런처를 열어 두세요 — macOS는 런처의 이름으로 로컬 네트워크 접근 권한을 요청합니다.";

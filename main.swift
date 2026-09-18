@@ -1073,6 +1073,10 @@ struct PlayView: View {
     @EnvironmentObject var store: Store
     @ViewState private var confirmStop = false
 
+    var closeOnPlayBinding: Binding<Bool> {
+        Binding(get: { store.closeOnPlay }, set: { store.setCloseOnPlay($0) })
+    }
+
     var statusLine: String {
         if store.games.isEmpty { return L("No game installed") }
         if store.loadingStatus { return L("Loading settings…") }
@@ -1156,6 +1160,13 @@ struct PlayView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(store.busy)
                 .padding(.top, 8)
+            }
+            if !store.games.isEmpty {
+                Toggle("Close the launcher when the game starts", isOn: closeOnPlayBinding)
+                    .toggleStyle(.checkbox)
+                    .controlSize(.small)
+                    .foregroundStyle(.secondary)
+                    .help("Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf.")
             }
             Spacer()
         }
