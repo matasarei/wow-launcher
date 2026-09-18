@@ -177,9 +177,14 @@ identity directly (`awk '/^PROGRESS/ {print $3}' | sort -u` against the step cou
   RetinaMode=Y the game renders native pixels. `wow-settings auto` keeps both in
   sync with the display; `hwDetect 0` stops the game from overriding seeded settings.
 - **GUI launches have no locale env** — wow-launch exports one explicitly.
-- The manager quits ~2 s after Play (detached game keeps running); script-app
-  launchers that don't check in with LaunchServices get "not responding" — the
-  compiled SwiftUI binary is what fixed that historically.
+- After Play the manager hands focus to the game window and stays open (the Play
+  pane shows the running game and notices its exit); it quits instead only with
+  `CLOSE_ON_PLAY=1`, the Play-pane checkbox. Staying open is the default because
+  macOS asks for Local Network access on behalf of the launching app — gone, a
+  LAN realm appeared blocked with no prompt (#7). The game is detached and keeps
+  running either way. Script-app launchers that don't check in with
+  LaunchServices get "not responding" — the compiled SwiftUI binary is what
+  fixed that historically.
 
 ## Any-client support (2.5) — `wow-client-profile`
 

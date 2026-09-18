@@ -122,6 +122,7 @@ final class Store: ObservableObject {
     @Published var renderer = "dxvk"
     @Published var spatialAudio = true     // SPATIAL_AUDIO=0 → WOWSILICON_SPATIAL_AUDIO_MODE=off (else fixed)
     @Published var normalizeAudio = true   // NORMALIZE_AUDIO=0 → WOWSILICON_NORMALIZE_AUDIO=0 (else 1)
+    @Published var closeOnPlay = false     // CLOSE_ON_PLAY=1 → quit after handing focus to the game
     @Published var patches = "all"        // PATCHES=all|no-silicon|winerosetta|none
     @Published var resolution = "…"
     @Published var retina = false
@@ -148,6 +149,7 @@ final class Store: ObservableObject {
         let sp = confGet("SPATIAL_AUDIO"), nm = confGet("NORMALIZE_AUDIO")
         spatialAudio = sp.isEmpty || sp == "1"
         normalizeAudio = nm.isEmpty || nm == "1"
+        closeOnPlay = confGet("CLOSE_ON_PLAY") == "1"   // absent = stay open
         let lvl = confGet("PATCHES")
         if ["all", "no-silicon", "winerosetta", "none"].contains(lvl) { patches = lvl }
         else if confGet("SILICON") == "0" { patches = "no-silicon" }   // pre-2.4 toggle
@@ -206,16 +208,19 @@ final class Store: ObservableObject {
             DispatchQueue.main.async {
                 self.gameRunning = true
                 self.busy = false
-                self.focusGameThenQuit()
+                self.focusGame()
             }
         }
     }
 
     // Cooperative activation (macOS 14+) only lets the frontmost app pass
     // focus on — the game can never take it by itself. So stay alive until
-    // the game window exists, hand activation over, then quit. If the window
-    // never shows or the user switched away meanwhile, just quit as before.
-    private func focusGameThenQuit() {
+    // the game window exists and hand activation over. Quitting afterwards is
+    // opt-in (CLOSE_ON_PLAY): macOS asks for Local Network access on behalf of
+    // the app that launched the game; with the launcher already gone when a
+    // LAN realm is contacted, the connection looks silently blocked (#7).
+    // Staying open, the Play pane shows the running game and notices its exit.
+    private func focusGame() {
         let pattern = Paths.runPattern
         let deadline = Date().addingTimeInterval(30)
         func tick() {
@@ -228,9 +233,11 @@ final class Store: ObservableObject {
                     if let pid = winPID, let app = NSRunningApplication(processIdentifier: pid) {
                         NSApp.yieldActivation(to: app)
                         app.activate(options: [])
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+                        if self.closeOnPlay {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+                        }
                     } else if Date() >= deadline || !NSApp.isActive {
-                        NSApp.terminate(nil)
+                        if self.closeOnPlay { NSApp.terminate(nil) }
                     } else {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { tick() }
                     }
@@ -351,6 +358,12 @@ final class Store: ObservableObject {
         confSet("NORMALIZE_AUDIO", on ? "1" : "0")
         note = on ? L("Volume normalization turned on — takes effect at the next game start.")
                   : L("Volume normalization turned off — takes effect at the next game start.")
+    }
+
+    // Read when Play hands focus to the game, so it applies from the next Play — no note needed.
+    func setCloseOnPlay(_ on: Bool) {
+        closeOnPlay = on
+        confSet("CLOSE_ON_PLAY", on ? "1" : "0")
     }
 
     // Applied by the repair path: verify's expected state follows PATCHES=, so
@@ -1060,6 +1073,10 @@ struct PlayView: View {
     @EnvironmentObject var store: Store
     @ViewState private var confirmStop = false
 
+    var closeOnPlayBinding: Binding<Bool> {
+        Binding(get: { store.closeOnPlay }, set: { store.setCloseOnPlay($0) })
+    }
+
     var statusLine: String {
         if store.games.isEmpty { return L("No game installed") }
         if store.loadingStatus { return L("Loading settings…") }
@@ -1143,6 +1160,13 @@ struct PlayView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(store.busy)
                 .padding(.top, 8)
+            }
+            if !store.games.isEmpty {
+                Toggle("Close the launcher when the game starts", isOn: closeOnPlayBinding)
+                    .toggleStyle(.checkbox)
+                    .controlSize(.small)
+                    .foregroundStyle(.secondary)
+                    .help("Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf.")
             }
             Spacer()
         }
