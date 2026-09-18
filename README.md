@@ -196,9 +196,9 @@ No Xcode, no dependencies.
   <img src="assets/screenshots/keybindings-cyrillic.png" width="70%" alt="Key bindings: W/S/A/D as Key 1, Ц/Ы/Ф/В as Key 2">
 - **Stuck at "Connecting" on a local-network server** (a `192.168.x.x` /
   `10.x.x.x` / `.local` address): macOS asks for local-network access on
-  behalf of the launcher, so keep **Close the launcher when the game starts**
-  (Play screen) unchecked — the default — and leave the launcher open while
-  you play. macOS also gates this per app copy, and for unsigned apps it
+  behalf of the app that started the game, so keep **Close the launcher when
+  the game starts** (Play screen) unchecked — the default — and leave the
+  launcher open while you play; without it, the request can go unanswered. macOS also gates this per app copy, and for unsigned apps it
   silently blocks a copy it doesn't recognize, without asking again. Always
   run the app from `Applications` (not from `Downloads`); if it still won't
   connect, open **System Settings → Privacy & Security → Local Network**,
