@@ -793,7 +793,7 @@ assert_file "$G/Wow.exe"
 section "Swift sources"
 # SDK 27 makes @State an Xcode-only macro; the bare Command Line Tools cannot
 # expand it. CI builds with Xcode, so only this check notices it coming back.
-HITS="$(grep -nE '^[[:space:]]*@(SwiftUI\.)?State([^A-Za-z0-9_]|$)' "$ROOT/main.swift")"
+HITS="$(grep -nE '@(SwiftUI\.)?State([^A-Za-z0-9_]|$)' "$ROOT/main.swift" | grep -vE '^[0-9]+:[[:space:]]*//')"
 assert_eq "$HITS" "" "main.swift uses @State — use @ViewState (SDK 27 makes @State an Xcode-only macro)"
 
 # ================================================================== summary
