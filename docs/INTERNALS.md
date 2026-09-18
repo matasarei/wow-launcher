@@ -159,6 +159,15 @@ identity directly (`awk '/^PROGRESS/ {print $3}' | sort -u` against the step cou
   if you go looking, `-Onone` vs `-O` on the same source is the reproducer, and
   the cost of the workaround is 0.16 s instead of 0.02 s once per install.
 
+- **No `@State` in `main.swift` — use `@ViewState`.** The macOS 27 SDK
+  redeclares SwiftUI's `@State` as a macro backed by `libSwiftUIMacros.dylib`,
+  and that plugin ships only inside Xcode; the Command Line Tools carry just the
+  Observation and Swift macro plugins. With the bare CLT — all the build asks
+  for — every `@State` fails with "plugin for module 'SwiftUIMacros' not found"
+  (issue #7). `ViewState` wraps a plain `State` stored property, which is not a
+  macro, so SwiftUI keeps the same storage on every SDK. CI builds with Xcode
+  and would never notice one coming back; `make test` greps for it instead.
+
 - **Fast exit**: Wow.exe phones dead Blizzard tracker endpoints on quit (~5 min
   hang); fixed by dead-proxy registry keys (`ProxyEnable=1`, `ProxyServer=127.0.0.1:1`)
   in the prefix — wininet fails instantly, realm/world traffic (winsock) unaffected.

@@ -32,6 +32,35 @@ jobs:
       - name: make compile
         run: make compile
 
+  # What a user's Mac has: the Command Line Tools, no Xcode. On the macOS 27
+  # SDK @State is a macro whose plugin ships only with Xcode, so the jobs above
+  # (Xcode, older SDKs) cannot see a @State that breaks this build (#7). The
+  # probe proves this runner still reproduces that; if it ever stops, a green
+  # run here means nothing and the warning says so.
+  compile-clt:
+    name: Swift compiles (Command Line Tools, SDK 27)
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Library/Developer/CommandLineTools
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          [ -d "$DEVELOPER_DIR" ] || { echo "::error::no Command Line Tools at $DEVELOPER_DIR"; exit 1; }
+          swiftc --version
+          echo "SDK $(xcrun --show-sdk-version)"
+      - name: Bare @State still fails here
+        run: |
+          probe="$RUNNER_TEMP/probe.swift"
+          printf 'import SwiftUI\nstruct Probe: View {\n    @State var n = 0\n    var body: some View { Text("\\(n)") }\n}\n' > "$probe"
+          if swiftc -swift-version 5 -parse-as-library -typecheck "$probe" 2>/dev/null; then
+            echo "::warning::a bare @State compiles on this runner — this job no longer reproduces #7"
+          else
+            echo "bare @State fails here, as on a CLT-only Mac"
+          fi
+      - name: make compile
+        run: make compile
+
   strings:
     name: Localization parity
     runs-on: macos-15

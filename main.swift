@@ -989,6 +989,21 @@ final class Store: ObservableObject {
 
 // MARK: - Views
 
+/// View-local state — use this, never `@State`. The macOS 27 SDK turned
+/// `@State` into a macro whose plugin ships only with Xcode, so with the bare
+/// Command Line Tools (all this project needs) every `@State` fails to expand.
+/// Wrapping a plain `State` stored property keeps SwiftUI's storage and
+/// compiles against SDK 27 and earlier. `make test` rejects `@State` in main.swift.
+@propertyWrapper struct ViewState<Value>: DynamicProperty {
+    private let storage: State<Value>
+    init(wrappedValue: Value) { storage = State(initialValue: wrappedValue) }
+    var wrappedValue: Value {
+        get { storage.wrappedValue }
+        nonmutating set { storage.wrappedValue = newValue }
+    }
+    var projectedValue: Binding<Value> { storage.projectedValue }
+}
+
 enum Pane: String, CaseIterable, Identifiable {
     case play = "Play", game = "Game", addons = "AddOns", display = "Display", audio = "Audio", about = "About"
     var id: String { rawValue }
@@ -1006,7 +1021,7 @@ enum Pane: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @EnvironmentObject var store: Store
-    @State private var pane: Pane? = .play
+    @ViewState private var pane: Pane? = .play
 
     private func needsGame(_ p: Pane) -> Bool {
         store.games.isEmpty && (p == .addons || p == .display || p == .audio)
@@ -1043,7 +1058,7 @@ struct ContentView: View {
 
 struct PlayView: View {
     @EnvironmentObject var store: Store
-    @State private var confirmStop = false
+    @ViewState private var confirmStop = false
 
     var statusLine: String {
         if store.games.isEmpty { return L("No game installed") }
@@ -1141,7 +1156,7 @@ struct PlayView: View {
 
 struct GameView: View {
     @EnvironmentObject var store: Store
-    @State private var newRealm = ""
+    @ViewState private var newRealm = ""
 
     var body: some View {
         Form {
@@ -1334,7 +1349,7 @@ struct VerifySheet: View {
 
 struct AddOnsView: View {
     @EnvironmentObject var store: Store
-    @State private var selection: String?
+    @ViewState private var selection: String?
 
     var body: some View {
         Group {
