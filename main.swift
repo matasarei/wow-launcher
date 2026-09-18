@@ -122,6 +122,7 @@ final class Store: ObservableObject {
     @Published var renderer = "dxvk"
     @Published var spatialAudio = true     // SPATIAL_AUDIO=0 → WOWSILICON_SPATIAL_AUDIO_MODE=off (else fixed)
     @Published var normalizeAudio = true   // NORMALIZE_AUDIO=0 → WOWSILICON_NORMALIZE_AUDIO=0 (else 1)
+    @Published var closeOnPlay = false     // CLOSE_ON_PLAY=1 → quit after handing focus to the game
     @Published var patches = "all"        // PATCHES=all|no-silicon|winerosetta|none
     @Published var resolution = "…"
     @Published var retina = false
@@ -148,6 +149,7 @@ final class Store: ObservableObject {
         let sp = confGet("SPATIAL_AUDIO"), nm = confGet("NORMALIZE_AUDIO")
         spatialAudio = sp.isEmpty || sp == "1"
         normalizeAudio = nm.isEmpty || nm == "1"
+        closeOnPlay = confGet("CLOSE_ON_PLAY") == "1"   // absent = stay open
         let lvl = confGet("PATCHES")
         if ["all", "no-silicon", "winerosetta", "none"].contains(lvl) { patches = lvl }
         else if confGet("SILICON") == "0" { patches = "no-silicon" }   // pre-2.4 toggle
@@ -351,6 +353,12 @@ final class Store: ObservableObject {
         confSet("NORMALIZE_AUDIO", on ? "1" : "0")
         note = on ? L("Volume normalization turned on — takes effect at the next game start.")
                   : L("Volume normalization turned off — takes effect at the next game start.")
+    }
+
+    // Read by play() only, so it applies from the next Play — no note needed.
+    func setCloseOnPlay(_ on: Bool) {
+        closeOnPlay = on
+        confSet("CLOSE_ON_PLAY", on ? "1" : "0")
     }
 
     // Applied by the repair path: verify's expected state follows PATCHES=, so
