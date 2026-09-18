@@ -789,6 +789,13 @@ OUT="$("$BIN/wow-install-client" "$G" 2>&1)"
 assert_contains "$OUT" "the source is the installed game itself" "guard triggers"
 assert_file "$G/Wow.exe"
 
+# ================================================================== Swift sources
+section "Swift sources"
+# SDK 27 makes @State an Xcode-only macro; the bare Command Line Tools cannot
+# expand it. CI builds with Xcode, so only this check notices it coming back.
+HITS="$(grep -nE '^[[:space:]]*@(SwiftUI\.)?State([^A-Za-z0-9_]|$)' "$ROOT/main.swift")"
+assert_eq "$HITS" "" "main.swift uses @State — use @ViewState (SDK 27 makes @State an Xcode-only macro)"
+
 # ================================================================== summary
 echo ""
 echo "passed: $PASS, failed: $FAILED"
