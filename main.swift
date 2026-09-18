@@ -993,7 +993,7 @@ final class Store: ObservableObject {
 /// `@State` into a macro whose plugin ships only with Xcode, so with the bare
 /// Command Line Tools (all this project needs) every `@State` fails to expand.
 /// Wrapping a plain `State` stored property keeps SwiftUI's storage and
-/// compiles against every SDK. `make test` rejects `@State` in main.swift.
+/// compiles against SDK 27 and earlier. `make test` rejects `@State` in main.swift.
 @propertyWrapper struct ViewState<Value>: DynamicProperty {
     private let storage: State<Value>
     init(wrappedValue: Value) { storage = State(initialValue: wrappedValue) }
