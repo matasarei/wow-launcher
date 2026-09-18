@@ -208,16 +208,19 @@ final class Store: ObservableObject {
             DispatchQueue.main.async {
                 self.gameRunning = true
                 self.busy = false
-                self.focusGameThenQuit()
+                self.focusGame()
             }
         }
     }
 
     // Cooperative activation (macOS 14+) only lets the frontmost app pass
     // focus on — the game can never take it by itself. So stay alive until
-    // the game window exists, hand activation over, then quit. If the window
-    // never shows or the user switched away meanwhile, just quit as before.
-    private func focusGameThenQuit() {
+    // the game window exists and hand activation over. Quitting afterwards is
+    // opt-in (CLOSE_ON_PLAY): macOS asks for Local Network access on behalf of
+    // the app that launched the game; with the launcher already gone when a
+    // LAN realm is contacted, the connection looks silently blocked (#7).
+    // Staying open, the Play pane shows the running game and notices its exit.
+    private func focusGame() {
         let pattern = Paths.runPattern
         let deadline = Date().addingTimeInterval(30)
         func tick() {
@@ -230,9 +233,11 @@ final class Store: ObservableObject {
                     if let pid = winPID, let app = NSRunningApplication(processIdentifier: pid) {
                         NSApp.yieldActivation(to: app)
                         app.activate(options: [])
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+                        if self.closeOnPlay {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+                        }
                     } else if Date() >= deadline || !NSApp.isActive {
-                        NSApp.terminate(nil)
+                        if self.closeOnPlay { NSApp.terminate(nil) }
                     } else {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { tick() }
                     }
