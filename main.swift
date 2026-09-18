@@ -360,7 +360,7 @@ final class Store: ObservableObject {
                   : L("Volume normalization turned off — takes effect at the next game start.")
     }
 
-    // Read by play() only, so it applies from the next Play — no note needed.
+    // Read when Play hands focus to the game, so it applies from the next Play — no note needed.
     func setCloseOnPlay(_ on: Bool) {
         closeOnPlay = on
         confSet("CLOSE_ON_PLAY", on ? "1" : "0")
