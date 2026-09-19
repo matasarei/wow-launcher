@@ -1368,6 +1368,20 @@ struct GameView: View {
                     Button("Add") { store.addRealm(newRealm); newRealm = "" }
                         .disabled(newRealm.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
+                HStack(spacing: 8) {
+                    Button("Test Connection") { store.testRealmConnection() }
+                        .disabled(store.realmTestRunning || store.busy || !store.realms.contains(where: { $0.active }))
+                        .help("Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access.")
+                    if store.realmTestRunning {
+                        ProgressView().controlSize(.small)
+                    }
+                    Spacer()
+                }
+                if !store.realmTestResult.isEmpty {
+                    Text(store.realmTestResult)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Text("The selected server is written to realmlist.wtf; the others stay as commented lines. Takes effect at the next game start.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
