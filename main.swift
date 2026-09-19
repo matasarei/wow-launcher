@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Network
 import UniformTypeIdentifiers
 
 // One open panel at a time: a second click on Install/Import while a panel is
@@ -837,10 +838,15 @@ final class Store: ObservableObject {
         if !list.contains(where: { $0.active }), !list.isEmpty {
             list[0] = Realm(addr: list[0].addr, active: true)
         }
+        // Install and language switch re-read realmlist.wtf without writeRealms;
+        // a test result about a server that is no longer active must go too.
+        let wasActive = realms.first(where: { $0.active })?.addr
         realms = list
+        if realms.first(where: { $0.active })?.addr != wasActive { cancelRealmTest() }
     }
 
     private func writeRealms(_ list: [Realm]) {
+        cancelRealmTest()   // a result is about the server that was active
         let block = list.map { $0.active ? "set realmlist \($0.addr)" : "# set realmlist \($0.addr)" }
         for path in realmFiles {
             let raw = readTextFile(path) ?? ""
@@ -882,6 +888,98 @@ final class Store: ObservableObject {
             rest[0] = Realm(addr: rest[0].addr, active: true)
         }
         writeRealms(rest)
+    }
+
+    // MARK: connection test
+
+    @Published var realmTestRunning = false
+    @Published var realmTestResult = ""
+    @Published var realmTestPassed: Bool?   // nil while waiting — neither green nor red
+    private var realmTest: NWConnection?
+
+    // One TCP connect to the active realm, made by the launcher itself. The game
+    // is Wine started as the launcher's child, so macOS credits its connections
+    // to the launcher: for a LAN realm this is the same Local Network grant the
+    // game uses, asked for here, in front, instead of behind the game window.
+    // While the prompt is up the path may already read localNetworkDenied, so
+    // that alone is not a verdict — only still denied when the wait runs out is.
+    func testRealmConnection() {
+        guard !realmTestRunning, let addr = realms.first(where: { $0.active })?.addr else { return }
+        var host = addr, port: UInt16 = 3724
+        // host:port — only with a single colon; a bare IPv6 address has several
+        if addr.filter({ $0 == ":" }).count == 1, let colon = addr.firstIndex(of: ":"),
+           let p = UInt16(addr[addr.index(after: colon)...]) {
+            host = String(addr[..<colon])
+            port = p
+        }
+        guard !host.isEmpty, let nwPort = NWEndpoint.Port(rawValue: port) else { return }
+        let conn = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tcp)
+        let queue = DispatchQueue(label: "realm-connection-test")
+        var denied = false
+        var lastError: NWError?
+        realmTest = conn
+        realmTestRunning = true
+        realmTestResult = ""
+        realmTestPassed = nil
+
+        func finish(_ message: String, passed: Bool = false) {
+            DispatchQueue.main.async {
+                guard self.realmTest === conn else { return }   // superseded or cancelled
+                conn.cancel()
+                self.realmTest = nil
+                self.realmTestRunning = false
+                self.realmTestResult = message
+                self.realmTestPassed = passed
+            }
+        }
+        let blocked = L("macOS is blocking local network access for WoW. Allow it in System Settings → Privacy & Security → Local Network, then quit and reopen both the launcher and the game.")
+
+        conn.stateUpdateHandler = { state in
+            switch state {
+            case .ready:
+                finish(LF("Connected to %@ — this server is reachable.", addr), passed: true)
+            case .waiting(let err), .failed(let err):
+                if case .posix(let code) = err, code == .ECONNREFUSED {
+                    finish(LF("%@ answered, but nothing is listening on port %@ — is the server running?", host, String(port)))
+                    return
+                }
+                if case .dns = err {   // unknown host name — no point waiting it out
+                    finish(LF("Could not connect to %@: %@", addr, err.localizedDescription))
+                    return
+                }
+                lastError = err
+                denied = conn.currentPath?.unsatisfiedReason == .localNetworkDenied
+                if denied {
+                    DispatchQueue.main.async {
+                        if self.realmTest === conn {
+                            self.realmTestResult = L("Waiting for macOS to allow local network access…")
+                        }
+                    }
+                } else if case .failed = state {
+                    finish(LF("Could not connect to %@: %@", addr, err.localizedDescription))
+                }
+            default:
+                break
+            }
+        }
+        conn.start(queue: queue)
+        queue.asyncAfter(deadline: .now() + 30) {
+            if denied {
+                finish(blocked)
+            } else if let err = lastError {
+                finish(LF("Could not connect to %@: %@", addr, err.localizedDescription))
+            } else {
+                finish(LF("No answer from %@ within 30 seconds.", addr))
+            }
+        }
+    }
+
+    private func cancelRealmTest() {
+        realmTest?.cancel()
+        realmTest = nil
+        realmTestRunning = false
+        realmTestResult = ""
+        realmTestPassed = nil
     }
 
     // MARK: addons
@@ -1283,6 +1381,24 @@ struct GameView: View {
                         .onSubmit { store.addRealm(newRealm); newRealm = "" }
                     Button("Add") { store.addRealm(newRealm); newRealm = "" }
                         .disabled(newRealm.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                HStack(spacing: 8) {
+                    Button("Test Connection") { store.testRealmConnection() }
+                        .disabled(store.realmTestRunning || store.busy || !store.realms.contains(where: { $0.active }))
+                        .help("Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access.")
+                    if store.realmTestRunning {
+                        ProgressView().controlSize(.small)
+                    }
+                    Spacer()
+                }
+                if let passed = store.realmTestPassed {
+                    Label(store.realmTestResult,
+                          systemImage: passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundStyle(passed ? Color.green : Color.red)
+                } else if !store.realmTestResult.isEmpty {
+                    Text(store.realmTestResult)   // "Waiting for macOS…" — not a verdict yet
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Text("The selected server is written to realmlist.wtf; the others stay as commented lines. Takes effect at the next game start.")
                     .font(.caption)

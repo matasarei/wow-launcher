@@ -123,3 +123,11 @@
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch 仅存在于 3.3.5a（12340）和 1.12 客户端；其他级别照常适用。";
 "Close the launcher when the game starts" = "游戏启动后关闭启动器";
 "Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "如果你的服务器在局域网中，请保持启动器打开——macOS 会以启动器的名义请求本地网络访问权限。";
+"Test Connection" = "测试连接";
+"Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access." = "连接所选服务器一次。如果服务器在局域网中，这会让 macOS 请求本地网络访问权限。";
+"Connected to %@ — this server is reachable." = "已连接到 %@——此服务器可以访问。";
+"%@ answered, but nothing is listening on port %@ — is the server running?" = "%@ 有响应，但端口 %@ 上没有服务在监听——服务器在运行吗？";
+"Could not connect to %@: %@" = "无法连接到 %@：%@";
+"Waiting for macOS to allow local network access…" = "正在等待 macOS 允许本地网络访问…";
+"macOS is blocking local network access for WoW. Allow it in System Settings → Privacy & Security → Local Network, then quit and reopen both the launcher and the game." = "macOS 正在阻止 WoW 访问本地网络。请在“系统设置 → 隐私与安全性 → 本地网络”中允许，然后退出并重新打开启动器和游戏。";
+"No answer from %@ within 30 seconds." = "%@ 在 30 秒内没有响应。";

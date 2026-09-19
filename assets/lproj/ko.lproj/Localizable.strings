@@ -123,3 +123,11 @@
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch는 3.3.5a(12340)와 1.12 클라이언트에만 있습니다. 나머지 단계는 평소대로 적용됩니다.";
 "Close the launcher when the game starts" = "게임이 시작되면 런처 닫기";
 "Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "서버가 로컬 네트워크에 있다면 런처를 열어 두세요 — macOS는 런처의 이름으로 로컬 네트워크 접근 권한을 요청합니다.";
+"Test Connection" = "연결 테스트";
+"Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access." = "선택한 서버에 한 번 연결합니다. 로컬 네트워크에 있는 서버라면 macOS가 로컬 네트워크 접근 권한을 요청하게 됩니다.";
+"Connected to %@ — this server is reachable." = "%@에 연결됨 — 이 서버에 접속할 수 있습니다.";
+"%@ answered, but nothing is listening on port %@ — is the server running?" = "%@이(가) 응답하지만 포트 %@에서 대기 중인 서비스가 없습니다 — 서버가 실행 중인가요?";
+"Could not connect to %@: %@" = "%@에 연결할 수 없음: %@";
+"Waiting for macOS to allow local network access…" = "macOS가 로컬 네트워크 접근을 허용하기를 기다리는 중…";
+"macOS is blocking local network access for WoW. Allow it in System Settings → Privacy & Security → Local Network, then quit and reopen both the launcher and the game." = "macOS가 WoW의 로컬 네트워크 접근을 차단하고 있습니다. 시스템 설정 → 개인정보 보호 및 보안 → 로컬 네트워크에서 허용한 뒤, 런처와 게임을 모두 종료했다가 다시 여세요.";
+"No answer from %@ within 30 seconds." = "30초 안에 %@에서 응답이 없습니다.";

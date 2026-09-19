@@ -123,3 +123,11 @@
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch існує лише для клієнтів 3.3.5a (12340) і 1.12; інші рівні застосовуються як звичайно.";
 "Close the launcher when the game starts" = "Закривати лаунчер після запуску гри";
 "Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "Залиште лаунчер відкритим, якщо ваш сервер у локальній мережі — macOS запитує доступ до локальної мережі від його імені.";
+"Test Connection" = "Перевірити з'єднання";
+"Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access." = "Один раз підключається до вибраного сервера. Якщо сервер у локальній мережі, macOS після цього запитає доступ до локальної мережі.";
+"Connected to %@ — this server is reachable." = "Підключено до %@ — сервер доступний.";
+"%@ answered, but nothing is listening on port %@ — is the server running?" = "%@ відповідає, але на порту %@ ніхто не слухає — сервер запущено?";
+"Could not connect to %@: %@" = "Не вдалося підключитися до %@: %@";
+"Waiting for macOS to allow local network access…" = "Очікування дозволу macOS на доступ до локальної мережі…";
+"macOS is blocking local network access for WoW. Allow it in System Settings → Privacy & Security → Local Network, then quit and reopen both the launcher and the game." = "macOS блокує доступ WoW до локальної мережі. Дозвольте його в Системних параметрах → Приватність і безпека → Локальна мережа, потім закрийте й знову відкрийте лаунчер і гру.";
+"No answer from %@ within 30 seconds." = "Немає відповіді від %@ протягом 30 секунд.";
