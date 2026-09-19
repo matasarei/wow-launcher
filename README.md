@@ -196,14 +196,17 @@ No Xcode, no dependencies.
   <img src="assets/screenshots/keybindings-cyrillic.png" width="70%" alt="Key bindings: W/S/A/D as Key 1, Ц/Ы/Ф/В as Key 2">
 - **Stuck at "Connecting" on a local-network server** (a `192.168.x.x` /
   `10.x.x.x` / `.local` address): macOS asks for local-network access on
-  behalf of the app that started the game, so keep **Close the launcher when
-  the game starts** (Play screen) unchecked — the default — and leave the
-  launcher open while you play; without it, the request can go unanswered. macOS also gates this per app copy, and for unsigned apps it
-  silently blocks a copy it doesn't recognize, without asking again. Always
-  run the app from `Applications` (not from `Downloads`); if it still won't
-  connect, open **System Settings → Privacy & Security → Local Network**,
-  toggle **WoW** off and on, and relaunch. Internet servers are unaffected —
-  this is LAN-only.
+  behalf of the launcher — the game runs as its child. Open **Game → Server**
+  and click **Test Connection**: macOS asks right away; allow it, then quit
+  and reopen both the launcher and the game. The result under the button says
+  whether the server was reached, or that macOS is blocking access. Keep
+  **Close the launcher when the game starts** (Play screen) unchecked — the
+  default — and leave the launcher open while you play; on macOS 27 the game
+  loses the connection when the launcher quits. Run the app from
+  `Applications` (not `Downloads`): for unsigned apps macOS silently blocks a
+  copy it doesn't recognize. If it still won't connect, open **System
+  Settings → Privacy & Security → Local Network**, toggle **WoW** off and on,
+  and relaunch both. Internet servers are unaffected — this is LAN-only.
 - **Sound stays on the old device after switching audio output** (e.g. Mac
   speakers → AirPods): the game follows the macOS output device within a few
   seconds (wine runtime r15+) — no restart needed. If it doesn't, check that
