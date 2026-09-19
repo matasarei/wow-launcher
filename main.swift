@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Network
 import UniformTypeIdentifiers
 
 // One open panel at a time: a second click on Install/Import while a panel is
@@ -841,6 +842,7 @@ final class Store: ObservableObject {
     }
 
     private func writeRealms(_ list: [Realm]) {
+        cancelRealmTest()   // a result is about the server that was active
         let block = list.map { $0.active ? "set realmlist \($0.addr)" : "# set realmlist \($0.addr)" }
         for path in realmFiles {
             let raw = readTextFile(path) ?? ""
@@ -882,6 +884,88 @@ final class Store: ObservableObject {
             rest[0] = Realm(addr: rest[0].addr, active: true)
         }
         writeRealms(rest)
+    }
+
+    // MARK: connection test
+
+    @Published var realmTestRunning = false
+    @Published var realmTestResult = ""
+    private var realmTest: NWConnection?
+
+    // One TCP connect to the active realm, made by the launcher itself. The game
+    // is Wine started as the launcher's child, so macOS credits its connections
+    // to the launcher: for a LAN realm this is the same Local Network grant the
+    // game uses, asked for here, in front, instead of behind the game window.
+    // While the prompt is up the path already reads localNetworkDenied, so that
+    // alone is not a verdict — only still denied when the wait runs out is.
+    func testRealmConnection() {
+        guard !realmTestRunning, let addr = realms.first(where: { $0.active })?.addr else { return }
+        var host = addr, port: UInt16 = 3724
+        if let colon = addr.lastIndex(of: ":"), let p = UInt16(addr[addr.index(after: colon)...]) {
+            host = String(addr[..<colon])
+            port = p
+        }
+        guard !host.isEmpty, let nwPort = NWEndpoint.Port(rawValue: port) else { return }
+        let conn = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tcp)
+        let queue = DispatchQueue(label: "realm-connection-test")
+        var denied = false
+        var lastError: NWError?
+        realmTest = conn
+        realmTestRunning = true
+        realmTestResult = ""
+
+        func finish(_ message: String) {
+            DispatchQueue.main.async {
+                guard self.realmTest === conn else { return }   // superseded or cancelled
+                conn.cancel()
+                self.realmTest = nil
+                self.realmTestRunning = false
+                self.realmTestResult = message
+            }
+        }
+        let blocked = L("macOS is blocking local network access for WoW. Allow it in System Settings → Privacy & Security → Local Network, then quit and reopen both the launcher and the game.")
+
+        conn.stateUpdateHandler = { state in
+            switch state {
+            case .ready:
+                finish(LF("Connected to %@ — this server is reachable.", addr))
+            case .waiting(let err), .failed(let err):
+                if case .posix(let code) = err, code == .ECONNREFUSED {
+                    finish(LF("%@ answered, but nothing is listening on port %@ — is the server running?", host, String(port)))
+                    return
+                }
+                lastError = err
+                denied = conn.currentPath?.unsatisfiedReason == .localNetworkDenied
+                if denied {
+                    DispatchQueue.main.async {
+                        if self.realmTest === conn {
+                            self.realmTestResult = L("Waiting for macOS to allow local network access…")
+                        }
+                    }
+                } else if case .failed = state {
+                    finish(LF("Could not connect to %@: %@", addr, err.localizedDescription))
+                }
+            default:
+                break
+            }
+        }
+        conn.start(queue: queue)
+        queue.asyncAfter(deadline: .now() + 30) {
+            if denied {
+                finish(blocked)
+            } else if let err = lastError {
+                finish(LF("Could not connect to %@: %@", addr, err.localizedDescription))
+            } else {
+                finish(LF("No answer from %@ within 30 seconds.", addr))
+            }
+        }
+    }
+
+    private func cancelRealmTest() {
+        realmTest?.cancel()
+        realmTest = nil
+        realmTestRunning = false
+        realmTestResult = ""
     }
 
     // MARK: addons
