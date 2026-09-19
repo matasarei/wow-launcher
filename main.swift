@@ -940,6 +940,10 @@ final class Store: ObservableObject {
                     finish(LF("%@ answered, but nothing is listening on port %@ — is the server running?", host, String(port)))
                     return
                 }
+                if case .dns = err {   // unknown host name — no point waiting it out
+                    finish(LF("Could not connect to %@: %@", addr, err.localizedDescription))
+                    return
+                }
                 lastError = err
                 denied = conn.currentPath?.unsatisfiedReason == .localNetworkDenied
                 if denied {
