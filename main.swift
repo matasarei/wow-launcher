@@ -894,6 +894,7 @@ final class Store: ObservableObject {
 
     @Published var realmTestRunning = false
     @Published var realmTestResult = ""
+    @Published var realmTestPassed: Bool?   // nil while waiting — neither green nor red
     private var realmTest: NWConnection?
 
     // One TCP connect to the active realm, made by the launcher itself. The game
@@ -919,14 +920,16 @@ final class Store: ObservableObject {
         realmTest = conn
         realmTestRunning = true
         realmTestResult = ""
+        realmTestPassed = nil
 
-        func finish(_ message: String) {
+        func finish(_ message: String, passed: Bool = false) {
             DispatchQueue.main.async {
                 guard self.realmTest === conn else { return }   // superseded or cancelled
                 conn.cancel()
                 self.realmTest = nil
                 self.realmTestRunning = false
                 self.realmTestResult = message
+                self.realmTestPassed = passed
             }
         }
         let blocked = L("macOS is blocking local network access for WoW. Allow it in System Settings → Privacy & Security → Local Network, then quit and reopen both the launcher and the game.")
@@ -934,7 +937,7 @@ final class Store: ObservableObject {
         conn.stateUpdateHandler = { state in
             switch state {
             case .ready:
-                finish(LF("Connected to %@ — this server is reachable.", addr))
+                finish(LF("Connected to %@ — this server is reachable.", addr), passed: true)
             case .waiting(let err), .failed(let err):
                 if case .posix(let code) = err, code == .ECONNREFUSED {
                     finish(LF("%@ answered, but nothing is listening on port %@ — is the server running?", host, String(port)))
@@ -976,6 +979,7 @@ final class Store: ObservableObject {
         realmTest = nil
         realmTestRunning = false
         realmTestResult = ""
+        realmTestPassed = nil
     }
 
     // MARK: addons
@@ -1390,7 +1394,7 @@ struct GameView: View {
                 if !store.realmTestResult.isEmpty {
                     Text(store.realmTestResult)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(store.realmTestPassed.map { $0 ? Color.green : Color.red } ?? Color.secondary)
                 }
                 Text("The selected server is written to realmlist.wtf; the others stay as commented lines. Takes effect at the next game start.")
                     .font(.caption)
