@@ -12,6 +12,8 @@
 	<string>WoW.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.matasarei.wow-launcher</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>WoW connects to game servers on your local network.</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>en</string>
