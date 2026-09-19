@@ -202,7 +202,7 @@ No Xcode, no dependencies.
   whether the server was reached, or that macOS is blocking access. Keep
   **Close the launcher when the game starts** (Play screen) unchecked — the
   default — and leave the launcher open while you play; on macOS 27 the game
-  loses the connection when the launcher quits. Run the app from
+  has been seen to lose the connection when the launcher quits. Run the app from
   `Applications` (not `Downloads`): for unsigned apps macOS silently blocks a
   copy it doesn't recognize. If it still won't connect, open **System
   Settings → Privacy & Security → Local Network**, toggle **WoW** off and on,
