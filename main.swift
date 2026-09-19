@@ -838,7 +838,11 @@ final class Store: ObservableObject {
         if !list.contains(where: { $0.active }), !list.isEmpty {
             list[0] = Realm(addr: list[0].addr, active: true)
         }
+        // Install and language switch re-read realmlist.wtf without writeRealms;
+        // a test result about a server that is no longer active must go too.
+        let wasActive = realms.first(where: { $0.active })?.addr
         realms = list
+        if realms.first(where: { $0.active })?.addr != wasActive { cancelRealmTest() }
     }
 
     private func writeRealms(_ list: [Realm]) {
