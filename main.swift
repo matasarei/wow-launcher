@@ -900,8 +900,8 @@ final class Store: ObservableObject {
     // is Wine started as the launcher's child, so macOS credits its connections
     // to the launcher: for a LAN realm this is the same Local Network grant the
     // game uses, asked for here, in front, instead of behind the game window.
-    // While the prompt is up the path already reads localNetworkDenied, so that
-    // alone is not a verdict — only still denied when the wait runs out is.
+    // While the prompt is up the path may already read localNetworkDenied, so
+    // that alone is not a verdict — only still denied when the wait runs out is.
     func testRealmConnection() {
         guard !realmTestRunning, let addr = realms.first(where: { $0.active })?.addr else { return }
         var host = addr, port: UInt16 = 3724
