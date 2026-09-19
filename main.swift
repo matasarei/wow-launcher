@@ -905,7 +905,9 @@ final class Store: ObservableObject {
     func testRealmConnection() {
         guard !realmTestRunning, let addr = realms.first(where: { $0.active })?.addr else { return }
         var host = addr, port: UInt16 = 3724
-        if let colon = addr.lastIndex(of: ":"), let p = UInt16(addr[addr.index(after: colon)...]) {
+        // host:port — only with a single colon; a bare IPv6 address has several
+        if addr.filter({ $0 == ":" }).count == 1, let colon = addr.firstIndex(of: ":"),
+           let p = UInt16(addr[addr.index(after: colon)...]) {
             host = String(addr[..<colon])
             port = p
         }
