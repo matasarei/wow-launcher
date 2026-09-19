@@ -1391,10 +1391,14 @@ struct GameView: View {
                     }
                     Spacer()
                 }
-                if !store.realmTestResult.isEmpty {
-                    Text(store.realmTestResult)
+                if let passed = store.realmTestPassed {
+                    Label(store.realmTestResult,
+                          systemImage: passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundStyle(passed ? Color.green : Color.red)
+                } else if !store.realmTestResult.isEmpty {
+                    Text(store.realmTestResult)   // "Waiting for macOS…" — not a verdict yet
                         .font(.caption)
-                        .foregroundStyle(store.realmTestPassed.map { $0 ? Color.green : Color.red } ?? Color.secondary)
+                        .foregroundStyle(.secondary)
                 }
                 Text("The selected server is written to realmlist.wtf; the others stay as commented lines. Takes effect at the next game start.")
                     .font(.caption)
