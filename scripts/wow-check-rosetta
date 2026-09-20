@@ -12,6 +12,9 @@
 #   exit 1 — the loader is x86_64 and Rosetta is missing; the reason is printed
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 LOADER="${1:-$APP/Contents/Resources/wine/bin/wine}"
+# Nothing to run, nothing to answer for: a caller that passed a path that is not
+# there gets a pass, not a verdict about Rosetta.
+[ -e "$LOADER" ] || exit 0
 # A loader that is not x86_64 needs nothing from Rosetta — and a future native
 # runtime keeps working without touching this script.
 lipo -archs "$LOADER" 2>/dev/null | grep -qw x86_64 || exit 0
