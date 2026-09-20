@@ -1,0 +1,18 @@
+#!/bin/bash
+# Can the bundled wine run on this Mac? The runtime is an x86_64 build, so it
+# needs Rosetta 2 — which is an on-demand component a macOS upgrade can drop
+# (macOS 27 did, here). Nothing offers to reinstall it for a binary started
+# from a script: exec just fails with "Bad CPU type in executable", the game
+# never appears, and wine-dependent checks elsewhere read the silence as
+# broken settings. So every caller asks here first.
+# Usage: wow-check-rosetta
+#   exit 0 — the loader can run (native loader, or Rosetta present)
+#   exit 1 — the loader is x86_64 and Rosetta is missing; the reason is printed
+APP="$(cd "$(dirname "$0")/../../.." && pwd)"
+LOADER="$APP/Contents/Resources/wine/bin/wine"
+# A loader that is not x86_64 needs nothing from Rosetta — and a future native
+# runtime keeps working without touching this script.
+lipo -archs "$LOADER" 2>/dev/null | grep -qw x86_64 || exit 0
+arch -x86_64 /usr/bin/true >/dev/null 2>&1 && exit 0
+echo "ROSETTA: not installed — run: sudo softwareupdate --install-rosetta --agree-to-license"
+exit 1
