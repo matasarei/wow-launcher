@@ -107,6 +107,7 @@ patch-kit: payloads
 prefix:
 	@if [ -d "$(RES)/prefix/drive_c" ]; then echo "==> prefix already present, skipping"; \
 	else echo "==> creating wine prefix (takes ~1 min)"; \
+	  bash scripts/wow-check-rosetta "$(WINE)/bin/wine" || { echo "ERROR: the prefix is created by running wine, which cannot start without Rosetta 2"; exit 1; }; \
 	  WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all WINEDLLOVERRIDES="mshtml=;mscoree=" "$(WINE)/bin/wine" wineboot -u >/dev/null 2>&1; \
 	  WINEPREFIX="$(RES)/prefix" "$(WINE)/bin/wineserver" -w; fi
 	@echo "==> fast-exit network fix"

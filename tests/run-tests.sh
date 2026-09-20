@@ -824,6 +824,8 @@ mv "$TMP/kit-divx.patched" "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched"   # l
 install -m 755 "$ROOT/scripts/wow-check-rosetta" "$BIN/wow-check-rosetta"   # real probe back
 OUT="$("$BIN/wow-verify-game" 2>&1)"
 assert_eq "$(echo "$OUT" | grep -c '^ROSETTA$')" "0" "no marker once the probe passes again"
+# the build calls it before anything is installed, so the loader comes as an argument
+"$BIN/wow-check-rosetta" "$RES/wine/bin/wine" && ok || bad "the probe accepts a loader path"
 
 # ================================================================== Swift sources
 section "Swift sources"
