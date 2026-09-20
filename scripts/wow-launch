@@ -6,6 +6,12 @@ GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
 if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME="$RES/games/$GAME_NAME"; else GAME="$RES/game"; fi
 LOADER="$RES/wine/bin/wine"
 LOG="$RES/logs/last-launch.log"
+# Without Rosetta the x86_64 loader cannot exec at all: nohup would write "Bad
+# CPU type in executable" into the log and the game would never appear.
+if ! WHY="$("$RES/bin/wow-check-rosetta")"; then
+  { echo "$WHY"; echo "ERROR: the game cannot start without Rosetta 2"; } | tee "$LOG"
+  exit 1
+fi
 export WINEPREFIX="$RES/prefix"
 # the Z: drive link is stripped at build time (absolute symlinks break codesign)
 [ -e "$RES/prefix/dosdevices/z:" ] || ln -sf / "$RES/prefix/dosdevices/z:" 2>/dev/null
