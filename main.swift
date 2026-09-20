@@ -976,7 +976,15 @@ final class Store: ObservableObject {
                     return
                 }
                 lastError = err
+                // Blocked local-network access does not always reach the path as
+                // localNetworkDenied: macOS also reports it as ENETDOWN ("Network
+                // is down", what a fresh copy of the app gets on macOS 27) or as
+                // EHOSTUNREACH. Treating those as a plain error would print the
+                // confusing message this button exists to replace.
                 denied = conn.currentPath?.unsatisfiedReason == .localNetworkDenied
+                if case .posix(let code) = err, code == .ENETDOWN || code == .EHOSTUNREACH {
+                    denied = true
+                }
                 if denied {
                     DispatchQueue.main.async {
                         if self.realmTest === conn {
