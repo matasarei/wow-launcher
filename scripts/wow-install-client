@@ -10,6 +10,8 @@ RES="$APP/Contents/Resources"
 KIT="$RES/patch-kit"
 BIN="$RES/bin"
 LOADER="$RES/wine/bin/wine"
+ROSETTA_OK=1
+if WHY="$("$BIN/wow-check-rosetta")"; then :; else ROSETTA_OK=0; echo "$WHY"; fi
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
 # the Z: drive link is stripped at build time (absolute symlinks break codesign)
 [ -e "$RES/prefix/dosdevices/z:" ] || ln -sf / "$RES/prefix/dosdevices/z:" 2>/dev/null
@@ -103,6 +105,10 @@ patch_divx() {  # patch_divx <dll name> <libDllLdr entry>
     echo "$DLL patched (from kit)"
   elif [ -f "$PATCHED" ] && cmp -s "$DEST/$DLL" "$PATCHED"; then
     echo "$DLL already patched"
+  elif [ "$ROSETTA_OK" = 0 ]; then
+    # wine cannot run, so the live patch would do nothing quietly; the game is
+    # unplayable until Rosetta is back anyway, and the copy stays installable.
+    echo "WARNING: $DLL not patched — Rosetta 2 is missing, so wine cannot run"
   else
     echo "patching $DLL via wine..."
     ( cd "$DEST" && "$LOADER" 'C:\windows\syswow64\rundll32.exe' "libDllLdr.dll,$ENTRY" "$(cd "$DEST" && "$LOADER" winepath -w . 2>/dev/null | tr -d '\r' || true)" >/dev/null 2>&1 )

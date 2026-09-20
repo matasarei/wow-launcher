@@ -147,6 +147,19 @@ identity directly (`awk '/^PROGRESS/ {print $3}' | sort -u` against the step cou
 
 ## Assorted gotchas
 
+- **The wine runtime is `x86_64`, so Rosetta 2 is load-bearing.** It is an
+  on-demand component and a macOS upgrade can drop it (macOS 27 did): the
+  loader then fails to exec with "Bad CPU type in executable", `nohup` writes
+  that into `logs/last-launch.log`, and no game window ever appears. macOS only
+  offers to reinstall Rosetta for an Intel *app*, never for a binary started
+  from a script, so `wow-check-rosetta` asks — `lipo -archs` on the loader, then
+  `arch -x86_64 /usr/bin/true` — and launch, verify, install and the Play pane
+  all consult it. Verify matters most: every `$LOADER reg query` returns nothing
+  without Rosetta, which reads exactly like an unwritten setting, so verify used
+  to fail the retina and fast-exit checks and offer a `--fix` that re-ran wine
+  and could never succeed. Rosetta 2 is fully supported through macOS 27; macOS
+  28 is expected to keep only a subset for older games, which may end this.
+
 - **`tools/wow-client-fonts.swift` must be compiled `-Onone`.** At `-O` the
   Swift 6.1.2 toolchain — the one on macOS 15, the minimum this app supports —
   miscompiles it: the binary dies with `EXC_BAD_ACCESS (code=1, address=0x7)` in

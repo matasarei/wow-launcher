@@ -55,7 +55,8 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 by the embedded wine runtime; developed and tested on macOS 26. Any Apple Silicon
 model qualifies (they all run macOS 15+). Uses **Rosetta 2** under the hood — macOS
 offers to install it on first launch if it isn't already
-(`softwareupdate --install-rosetta` does the same from Terminal).
+(`softwareupdate --install-rosetta` does the same from Terminal). A major macOS
+upgrade can remove it again; the launcher then says so and repeats that command.
 
 The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
 
@@ -168,6 +169,14 @@ No Xcode, no dependencies.
 
 ## Troubleshooting
 
+- **Play does nothing, or the log says "Bad CPU type in executable":** Rosetta 2
+  is missing — a major macOS upgrade can remove it. The Play screen says so; to
+  put it back, run in Terminal:
+  ```
+  sudo softwareupdate --install-rosetta --agree-to-license
+  ```
+  Verify also reports it, and skips the two checks that need wine instead of
+  failing them.
 - **Something feels wrong with the game?** Open the **Game** tab and click
   **Verify** — it runs version-aware checks over the client files, the Apple Silicon
   patches, and the settings, and offers **Fix Issues** for everything

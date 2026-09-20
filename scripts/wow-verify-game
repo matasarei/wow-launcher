@@ -8,7 +8,8 @@
 #   patch kit, settings (Config.wtf cvars, RetinaMode, fast-exit fix) rewritten.
 # Protocol: "PROGRESS <n> <total> <label>" before each check, ok:/WARN:/FAIL: results,
 # "CANFIX" if fixable failures were found (check mode), "REINSTALL" if the game
-# data itself is damaged (not repairable — reinstall the client), final RESULT: line.
+# data itself is damaged (not repairable — reinstall the client), "ROSETTA" if
+# the wine loader cannot run at all, final RESULT: line.
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 KIT="$RES/patch-kit"
@@ -21,6 +22,11 @@ fail=0; warn=0; canfix=0; reinstall=0; i=0
 CFG="$G/WTF/Config.wtf"
 LOADER="$RES/wine/bin/wine"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
+# Without Rosetta every "$LOADER reg query" returns nothing, which reads exactly
+# like a setting that was never written — verify would fail the two checks below
+# and offer a --fix that can never succeed. Ask once, then say so instead.
+ROSETTA_OK=1
+if WHY="$("$BIN/wow-check-rosetta")"; then :; else ROSETTA_OK=0; echo "$WHY"; echo "ROSETTA"; fi
 
 PROFILE="$("$BIN/wow-client-profile" "$G")"
 prof() { printf '%s\n' "$PROFILE" | grep -E "^$1=" | cut -d= -f2-; }
@@ -351,7 +357,9 @@ else
 fi
 
 step "retina mode matches display"
-if [ -z "$RET" ]; then
+if [ "$ROSETTA_OK" = 0 ]; then
+  echo "WARN: retina mode cannot be checked without Rosetta 2"; warn=$((warn+1))
+elif [ -z "$RET" ]; then
   echo "WARN: could not detect display"; warn=$((warn+1))
 else
   [ "$RET" = yes ] && WANT=Y || WANT=N
@@ -369,6 +377,9 @@ elif [ "$FIX" = 1 ]; then set_cvar realmList "$ACTIVE"; echo "ok: realmList set 
 else echo "FAIL: Config realmList '$CV' differs from selected server '$ACTIVE' — repairable"; fail=$((fail+1)); canfix=1; fi
 
 step "fast-exit network fix"
+if [ "$ROSETTA_OK" = 0 ]; then
+  echo "WARN: the fast-exit fix cannot be checked without Rosetta 2"; warn=$((warn+1))
+else
 IS='HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 PS="$("$LOADER" reg query "$IS" /v ProxyServer 2>/dev/null | tr -d '\r')"
 PE="$("$LOADER" reg query "$IS" /v ProxyEnable 2>/dev/null | tr -d '\r')"
@@ -380,6 +391,7 @@ elif [ "$FIX" = 1 ]; then
   echo "ok: fast-exit network fix (fixed)"
 else
   echo "FAIL: fast-exit network fix missing (game hangs ~5 min on exit) — repairable"; fail=$((fail+1)); canfix=1
+fi
 fi
 
 step "WTF/Config.wtf"
