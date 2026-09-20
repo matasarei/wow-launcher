@@ -66,6 +66,7 @@ enum Paths {
     static let verifyTool  = resources + "/bin/wow-verify-game"
     static let settings  = resources + "/bin/wow-settings"
     static let launcher  = resources + "/bin/wow-launch"
+    static let rosettaTool = resources + "/bin/wow-check-rosetta"
     static let conf      = resources + "/launcher.conf"
 }
 
@@ -138,6 +139,9 @@ final class Store: ObservableObject {
     // which parts of the patch kit can physically apply to it.
     @Published var profile: [String: String] = [:]
     @Published var gameRunning = false
+    // The runtime is x86_64: without Rosetta 2 nothing can start (issue after
+    // the macOS 27 upgrade), so the Play pane says so instead of doing nothing.
+    @Published var rosettaMissing = false
     @Published var loadingStatus = true
     @Published var busy = false
     @Published var note = ""
@@ -160,6 +164,16 @@ final class Store: ObservableObject {
         refreshAddons()
         refreshStatus()
         checkRunning()
+        checkRosetta()
+    }
+
+    func checkRosetta() {
+        DispatchQueue.global().async {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: Paths.rosettaTool)
+            let missing = (try? { try p.run(); p.waitUntilExit(); return p.terminationStatus != 0 }()) ?? false
+            DispatchQueue.main.async { self.rosettaMissing = missing }
+        }
     }
 
     // MARK: status
@@ -203,9 +217,20 @@ final class Store: ObservableObject {
 
     func play() {
         busy = true
+        note = ""
         resolveDisplayRect()
         DispatchQueue.global().async {
-            _ = shell(Paths.launcher)
+            // Re-probed on every Play, so installing Rosetta clears this without
+            // restarting the launcher. wow-launch checks too — for terminal use.
+            let out = shell(Paths.launcher)
+            guard !out.contains("ROSETTA:") else {
+                DispatchQueue.main.async {
+                    self.rosettaMissing = true
+                    self.busy = false
+                    self.note = L("The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license")
+                }
+                return
+            }
             DispatchQueue.main.async {
                 self.gameRunning = true
                 self.busy = false
@@ -710,6 +735,8 @@ final class Store: ObservableObject {
             verifyCanFix = true
         } else if line == "REINSTALL" {
             verifyNeedsReinstall = true
+        } else if line == "ROSETTA" {
+            rosettaMissing = true
         } else if line.hasPrefix("RESULT: ") {
             verifyResult = String(line.dropFirst(8))
             verifyProgress = 1
@@ -1195,6 +1222,16 @@ struct PlayView: View {
                 .frame(width: 110, height: 110)
             Text(store.gameVersion.isEmpty ? "World of Warcraft" : "World of Warcraft \(store.gameVersion)")
                 .font(.title2).bold()
+            if store.rosettaMissing {
+                VStack(spacing: 4) {
+                    Label("Rosetta 2 is not installed — the game cannot start", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(verbatim: "sudo softwareupdate --install-rosetta --agree-to-license")
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .foregroundStyle(.secondary)
+                }
+            }
             HStack(spacing: 6) {
                 Text(statusLine)
                     .font(.callout)
@@ -1456,6 +1493,11 @@ struct VerifySheet: View {
                       systemImage: store.verifyResult.hasPrefix("OK") ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                     .foregroundStyle(store.verifyResult.hasPrefix("OK") ? Color.green : Color.red)
                     .font(.callout).bold()
+            }
+            if store.rosettaMissing {
+                Text("Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked.")
+                    .font(.callout)
+                    .foregroundStyle(.red)
             }
             if !store.verifyRunning && store.verifyNeedsReinstall {
                 Text("The game data itself is damaged and cannot be repaired in place — reinstall the game from a client folder.")

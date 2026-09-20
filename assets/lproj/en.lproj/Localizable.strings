@@ -131,3 +131,6 @@
 "Waiting for macOS to allow local network access…" = "Waiting for macOS to allow local network access…";
 "macOS is blocking local network access for WoW. Allow it in System Settings → Privacy & Security → Local Network, then quit and reopen both the launcher and the game." = "macOS is blocking local network access for WoW. Allow it in System Settings → Privacy & Security → Local Network, then quit and reopen both the launcher and the game.";
 "No answer from %@ within 30 seconds." = "No answer from %@ within 30 seconds.";
+"The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license" = "The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license";
+"Rosetta 2 is not installed — the game cannot start" = "Rosetta 2 is not installed — the game cannot start";
+"Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked.";
