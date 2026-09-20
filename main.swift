@@ -232,6 +232,7 @@ final class Store: ObservableObject {
                 return
             }
             DispatchQueue.main.async {
+                self.rosettaMissing = false   // it started, so Rosetta is back
                 self.gameRunning = true
                 self.busy = false
                 self.focusGame()
