@@ -815,10 +815,11 @@ assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "43" "step count unchanged wit
 assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" "43" "TOTAL unchanged without Rosetta"
 
 reset_conf
-rm -f "$RES/patch-kit"/DivxDecoder.dll.*   # no kit reference: this is the path that needs wine
+mv "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched" "$TMP/kit-divx.patched"   # the path that needs wine
 OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
 assert_contains "$OUT" "game installed" "the client still installs"
 assert_contains "$OUT" "Rosetta 2 is missing" "and says the DLL was not patched"
+mv "$TMP/kit-divx.patched" "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched"   # leave the kit as found
 
 install -m 755 "$ROOT/scripts/wow-check-rosetta" "$BIN/wow-check-rosetta"   # real probe back
 OUT="$("$BIN/wow-verify-game" 2>&1)"
