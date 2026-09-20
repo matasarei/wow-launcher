@@ -789,6 +789,41 @@ OUT="$("$BIN/wow-install-client" "$G" 2>&1)"
 assert_contains "$OUT" "the source is the installed game itself" "guard triggers"
 assert_file "$G/Wow.exe"
 
+# ============================================================ Rosetta missing
+# The real probe passes here (the stub wine is a shell script, not x86_64), so
+# the failing path is exercised by swapping the probe itself — the suite must
+# not depend on whether the machine running it happens to have Rosetta.
+section "Rosetta 2 missing"
+cat > "$BIN/wow-check-rosetta" <<'STUB'
+#!/bin/bash
+echo "ROSETTA: not installed — run: sudo softwareupdate --install-rosetta --agree-to-license"
+exit 1
+STUB
+chmod +x "$BIN/wow-check-rosetta"
+
+: > "$WINELOG"; OUT="$("$BIN/wow-launch" 2>&1)"; sleep 0.3
+assert_contains "$OUT" "cannot start without Rosetta 2" "launch refuses"
+assert_contains "$(cat "$RES/logs/last-launch.log")" "ROSETTA: not installed" "the reason lands in the log"
+assert_eq "$(cat "$WINELOG")" "" "wine is never invoked"
+
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "ROSETTA" "verify emits the marker"
+assert_contains "$OUT" "WARN: retina mode cannot be checked without Rosetta 2" "retina warns"
+assert_contains "$OUT" "WARN: the fast-exit fix cannot be checked without Rosetta 2" "fast-exit warns"
+assert_eq "$(echo "$OUT" | grep -c '^CANFIX$')" "0" "no CANFIX to offer a fix that cannot work"
+assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "43" "step count unchanged without Rosetta"
+assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" "43" "TOTAL unchanged without Rosetta"
+
+reset_conf
+rm -f "$RES/patch-kit"/DivxDecoder.dll.*   # no kit reference: this is the path that needs wine
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "game installed" "the client still installs"
+assert_contains "$OUT" "Rosetta 2 is missing" "and says the DLL was not patched"
+
+install -m 755 "$ROOT/scripts/wow-check-rosetta" "$BIN/wow-check-rosetta"   # real probe back
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_eq "$(echo "$OUT" | grep -c '^ROSETTA$')" "0" "no marker once the probe passes again"
+
 # ================================================================== Swift sources
 section "Swift sources"
 # SDK 27 makes @State an Xcode-only macro; the bare Command Line Tools cannot
