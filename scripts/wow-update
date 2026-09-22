@@ -140,12 +140,18 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
     */AppTranslocation/*) fail "manual update required — this copy runs from a temporary read-only location; move the app to Applications and try again" ;;
   esac
   replaceable || fail "manual update required — $PARENT cannot be written, so this copy cannot replace itself"
-  # the game writes its WTF and cache on exit, and its files are about to move
+  # The game writes its WTF and cache on exit, and its files are about to move.
+  # Only the game counts: reading the display settings runs `wine reg query`,
+  # whose wineserver lingers for seconds afterwards, and treating that as a
+  # running game refused every update started just after the window opened.
   local PS; PS="$(ps -axww -o command= | tr '\\' /)"
   printf '%s\n' "$PS" | grep -qF \
-    -e "$APP/Contents/Resources/wine/"      -e "$APP/Contents/Resources/games/" \
-    -e "$APP_REAL/Contents/Resources/wine/" -e "$APP_REAL/Contents/Resources/games/" \
+    -e "$APP/Contents/Resources/games/" -e "$APP_REAL/Contents/Resources/games/" \
     && fail "the game is still running — quit it first"
+  # ...and a leftover wineserver is asked to go, so nothing holds the prefix
+  # that is about to move (wow-launch does the same before a game starts)
+  HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")" \
+    "$RES/wine/bin/wineserver" -k >/dev/null 2>&1 || true
   # beside the app: the swap is then a rename, and the import clones the game
   # (an earlier update whose Trash move failed leaves its staging dir behind —
   # its copy of the old app is in the Trash-less state the NOTE described, and

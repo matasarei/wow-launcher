@@ -1030,7 +1030,14 @@ kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "Old Launcher is still running" "a running previous app is refused"
 assert_contains "$UPD" "game installed (3.3.5a)" "--updating imports while the previous launcher runs"
 rm -rf "$RES/games"/* "$RES/patch-kit/"DivxDecoder.dll.*; reset_conf
+# a wineserver of its own is not a running game: reading the display settings
+# leaves one behind for seconds, and it used to refuse every update after that
 fake_proc "$OLD/Contents/Resources/wine/bin/wineserver"
+UPD="$("$BIN/wow-install-client" --updating "$OLD" 2>&1)"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$UPD" "game installed (3.3.5a)" "--updating ignores a lingering wineserver"
+rm -rf "$RES/games"/* "$RES/patch-kit/"DivxDecoder.dll.*; reset_conf
+fake_proc "$OLD/Contents/Resources/games/main/Wow.exe"
 UPD="$("$BIN/wow-install-client" --updating "$OLD" 2>&1)"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$UPD" "game from Old Launcher is still running" "--updating still refuses a running game"
@@ -1269,11 +1276,18 @@ apply_setup
 printf 'not a zip\n' > "$TMP/rel/broken.zip"
 assert_contains "$(apply "$TMP/rel/broken.zip" "$(digest_of "$TMP/rel/broken.zip")")" \
   "not a readable archive" "a corrupt archive is refused"
-fake_proc "$AAPP/Contents/Resources/wine/bin/wineserver"
+fake_proc "$AAPP/Contents/Resources/games/main/Wow.exe"
 OUT="$(apply "$Z" "$(digest_of "$Z")")"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "the game is still running" "an update while the game runs is refused"
 assert_eq "$(stage_count)" "0" "no staging dir survives a refusal"
+# the launcher's own wineserver, left over from reading the display settings,
+# must not look like a game — this is what refused the first update every time
+apply_setup
+fake_proc "$AAPP/Contents/Resources/wine/bin/wineserver"
+OUT="$(apply "$Z" "$(digest_of "$Z")")"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$OUT" "downloaded 2.10" "a lingering wineserver does not refuse the update"
 rm -f "$APP/Contents/Info.plist"; reset_conf
 
 # Cancel in the launcher: the script is terminated, and the download must not
