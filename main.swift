@@ -869,7 +869,7 @@ final class Store: ObservableObject {
 
     private func startInstall(from url: URL) {
         busy = true
-        note = LF("Installing %@… copying the client can take a few minutes.", url.lastPathComponent)
+        note = LF("Installing from %@…", url.lastPathComponent)
         // Streamed rather than run through shell(): copying from a slow drive
         // takes minutes, and wow-copy's COPY lines are what the bar is drawn from.
         var lines: [String] = []

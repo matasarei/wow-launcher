@@ -94,7 +94,7 @@
 "Importing language pack from %@…" = "正在从 %@ 导入语言包…";
 "Install Game Client" = "安装游戏客户端";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "选择 WoW 客户端文件夹——需要游戏可执行文件和 Data 文件夹";
-"Installing %@… copying the client can take a few minutes." = "正在安装 %@…复制客户端可能需要几分钟。";
+"Installing from %@…" = "正在从 %@ 安装…";
 "Copying %@ — %@ of %@" = "正在复制 %@ — %@ / %@";
 "Copied %@ of %@" = "已复制 %@ / %@";
 "Invalid server address." = "服务器地址无效。";

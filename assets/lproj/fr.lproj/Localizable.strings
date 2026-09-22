@@ -94,7 +94,7 @@
 "Importing language pack from %@…" = "Importation du pack de langue depuis %@…";
 "Install Game Client" = "Installer le client du jeu";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "Choisis un dossier de client WoW : il lui faut un exécutable de jeu et un dossier Data";
-"Installing %@… copying the client can take a few minutes." = "Installation de %@… la copie du client peut prendre quelques minutes.";
+"Installing from %@…" = "Installation depuis %@…";
 "Copying %@ — %@ of %@" = "Copie de %@ — %@ sur %@";
 "Copied %@ of %@" = "%@ sur %@ copiés";
 "Invalid server address." = "Adresse de serveur non valide.";
