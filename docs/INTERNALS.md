@@ -15,6 +15,7 @@ Contents/Resources/
   games/main/                      THE game (single-game model; install = replace)
   launcher.conf                    key=value settings (see below)
   logs/                            last-launch.log(.settings|.mover)
+  home/                            wine's HOME (Wine/ = the prefix's Windows user profile); created at first run
 ```
 
 ## launcher.conf keys
@@ -161,6 +162,20 @@ moves on a copy from another drive.
 
 ## Assorted gotchas
 
+- **This wine creates `$HOME/Wine`** (issue #12). WineAndAqua's macOS branch runs
+  `mkdir("$HOME/Wine")` in every wine process (`dlls/ntdll/unix/loader.c`,
+  `set_home_dir`) and links the prefix's `C:\users\<name>` to `$HOME/Wine`
+  (`dlls/shell32/shellpath.c`), with no switch to turn either off. So every script
+  that runs wine exports `HOME="$(wow-wine-home)"` → `Resources/home`, and the
+  Makefile's `prefix` step does the same (then drops `home/`, so a fresh bundle ships
+  without it). `wow-wine-home` also makes the profile link relative
+  (`../../../home/Wine`) — wine writes it absolute, which breaks when the app is moved
+  — and re-points links older wrappers aimed at `~/Wine`. It never deletes `~/Wine`:
+  WoWSilicon uses the same folder. macOS ignores `HOME` for what the game needs (home
+  directory, keyboard layouts, prefs: checked), and wine itself reads it only for
+  `~/Wine` and the `~/.wine` fallback that `WINEPREFIX` overrides. A script that
+  still needs the real home (the installer's keyboard-layout check) saves it first.
+  Drop all of this once the runtime stops doing it.
 - **A leftover `wineserver` breaks LAN play.** Wine creates sockets inside
   `wineserver` and hands them to the game, and macOS attributes a socket to the
   app responsible for the process that created it. `wineserver` can outlive the

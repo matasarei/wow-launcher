@@ -107,18 +107,24 @@ patch-kit: payloads
 prefix:
 	@# everything below runs wine: creating the prefix, and the registry writes
 	@bash scripts/wow-check-rosetta "$(WINE)/bin/wine" || { echo "ERROR: the prefix is created by running wine, which cannot start without Rosetta 2"; exit 1; }
+	@# HOME="$(RES)/home" on every wine call: this wine creates $$HOME/Wine (issue #12)
+	@mkdir -p "$(RES)/home"
 	@if [ -d "$(RES)/prefix/drive_c" ]; then echo "==> prefix already present, skipping"; \
 	else echo "==> creating wine prefix (takes ~1 min)"; \
-	  WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all WINEDLLOVERRIDES="mshtml=;mscoree=" "$(WINE)/bin/wine" wineboot -u >/dev/null 2>&1; \
+	  HOME="$(RES)/home" WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all WINEDLLOVERRIDES="mshtml=;mscoree=" "$(WINE)/bin/wine" wineboot -u >/dev/null 2>&1; \
 	  WINEPREFIX="$(RES)/prefix" "$(WINE)/bin/wineserver" -w; fi
 	@echo "==> fast-exit network fix"
-	@WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all "$(WINE)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyEnable /t REG_DWORD /d 1 /f >/dev/null 2>&1
-	@WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all "$(WINE)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyServer /t REG_SZ /d 127.0.0.1:1 /f >/dev/null 2>&1
+	@HOME="$(RES)/home" WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all "$(WINE)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyEnable /t REG_DWORD /d 1 /f >/dev/null 2>&1
+	@HOME="$(RES)/home" WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all "$(WINE)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyServer /t REG_SZ /d 127.0.0.1:1 /f >/dev/null 2>&1
 	@WINEPREFIX="$(RES)/prefix" "$(WINE)/bin/wineserver" -k >/dev/null 2>&1 || true
 	@# absolute symlinks (dosdevices/z: -> /, users/<builduser> -> $$HOME/Wine)
-	@# make codesign reject the bundle and leak build-machine paths; wine and
-	@# wow-launch recreate them on the user's machine at first run.
+	@# make codesign reject the bundle and leak build-machine paths; they are
+	@# recreated on the user's machine at first run — z: by wow-launch and the
+	@# installer, the profile link (relative, into home/) by wow-wine-home.
 	@find "$(RES)/prefix" -type l -lname '/*' -delete
+	@# the build's own wine HOME (see scripts/wow-wine-home): a fresh bundle ships
+	@# without it, and wow-wine-home recreates it at first run
+	@rm -rf "$(RES)/home"
 
 launcher:
 	@echo "==> building the manager GUI"

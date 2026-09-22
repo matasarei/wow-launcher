@@ -44,7 +44,7 @@ chmod +x "$RES/patch-kit/x87sidecar/x87sidecar" "$RES/patch-kit/rosettax87/"*
 WINELOG="$TMP/wine.log"; : > "$WINELOG"
 cat > "$RES/wine/bin/wine" <<'STUB'
 #!/bin/bash
-echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-}" >> "$WINE_STUB_LOG"
+echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
 case "$*" in
   *"reg query"*RetinaMode*)  [ -n "${WOW_TEST_RETINA-Y}" ] \
                                && printf '    RetinaMode    REG_SZ    %s\r\n' "${WOW_TEST_RETINA-Y}" ;;
@@ -884,6 +884,47 @@ if [ "$(id -u)" != 0 ]; then   # root reads a mode-000 file anyway
   assert_eq "$(echo "$OUT" | grep -c 'applying patch kit')" "0" "and nothing gets patched"
   chmod 644 "$TMP/client-unreadable/Data/common.MPQ"
 fi
+
+# ============================================================ wine's HOME (#12)
+# This wine creates $HOME/Wine in every process it starts and links the prefix's
+# user profile there, so every wine call must carry a HOME inside the bundle.
+section "wine HOME stays inside the bundle"
+mkdir -p "$RES/prefix/drive_c/users"
+U="${USER:-$(id -un)}"; UL="$RES/prefix/drive_c/users/$U"
+ln -sfn "$TMP/old-home/Wine" "$UL"            # what an older wrapper, or a moved one, has
+OUT="$("$BIN/wow-wine-home")"
+assert_eq "$OUT" "$RES/home" "wow-wine-home prints the bundle's home"
+assert_eq "$(readlink "$UL")" "../../../home/Wine" "the profile link is re-pointed, relative"
+[ -d "$RES/home/Wine" ] && ok || bad "home/Wine is created"
+rm -f "$UL"; "$BIN/wow-wine-home" >/dev/null
+assert_eq "$(readlink "$UL")" "../../../home/Wine" "a missing profile link is created"
+rm -f "$UL"; mkdir "$UL"; : > "$UL/keep"; "$BIN/wow-wine-home" >/dev/null
+assert_file "$UL/keep"                        # a real folder is somebody's profile
+rm -rf "$UL"
+# no wine call reaches the caller's HOME — run everything with a throwaway one
+FAKEHOME="$TMP/fake-home"; mkdir -p "$FAKEHOME"
+: > "$WINELOG"
+HOME="$FAKEHOME" "$BIN/wow-settings" show >/dev/null 2>&1
+HOME="$FAKEHOME" "$BIN/wow-verify-game" >/dev/null 2>&1
+reset_conf; HOME="$FAKEHOME" "$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+HOME="$FAKEHOME" "$BIN/wow-launch" >/dev/null 2>&1; sleep 0.3
+assert_eq "$([ -s "$WINELOG" ] && echo yes)" "yes" "the scripts ran wine at all"
+assert_eq "$(grep -vc "HOME=$RES/home\$" "$WINELOG")" "0" "every wine call carries the bundle's HOME"
+assert_nofile "$FAKEHOME/Wine"
+# the installer's Russian-layout check must still read the caller's own prefs,
+# not the bundle's empty home — or Cyrillic input stops switching itself on
+mkdir -p "$FAKEHOME/Library/Preferences"
+python3 -c 'import plistlib,sys; plistlib.dump({"AppleEnabledInputSources":[{"InputSourceKind":"Keyboard Layout","KeyboardLayout Name":"Russian"}]}, open(sys.argv[1],"wb"))' \
+  "$FAKEHOME/Library/Preferences/com.apple.HIToolbox.plist"
+printf 'AUTO_RES=1\n' > "$RES/launcher.conf"   # no CHAT_CP line: detection is allowed to run
+HOME="$FAKEHOME" "$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+assert_contains "$(cat "$RES/launcher.conf")" "CHAT_CP=1251" "the Russian layout is found in the user's own prefs"
+reset_conf
+# a helper that cannot run leaves the caller's HOME in place, never an empty one
+chmod -x "$BIN/wow-wine-home"; : > "$WINELOG"
+HOME="$FAKEHOME" "$BIN/wow-settings" show >/dev/null 2>&1
+chmod +x "$BIN/wow-wine-home"
+assert_eq "$(grep -vc "HOME=$FAKEHOME\$" "$WINELOG")" "0" "a failed helper falls back to the caller's HOME"
 
 # ================================================================== Swift sources
 section "Swift sources"
