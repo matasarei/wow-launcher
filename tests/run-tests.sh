@@ -1060,6 +1060,14 @@ mk_plist "$OLD" io.github.matasarei.wow-launcher 2.3
 OUT="$(WOW_TEST_RETINA=N "$BIN/wow-install-client" "$OLD" 2>&1)"
 assert_contains "$OUT" "patch level: no-silicon" "SILICON=0 from a 2.3 app means no-silicon"
 assert_contains "$(cat "$RES/launcher.conf")" "SILICON=0" "and is carried"
+# an old app that never managed to patch Divx (installed without Rosetta):
+# no .bak, no kit references anywhere — the move patches it as an install would
+mk_plist "$OLD" io.github.matasarei.wow-launcher 2.7
+cp "$TMP/client-wotlk/DivxDecoder.dll" "$OLDRES/games/main/DivxDecoder.dll"
+rm -f "$OLDRES/games/main/DivxDecoder.dll.bak" "$OLDRES/patch-kit/"DivxDecoder.dll.* "$RES/patch-kit/"DivxDecoder.dll.*
+: > "$WINELOG"
+OUT="$(WOW_TEST_RETINA=N "$BIN/wow-install-client" "$OLD" 2>&1)"
+assert_contains "$(cat "$WINELOG")" "PatchDivxDecoder" "an unpatched Divx from a previous app is patched live"
 rm -f "$APP/Contents/Info.plist" "$RES/patch-kit/"DivxDecoder.dll.*
 mv "$TMP/kitrefs/"* "$RES/patch-kit/"; rm -rf "$RES/games"/*; reset_conf
 

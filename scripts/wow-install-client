@@ -200,12 +200,13 @@ patch_divx() {  # patch_divx <dll name> <libDllLdr entry>
     fi
   fi
 }
-# From a previous app the Divx DLL is already patched (its .bak is the original)
-# and Wow.exe may carry the icon: patching again would patch patched files.
-# wow-verify-game --fix, at the end, brings both to the chosen level instead.
-if [ "$MIGRATE" = 0 ]; then
-patch_divx DivxDecoder.dll PatchDivxDecoder
-patch_divx DivxTac.dll     PatchDivxTac
+# From a previous app a Divx DLL whose .bak differs from it is already patched:
+# patching it again would patch a patched file, so wow-verify-game --fix, at the
+# end, takes it to the chosen level instead. One the old app never managed to
+# patch (it installed while Rosetta was missing) gets the normal treatment.
+already_patched() { [ "$MIGRATE" = 1 ] && [ -f "$DEST/$1.bak" ] && ! cmp -s "$DEST/$1" "$DEST/$1.bak"; }
+already_patched DivxDecoder.dll || patch_divx DivxDecoder.dll PatchDivxDecoder
+already_patched DivxTac.dll     || patch_divx DivxTac.dll     PatchDivxTac
 # At PATCHES=none the client must ship unmodified — but patch first anyway, so the
 # kit references and the .bak exist and switching levels later needs no reinstall.
 if [ "$PATCHES" = none ]; then
@@ -214,6 +215,9 @@ if [ "$PATCHES" = none ]; then
     cp "$DEST/$DLL.bak" "$DEST/$DLL"; echo "$DLL restored (no patches)"
   done
 fi
+# From a previous app Wow.exe may already carry the icon, and the diffs only
+# go one way: verify --fix, at the end, converges it from Wow.exe.icon-backup.
+if [ "$MIGRATE" = 0 ]; then
 # Wow.exe icon patch (cosmetic): use kit references when present, else apply the
 # repo's binary diff via the system bspatch (checksum-guarded on both sides).
 # Diffs are named wow-icon-<input md5>-<output md5>.bsdiff; pick by checksum.
