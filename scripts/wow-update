@@ -187,6 +187,7 @@ cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
   local PID="$1" OLD="$2" NEW="$3" NEW_VER
   NEW_VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$NEW/Contents/Info.plist" 2>/dev/null || true)"
   local TRASH="${WOW_UPDATE_TRASH:-$HOME/.Trash}"
+  local STAGE_DIR; STAGE_DIR="$(dirname "$(dirname "$NEW")")"
   local OPENER="${WOW_UPDATE_OPEN:-/usr/bin/open}"
   local i=0
   while kill -0 "$PID" 2>/dev/null; do
@@ -204,7 +205,12 @@ cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
   if mv "$NEW" "$OLD"; then
     # the new version has to actually start: it is all that is left running
     if "$OPENER" "$OLD"; then
-      rm -rf "$(dirname "$(dirname "$NEW")")"   # the staging dir, this script included
+      # only ever a staging dir: what is deleted here comes from an argument,
+      # and a mistyped one must not take a folder full of apps with it
+      case "$(basename "$STAGE_DIR")" in
+        .wow-update.*) rm -rf "$STAGE_DIR" ;;   # this script included; see the note in apply
+        *) echo "NOTE: $STAGE_DIR left in place (not a staging dir)" ;;
+      esac
     else
       mv "$OLD" "$NEW" 2>/dev/null || true      # the new app back into staging
       mv "$DEST" "$OLD" 2>/dev/null || true     # and the old one out of the Trash

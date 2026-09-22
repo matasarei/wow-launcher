@@ -1267,6 +1267,16 @@ assert_eq "$(find "$TMP/swap/Applications" -maxdepth 1 -name '.wow-update.*' | w
 swap_setup; mkdir -p "$TMP/swap/Trash/AzerothCore.app"
 OUT="$(swap_run "$DEAD")"
 assert_file "$TMP/swap/Trash/AzerothCore 1.app/Contents/Info.plist"
+# a staging path that is not one: the delete must refuse it
+swap_setup
+mkdir -p "$TMP/swap/Applications/not-staging"
+mv "$TMP/swap/Applications/.wow-update.test/new" "$TMP/swap/Applications/not-staging/new"
+OUT="$(WOW_UPDATE_TRASH="$TMP/swap/Trash" WOW_UPDATE_OPEN="$TMP/swap/open" \
+  "$BIN/wow-update" swap "$DEAD" "$TMP/swap/Applications/AzerothCore.app" \
+    "$TMP/swap/Applications/not-staging/new/WoW.app" 2>&1)"
+assert_contains "$OUT" "not a staging dir" "a delete outside a staging dir is refused"
+[ -d "$TMP/swap/Applications/not-staging" ] && ok || bad "the directory was deleted anyway"
+rm -rf "$TMP/swap/Applications/not-staging"
 # the new version will not open: the old one comes back out of the Trash
 swap_setup
 export WOW_TEST_OPEN_FAIL=AzerothCore   # exported: the stub is run by wow-update, not here
