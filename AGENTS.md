@@ -69,7 +69,9 @@ logs. The procedure:
    - `Resources/patch-kit/` contains only the open-source payloads, `dlls.txt`
      and the `wow-icon-*.bsdiff` files — no `Wow.exe.*`, no `DivxDecoder.*`,
      no `fonts-client/`;
-   - `Resources/logs/` is empty.
+   - `Resources/logs/` is empty;
+   - `Resources/home/` does not exist (wine's HOME: a used wrapper keeps the
+     game's Windows user profile there).
 4. Run the test matrix (below) with a scratch copy, then **rebuild clean
    again** before zipping — testing dirties the wrapper.
 5. Archive and publish (only with the maintainer's explicit go-ahead):
