@@ -1479,6 +1479,11 @@ struct PlayView: View {
         .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
             store.checkRunning()
         }
+        // Rosetta gets installed in Terminal, then the user comes back here:
+        // re-probe then, so the warning does not outlive the problem.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            store.checkRosetta()
+        }
     }
 }
 
