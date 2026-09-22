@@ -1,0 +1,281 @@
+#!/bin/bash
+# Version check and in-app update, against the project's GitHub releases.
+# Usage:
+#   wow-update check [--force]      --force ignores the interval, the off switch
+#                                   and a skipped version (the About button)
+#
+# check prints CURRENT=, and when a release was read also LATEST=, PAGE=,
+# ASSET=, SIZE=, DIGEST=, then one of:
+#   RESULT: UPDATE       a newer release this app can install itself
+#   RESULT: CURRENT      nothing newer (or nothing it can install)
+#   RESULT: SKIPPED      that version was skipped by hand (UPDATE_SKIP=)
+#   RESULT: OFF          automatic checking is off (UPDATE_CHECK=0)
+#   RESULT: TOO-SOON     checked less than a week ago (UPDATE_CHECKED=)
+#   RESULT: UNREACHABLE  GitHub did not answer within the timeout
+# check also prints REPLACEABLE=1|0 — whether this copy can be replaced at all
+# (its folder is writable). 0 means the update has to be done by hand: nothing
+# here ever asks for a password or escalates.
+# launcher.conf keys: UPDATE_CHECK=1|0 (absent = on), UPDATE_CHECKED=<epoch>,
+# UPDATE_SKIP=<version>. The import carries all three to the next copy.
+set -e
+APP="$(cd "$(dirname "$0")/../../.." && pwd)"
+APP_REAL="$(cd "$APP" && pwd -P)"   # processes show either spelling (see the game check)
+RES="$APP/Contents/Resources"
+CONF="$RES/launcher.conf"
+# overridable so the test suite can serve a release from a file:// URL
+API="${WOW_UPDATE_API:-https://api.github.com/repos/matasarei/wow-launcher/releases/latest}"
+INTERVAL="${WOW_UPDATE_INTERVAL:-604800}"   # a week: releases come every week or two
+TIMEOUT="${WOW_UPDATE_TIMEOUT:-15}"         # a slow line must never hold the launcher up
+# The importing is done BY the downloaded copy, and --updating arrived in 2.9:
+# an older release could not install itself even if one were offered.
+FLOOR=2.9
+CURRENT="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || true)"
+
+# plutil reads JSON as it stands, so the script needs no JSON parser
+json() { plutil -extract "$1" raw -o - -- "$2" 2>/dev/null || true; }
+TMPJSON="$(mktemp -t wow-update)"
+trap 'rm -f "$TMPJSON"' EXIT
+
+conf_get() { grep -sE "^$1=" "$CONF" | head -1 | cut -d= -f2-; }
+conf_set() {  # conf_set KEY [VALUE] — no value removes the key
+  { grep -svE "^$1=" "$CONF"; [ -n "${2:-}" ] && printf '%s=%s\n' "$1" "$2"; } > "$CONF.tmp" || true
+  mv "$CONF.tmp" "$CONF"
+}
+
+# Versions compare as numbers, never as text: 2.10 is newer than 2.9, and
+# "2.10" > "2.9" is false for a string compare. Missing parts count as 0.
+# Can this copy be replaced where it stands? A real probe, not a permission bit:
+# it is the same mktemp the update itself needs, and it covers a read-only mount
+# and an ACL as well as a plain unwritable folder. Never sudo: an updater that
+# can escalate is a far bigger risk than one that says "do it by hand".
+replaceable() {
+  local P T
+  P="$(dirname "$APP")"
+  case "$APP" in */AppTranslocation/*) return 1 ;; esac
+  T="$(mktemp -d "$P/.wow-update-probe.XXXXXX" 2>/dev/null)" || return 1
+  rmdir "$T" 2>/dev/null || true
+  return 0
+}
+
+ver_ge() {  # ver_ge A B → true when A >= B
+  local a b i x y
+  IFS=. read -r -a a <<< "$1"; IFS=. read -r -a b <<< "$2"
+  for i in 0 1 2; do
+    x="${a[i]:-0}"; y="${b[i]:-0}"
+    case "$x" in ''|*[!0-9]*) x=0 ;; esac
+    case "$y" in ''|*[!0-9]*) y=0 ;; esac
+    [ "$x" -gt "$y" ] && return 0
+    [ "$x" -lt "$y" ] && return 1
+  done
+  return 0
+}
+
+cmd_check() {
+  local FORCE=0
+  [ "${1:-}" = --force ] && FORCE=1
+  echo "CURRENT=$CURRENT"
+  if replaceable; then echo "REPLACEABLE=1"; else echo "REPLACEABLE=0"; fi
+  if [ "$FORCE" = 0 ]; then
+    [ "$(conf_get UPDATE_CHECK)" = 0 ] && { echo "RESULT: OFF"; return 0; }
+    local LAST NOW
+    LAST="$(conf_get UPDATE_CHECKED)"; NOW="$(date +%s)"
+    case "$LAST" in ''|*[!0-9]*) LAST=0 ;; esac
+    [ "$((NOW - LAST))" -lt "$INTERVAL" ] && { echo "RESULT: TOO-SOON"; return 0; }
+  fi
+  local J="$TMPJSON"
+  curl -sS -L --max-time "$TIMEOUT" -o "$J" "$API" 2>/dev/null \
+    || { echo "RESULT: UNREACHABLE"; return 0; }
+  TAG="$(json tag_name "$J")"
+  [ -n "$TAG" ] || { echo "RESULT: UNREACHABLE"; return 0; }
+  conf_set UPDATE_CHECKED "$(date +%s)"   # a release was read: the week starts now
+  LATEST="${TAG#v}"
+  PAGE="$(json html_url "$J")"
+  # the release asset is WoW-v<version>.zip (see CLAUDE.md, "Making a release")
+  local i=0 name
+  ASSET=""; SIZE=""; DIGEST=""
+  while name="$(json "assets.$i.name" "$J")"; [ -n "$name" ]; do
+    case "$name" in
+      WoW-v*.zip) ASSET="$(json "assets.$i.browser_download_url" "$J")"
+                  SIZE="$(json "assets.$i.size" "$J")"
+                  DIGEST="$(json "assets.$i.digest" "$J")"
+                  break ;;
+    esac
+    i=$((i + 1))
+  done
+  echo "LATEST=$LATEST"
+  echo "PAGE=$PAGE"
+  echo "ASSET=$ASSET"
+  echo "SIZE=$SIZE"
+  echo "DIGEST=$DIGEST"
+  # nothing newer, no installable asset, or a release too old to install itself
+  if ver_ge "$CURRENT" "$LATEST" || [ -z "$ASSET" ] || ! ver_ge "$LATEST" "$FLOOR"; then
+    echo "RESULT: CURRENT"; return 0
+  fi
+  if [ "$FORCE" = 0 ] && [ "$(conf_get UPDATE_SKIP)" = "$LATEST" ]; then
+    echo "RESULT: SKIPPED"; return 0
+  fi
+  echo "RESULT: UPDATE"
+}
+
+# Everything below writes: it downloads the release beside this app, checks it,
+# and (step by step) hands it the game. A failure leaves the app as it was.
+fail() { echo "FAIL: $*"; exit 1; }
+
+cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
+  local URL="$1" SIZE="${2:-0}" DIGEST="${3#sha256:}" WAIT="${4:-$PPID}"
+  [ -n "$URL" ] || fail "no download URL"
+  case "$SIZE" in ''|*[!0-9]*) SIZE=0 ;; esac
+  local PARENT; PARENT="$(dirname "$APP")"
+  # A copy opened from a quarantined download runs from a read-only image, and
+  # replacing an app needs its folder: say so instead of downloading 250 MB first.
+  case "$APP" in
+    */AppTranslocation/*) fail "manual update required — this copy runs from a temporary read-only location; move the app to Applications and try again" ;;
+  esac
+  replaceable || fail "manual update required — $PARENT cannot be written, so this copy cannot replace itself"
+  # the game writes its WTF and cache on exit, and its files are about to move
+  local PS; PS="$(ps -axww -o command= | tr '\\' /)"
+  printf '%s\n' "$PS" | grep -qF \
+    -e "$APP/Contents/Resources/wine/"      -e "$APP/Contents/Resources/games/" \
+    -e "$APP_REAL/Contents/Resources/wine/" -e "$APP_REAL/Contents/Resources/games/" \
+    && fail "the game is still running — quit it first"
+  # beside the app: the swap is then a rename, and the import clones the game
+  # (an earlier update whose Trash move failed leaves its staging dir behind —
+  # its copy of the old app is in the Trash-less state the NOTE described, and
+  # by now the player has moved on; a new update reclaims the space)
+  rm -rf "$PARENT"/.wow-update.* 2>/dev/null || true
+  STAGE="$(mktemp -d "$PARENT/.wow-update.XXXXXX")"
+  echo "downloading the update..."
+  curl -sS -L -o "$STAGE/WoW.zip" "$URL" & local PID=$!
+  while kill -0 "$PID" 2>/dev/null; do
+    sleep 1
+    kill -0 "$PID" 2>/dev/null || break
+    # DOWNLOAD lines are progress for the launcher, like wow-copy's COPY lines
+    echo "DOWNLOAD $(stat -f%z "$STAGE/WoW.zip" 2>/dev/null || echo 0) $SIZE"
+  done
+  wait "$PID" || { rm -rf "$STAGE"; fail "the download did not finish"; }
+  echo "DOWNLOAD $SIZE $SIZE"
+  echo "checking the download..."
+  local SUM; SUM="$(shasum -a 256 "$STAGE/WoW.zip" | cut -d' ' -f1)"
+  [ -n "$DIGEST" ] || { rm -rf "$STAGE"; fail "the release has no checksum to check against"; }
+  [ "$SUM" = "$DIGEST" ] || { rm -rf "$STAGE"; fail "the download does not match its checksum"; }
+  ditto -x -k "$STAGE/WoW.zip" "$STAGE/new" 2>/dev/null || { rm -rf "$STAGE"; fail "the download is not a readable archive"; }
+  # A quarantined ad-hoc app is refused outright by modern macOS, with no "Open
+  # Anyway" — and by then the old copy is in the Trash. Same as the documented
+  # `xattr -dr` the release notes tell people to run after a browser download.
+  xattr -dr com.apple.quarantine "$STAGE/new" 2>/dev/null || true
+  NEW="$(find "$STAGE/new" -maxdepth 1 -name '*.app' | head -1)"
+  [ -n "$NEW" ] || { rm -rf "$STAGE"; fail "the download holds no app"; }
+  # the same questions the import asks of a previous app, the other way round
+  local NEW_ID NEW_VER
+  NEW_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$NEW/Contents/Info.plist" 2>/dev/null || true)"
+  NEW_VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$NEW/Contents/Info.plist" 2>/dev/null || true)"
+  [ "$NEW_ID" = io.github.matasarei.wow-launcher ] || { rm -rf "$STAGE"; fail "the download is not a WoW Launcher app"; }
+  ver_ge "$NEW_VER" "$FLOOR" || { rm -rf "$STAGE"; fail "$NEW_VER cannot install itself — update from the release page instead"; }
+  ver_ge "$CURRENT" "$NEW_VER" && { rm -rf "$STAGE"; fail "the download is $NEW_VER, not newer than $CURRENT"; }
+  # a release carries a valid deep ad-hoc seal (make sign); a broken one means a
+  # damaged download, not a forgery — nothing here proves who built it
+  codesign --verify --deep "$NEW" 2>/dev/null || { rm -rf "$STAGE"; fail "the downloaded app is damaged (its signature does not check out)"; }
+  echo "downloaded $NEW_VER"
+  # The import is run BY the new copy over this one: it carries the game, the
+  # kit references and the settings, and only it knows how (wow-install-client).
+  if [ -n "$(ls "$RES/games" 2>/dev/null)" ]; then
+    echo "importing the game into $NEW_VER..."
+    "$NEW/Contents/Resources/bin/wow-install-client" --updating "$APP" \
+      || { rm -rf "$STAGE"; fail "the game could not be imported into $NEW_VER"; }
+  else
+    # nothing to import, so carry the settings the import would have carried
+    # (the same keys as wow-install-client's KEYS, minus the ones it recomputes)
+    local KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP'
+    local NEW_CONF="$NEW/Contents/Resources/launcher.conf"
+    { grep -svE "^($KEYS)=" "$NEW_CONF"; grep -sE "^($KEYS)=" "$CONF"; } > "$NEW_CONF.tmp" || true
+    mv "$NEW_CONF.tmp" "$NEW_CONF"
+    echo "no game to import — settings carried over"
+  fi
+  # The swap outlives this app, so it runs from its own copy of this script,
+  # detached (reparented to launchd) and waiting for the launcher to quit.
+  cp "$NEW/Contents/Resources/bin/wow-update" "$STAGE/wow-update-swap"
+  chmod +x "$STAGE/wow-update-swap"
+  # truncated, not appended: one log, about the update that is running now
+  nohup "$STAGE/wow-update-swap" swap "$WAIT" "$APP" "$NEW" \
+    > "${TMPDIR:-/tmp}/wow-update-swap.log" 2>&1 &
+  echo "RESTARTING"
+}
+
+# The swap runs detached, from the staging copy of this script, after the
+# launcher it replaces has quit — an app cannot move itself out from under
+# its own running process.
+cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
+  local PID="$1" OLD="$2" NEW="$3" NEW_VER
+  NEW_VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$NEW/Contents/Info.plist" 2>/dev/null || true)"
+  local TRASH="${WOW_UPDATE_TRASH:-$HOME/.Trash}"
+  local STAGE_DIR; STAGE_DIR="$(dirname "$(dirname "$NEW")")"
+  local OPENER="${WOW_UPDATE_OPEN:-/usr/bin/open}"
+  # A failure here has nobody watching: the launcher has quit, and what reopens
+  # is the old app. It reads this marker at its next start and says so.
+  marker() {  # marker <reason>
+    mkdir -p "$OLD/Contents/Resources/logs" 2>/dev/null || true
+    printf '%s\n' "$1" > "$OLD/Contents/Resources/logs/update-failed.txt" 2>/dev/null || true
+  }
+  local i=0
+  while kill -0 "$PID" 2>/dev/null; do
+    sleep 0.5; i=$((i + 1))
+    [ "$i" -gt 120 ] && { marker "the launcher was still running a minute after the update started"
+                          echo "FAIL: the launcher is still running after a minute"; exit 1; }
+  done
+  local NAME PARKED
+  NAME="$(basename "$OLD")"
+  PARKED="$STAGE_DIR/old.app"
+  # sideways into staging, not to the Trash: while the path is empty both copies
+  # are in one place, and putting the old one back is a single rename
+  mv "$OLD" "$PARKED" || { marker "$NAME could not be moved aside — manual update required"
+                           echo "FAIL: could not move $NAME aside"; "$OPENER" "$OLD" || true; exit 1; }
+  if mv "$NEW" "$OLD"; then
+    # the new version has to actually start: it is all that is left running
+    if "$OPENER" "$OLD"; then
+      # up and running — only now is the old copy given away. It stays in the
+      # Trash rather than deleted: its game shares blocks with the copy that
+      # imported it, so keeping it costs almost nothing.
+      local DEST n=1
+      mkdir -p "$TRASH"
+      DEST="$TRASH/$NAME"
+      while [ -e "$DEST" ]; do DEST="$TRASH/${NAME%.app} $n.app"; n=$((n + 1)); done
+      if mv "$PARKED" "$DEST" 2>/dev/null; then
+        # only ever a staging dir: what is deleted here comes from an argument,
+        # and a mistyped one must not take a folder full of apps with it
+        case "$(basename "$STAGE_DIR")" in
+          .wow-update.*) rm -rf "$STAGE_DIR" ;;   # this script included; see the note in apply
+          *) echo "NOTE: $STAGE_DIR left in place (not a staging dir)" ;;
+        esac
+      else
+        # the update itself is done; the leftover is untidy, not broken
+        echo "NOTE: $NAME could not be moved to the Trash — it is in $STAGE_DIR"
+      fi
+    else
+      # Both moves have to succeed for the old version to be back; if the path
+      # cannot be cleared, what sits there is the version that just refused to
+      # open, and saying "the old app is back" would be a lie.
+      if mv "$OLD" "$NEW" 2>/dev/null && mv "$PARKED" "$OLD" 2>/dev/null; then
+        marker "$NEW_VER would not open, so this version was kept"
+        "$OPENER" "$OLD" || true
+        echo "FAIL: $NEW_VER would not open — the old app is back"
+      else
+        marker "$NEW_VER would not open and could not be undone — the app in place is $NEW_VER, and $NAME is in $STAGE_DIR — manual update required"
+        echo "FAIL: $NEW_VER would not open, and the old app could not be put back — it is in $STAGE_DIR"
+      fi
+      exit 1
+    fi
+  else
+    mv "$PARKED" "$OLD" 2>/dev/null || true     # put the old app back and run that
+    marker "$NEW_VER could not be moved into place — manual update required"
+    "$OPENER" "$OLD" || true
+    echo "FAIL: could not move the new app into place — the old one is back"
+    exit 1
+  fi
+}
+
+case "${1:-}" in
+  check) shift; cmd_check "$@" ;;
+  apply) shift; cmd_apply "$@" ;;
+  swap)  shift; cmd_swap "$@" ;;
+  *) echo "usage: wow-update check [--force] | apply <url> <size> <digest> | swap <pid> <old> <new>"; exit 1 ;;
+esac

@@ -17,9 +17,13 @@ USER_HOME="$HOME"   # the real one, for the keyboard-layout check below
 export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
 # the Z: drive link is stripped at build time (absolute symlinks break codesign)
 [ -e "$RES/prefix/dosdevices/z:" ] || ln -sf / "$RES/prefix/dosdevices/z:" 2>/dev/null
+# --updating: the import is an update installing itself (see wow-update), so the
+# source app is the launcher running this — only its game has to be idle.
+UPDATING=0
+[ "$1" = --updating ] && { UPDATING=1; shift; }
 SRC="$1"
 DEST="$RES/games/main"
-[ -n "$SRC" ] || { echo "usage: wow-install-client /path/to/client"; exit 1; }
+[ -n "$SRC" ] || { echo "usage: wow-install-client [--updating] /path/to/client"; exit 1; }
 # A previous copy of this app (wow-install-client /Applications/Old.app) is the
 # best source there is: its game is already patched and its kit holds the
 # references this one would otherwise rebuild. It is checked before anything
@@ -57,8 +61,17 @@ case "$SRC" in
     # Z:\…\Wow.exe, so backslashes read as slashes. (Listed first, so the grep
     # does not find its own command line.)
     PS="$(ps -axww -o command= | tr '\\' /)"
-    printf '%s\n' "$PS" | grep -qF -e "$OLD/Contents/" -e "$GIVEN/Contents/" \
-      && { echo "$OLD_NAME is still running — quit it and its game first"; exit 1; }
+    if [ "$UPDATING" = 1 ]; then
+      set -- "$OLD/Contents/Resources/wine/"  "$GIVEN/Contents/Resources/wine/" \
+             "$OLD/Contents/Resources/games/" "$GIVEN/Contents/Resources/games/"
+      BUSY="the game from $OLD_NAME is still running — quit it first"
+    else
+      set -- "$OLD/Contents/" "$GIVEN/Contents/"
+      BUSY="$OLD_NAME is still running — quit it and its game first"
+    fi
+    for P in "$@"; do
+      printf '%s\n' "$PS" | grep -qF -- "$P" && { echo "$BUSY"; exit 1; }
+    done
     MIGRATE=1
     echo "importing from $OLD_NAME $OLD_VER"
     ;;
@@ -114,6 +127,7 @@ echo "copying client..."
 # and where it sits on screen are this install's to work out.
 if [ "$MIGRATE" = 1 ]; then
   KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA'
+  KEYS="$KEYS|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP"   # see wow-update
   CARRY="$(grep -sE "^($KEYS)=" "$OLD_RES/launcher.conf" || true)"
   # SILICON= is the pre-2.4 PATCHES: carried only when there is nothing newer
   printf '%s\n' "$CARRY" | grep -qE '^PATCHES=' && CARRY="$(printf '%s\n' "$CARRY" | grep -vE '^SILICON=')"
