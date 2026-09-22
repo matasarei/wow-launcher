@@ -205,6 +205,12 @@ final class Store: ObservableObject {
         try? FileManager.default.removeItem(atPath: Paths.updateFailed)
         updateFailure = reason.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !updateFailure.isEmpty else { return }
+        // queued, not run here: this is called from init, while the Store is
+        // still being constructed and there is no window for an alert to sit on
+        DispatchQueue.main.async { self.reportUpdateFailure() }
+    }
+
+    private func reportUpdateFailure() {
         let a = NSAlert()
         a.alertStyle = .warning
         a.messageText = L("The update did not complete")
