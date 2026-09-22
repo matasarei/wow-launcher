@@ -154,6 +154,7 @@ final class Store: ObservableObject {
     // step with no measurable progress runs), and one line saying what it is.
     @Published var installProgress: Double? = nil
     @Published var installStatus = ""
+    private var installSourceApp: String?   // set while installing from a previous app
 
     init() {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
@@ -842,6 +843,52 @@ final class Store: ObservableObject {
         }
     }
 
+    // An older copy of this app as the source: its game is already patched, so
+    // wow-install-client copies and verifies it instead. The check here is only
+    // for a proper dialog — the script checks again and is the one that decides.
+    func installFromAppPanel() {
+        presentOpenPanel({ panel in
+            panel.title = L("Install from Previous App")
+            panel.message = L("Choose an older WoW Launcher app (2.1 or later) — its game is copied and verified, the app itself is left as it is")
+            panel.canChooseFiles = true
+            panel.canChooseDirectories = false
+            panel.allowedContentTypes = [.applicationBundle]
+            panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        }) { panel in
+            guard let url = panel.url else { return }
+            if let why = Store.previousAppProblem(url) {
+                let a = NSAlert()
+                a.alertStyle = .warning
+                a.messageText = L("This app cannot be installed from")
+                a.informativeText = why
+                a.runModal()
+                return
+            }
+            self.startInstall(from: url)
+        }
+    }
+
+    static func previousAppProblem(_ url: URL) -> String? {
+        let name = url.deletingPathExtension().lastPathComponent
+        if url.resolvingSymlinksInPath() == Bundle.main.bundleURL.resolvingSymlinksInPath() {
+            return L("That is this launcher itself — choose the previous copy.")
+        }
+        let info = NSDictionary(contentsOf: url.appendingPathComponent("Contents/Info.plist")) as? [String: Any] ?? [:]
+        let id = info["CFBundleIdentifier"] as? String ?? ""
+        let version = info["CFBundleShortVersionString"] as? String ?? ""
+        // 1.0 and 2.0 carried local.wow335.singleapp; 2.1 is the first with this one
+        let n = version.split(separator: ".").map { Int($0) ?? 0 }
+        let tooOld = id == "local.wow335.singleapp"
+            || (n.first ?? 0, n.count > 1 ? n[1] : 0) < (2, 1)
+        if id != "io.github.matasarei.wow-launcher" && id != "local.wow335.singleapp" {
+            return LF("%@ is not a WoW Launcher app.", name)
+        }
+        if tooOld {
+            return LF("%@ %@ is too old to install from — WoW Launcher 2.1 or later is needed.", name, version)
+        }
+        return nil
+    }
+
     func installGame(from url: URL) {
         busy = true
         note = L("Checking the client…")
@@ -873,6 +920,7 @@ final class Store: ObservableObject {
     }
 
     private func startInstall(from url: URL) {
+        installSourceApp = url.pathExtension.lowercased() == "app" ? url.deletingPathExtension().lastPathComponent : nil
         busy = true
         note = LF("Installing from %@…", url.lastPathComponent)
         // Streamed rather than run through shell(): copying from a slow drive
@@ -927,6 +975,9 @@ final class Store: ObservableObject {
         refreshRealms()
         refreshAddons()
         if lines.contains(where: { $0.contains("game installed") }) {
+            if let old = installSourceApp {
+                note = LF("Installed from %@, which was left as it is — it can be deleted once the game runs.", old)
+            }
             verifyGame()   // confirm the fresh install right away
         }
     }
@@ -1425,6 +1476,10 @@ struct PlayView: View {
                 .controlSize(.large)
                 .disabled(store.busy)
                 .padding(.top, 8)
+                Button("Install from Previous App…") { store.installFromAppPanel() }
+                    .buttonStyle(.link)
+                    .disabled(store.busy)
+                    .help("Take the game from an older copy of this app — already patched, only copied and verified")
                 if store.busy && !store.installStatus.isEmpty {
                     InstallProgressView().padding(.top, 4)
                 } else if store.busy {
@@ -1511,6 +1566,9 @@ struct GameView: View {
                         Label("Install New Game…", systemImage: "plus")
                     }
                     .disabled(store.busy)
+                    Button("Install from Previous App…") { store.installFromAppPanel() }
+                        .disabled(store.busy)
+                        .help("Take the game from an older copy of this app — already patched, only copied and verified")
                     if store.busy && store.installStatus.isEmpty { ProgressView().controlSize(.small) }
                 }
                 if store.busy && !store.installStatus.isEmpty {

@@ -136,3 +136,12 @@
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2 is not installed — the game cannot start";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked.";
 "Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game.";
+"Install from Previous App…" = "Install from Previous App…";
+"Install from Previous App" = "Install from Previous App";
+"Choose an older WoW Launcher app (2.1 or later) — its game is copied and verified, the app itself is left as it is" = "Choose an older WoW Launcher app (2.1 or later) — its game is copied and verified, the app itself is left as it is";
+"This app cannot be installed from" = "This app cannot be installed from";
+"That is this launcher itself — choose the previous copy." = "That is this launcher itself — choose the previous copy.";
+"%@ is not a WoW Launcher app." = "%@ is not a WoW Launcher app.";
+"%@ %@ is too old to install from — WoW Launcher 2.1 or later is needed." = "%@ %@ is too old to install from — WoW Launcher 2.1 or later is needed.";
+"Installed from %@, which was left as it is — it can be deleted once the game runs." = "Installed from %@, which was left as it is — it can be deleted once the game runs.";
+"Take the game from an older copy of this app — already patched, only copied and verified" = "Take the game from an older copy of this app — already patched, only copied and verified";

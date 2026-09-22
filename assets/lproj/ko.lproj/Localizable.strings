@@ -136,3 +136,12 @@
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2가 설치되어 있지 않아 게임을 시작할 수 없습니다";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2가 설치되어 있지 않아 wine 프리픽스에 저장된 설정을 확인하지 못했습니다.";
 "Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "게임이 앞으로 나오면 런처를 닫습니다. 게임이 실행 중인 동안에는 화면에서만 사라져 로컬 네트워크의 서버 연결이 유지되며, 게임을 종료하면 함께 종료됩니다.";
+"Install from Previous App…" = "이전 앱에서 설치…";
+"Install from Previous App" = "이전 앱에서 설치";
+"Choose an older WoW Launcher app (2.1 or later) — its game is copied and verified, the app itself is left as it is" = "이전 WoW Launcher 앱(2.1 이상)을 선택하세요 — 게임을 복사하고 검증하며, 앱 자체는 그대로 둡니다";
+"This app cannot be installed from" = "이 앱에서는 설치할 수 없습니다";
+"That is this launcher itself — choose the previous copy." = "이것은 현재 런처 자체입니다 — 이전 복사본을 선택하세요.";
+"%@ is not a WoW Launcher app." = "%@은(는) WoW Launcher 앱이 아닙니다.";
+"%@ %@ is too old to install from — WoW Launcher 2.1 or later is needed." = "%@ %@은(는) 설치 원본으로 쓰기에 너무 오래되었습니다 — WoW Launcher 2.1 이상이 필요합니다.";
+"Installed from %@, which was left as it is — it can be deleted once the game runs." = "%@에서 설치했으며 해당 앱은 그대로 두었습니다 — 게임이 실행되면 삭제해도 됩니다.";
+"Take the game from an older copy of this app — already patched, only copied and verified" = "이 앱의 이전 복사본에서 게임을 가져옵니다 — 이미 패치되어 있어 복사와 검증만 합니다";

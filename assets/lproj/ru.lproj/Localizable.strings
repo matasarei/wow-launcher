@@ -136,3 +136,12 @@
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2 не установлена — игра не запустится";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2 не установлена, поэтому настройки, хранящиеся в префиксе wine, проверить не удалось.";
 "Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "Закрывает лаунчер, когда игра на переднем плане. Пока игра запущена, он лишь исчезает с экрана, чтобы сервер в локальной сети оставался на связи, и завершается, когда вы выходите из игры.";
+"Install from Previous App…" = "Установить из предыдущего приложения…";
+"Install from Previous App" = "Установить из предыдущего приложения";
+"Choose an older WoW Launcher app (2.1 or later) — its game is copied and verified, the app itself is left as it is" = "Выберите более старое приложение WoW Launcher (2.1 или новее) — его игра копируется и проверяется, само приложение остаётся без изменений";
+"This app cannot be installed from" = "Из этого приложения установить нельзя";
+"That is this launcher itself — choose the previous copy." = "Это и есть этот лаунчер — выберите предыдущую копию.";
+"%@ is not a WoW Launcher app." = "%@ — не приложение WoW Launcher.";
+"%@ %@ is too old to install from — WoW Launcher 2.1 or later is needed." = "%@ %@ слишком старое, чтобы устанавливать из него — нужен WoW Launcher 2.1 или новее.";
+"Installed from %@, which was left as it is — it can be deleted once the game runs." = "Установлено из %@, приложение осталось без изменений — его можно удалить, когда игра запустится.";
+"Take the game from an older copy of this app — already patched, only copied and verified" = "Взять игру из более старой копии этого приложения — она уже пропатчена, её только копируют и проверяют";
