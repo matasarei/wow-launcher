@@ -341,6 +341,9 @@ assert_contains "$CONF" "GAME_VERSION=3.3.5a" "GAME_VERSION recorded"
 assert_contains "$CONF" "AUTO_RES=1" "AUTO_RES reset"
 assert_contains "$(cat "$G/WTF/Config.wtf")" "videoOptionsVersion" "wotlk-only cvars seeded"
 assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxResolution "3456x2234"' "resolution auto-matched at install"
+# the copy reports progress for the install pane, and ends at 100 %
+LAST="$(echo "$OUT" | grep '^COPY ' | tail -1)"
+assert_eq "$(echo "$LAST" | awk '{print ($2 == $3 && $2 > 0) ? "done" : $0}')" "done" "the last COPY line says all of it"
 
 # ============================================================ verify: wotlk
 section "verify 3.3.5a"
@@ -844,6 +847,28 @@ OUT="$("$BIN/wow-verify-game" 2>&1)"
 assert_eq "$(echo "$OUT" | grep -c '^ROSETTA$')" "0" "no marker once the probe passes again"
 # the build calls it before anything is installed, so the loader comes as an argument
 "$BIN/wow-check-rosetta" "$RES/wine/bin/wine" && ok || bad "the probe accepts a loader path"
+
+# ================================================================== wow-copy
+section "wow-copy"
+OUT="$("$BIN/wow-copy" "$TMP/client-wotlk" "$TMP/copy-ok" 2>&1)"; RC=$?
+assert_eq "$RC" "0" "a clean copy exits 0"
+diff -r "$TMP/client-wotlk" "$TMP/copy-ok" >/dev/null && ok || bad "the copy differs from the source"
+assert_eq "$(echo "$OUT" | grep -vc '^COPY ')" "0" "it prints nothing but COPY lines"
+"$BIN/wow-copy" "$TMP/nonexistent" "$TMP/copy-none" >/dev/null 2>&1 && bad "a missing source passes" || ok
+# ditto runs in the background, out of reach of the installer's set -e: its
+# failure has to come back through wow-copy's exit status, or a half-copied
+# client gets patched and reported as installed
+if [ "$(id -u)" != 0 ]; then   # root reads a mode-000 file anyway
+  cp -R "$TMP/client-wotlk" "$TMP/client-unreadable"
+  chmod 000 "$TMP/client-unreadable/Data/common.MPQ"
+  "$BIN/wow-copy" "$TMP/client-unreadable" "$TMP/copy-bad" >/dev/null 2>&1 \
+    && bad "a failed ditto passes" || ok
+  reset_conf
+  OUT="$("$BIN/wow-install-client" "$TMP/client-unreadable" 2>&1)"
+  assert_eq "$(echo "$OUT" | grep -c 'game installed')" "0" "a failed copy is not reported as installed"
+  assert_eq "$(echo "$OUT" | grep -c 'applying patch kit')" "0" "and nothing gets patched"
+  chmod 644 "$TMP/client-unreadable/Data/common.MPQ"
+fi
 
 # ================================================================== Swift sources
 section "Swift sources"

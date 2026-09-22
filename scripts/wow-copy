@@ -1,0 +1,36 @@
+#!/bin/bash
+# ditto with progress. Copying a client from a slow drive, or a big repack,
+# takes many minutes, and ditto itself prints nothing — so while it runs this
+# prints, about once a second:
+#   COPY <done KB> <total KB> <file being read, relative to SRC>
+# and a final "COPY <total> <total>" when it is done. Anything that reads the
+# output line by line (the launcher's install pane) can draw a bar from it.
+# Usage: wow-copy SRC DEST — exits with ditto's status.
+# Sizes are apparent (du -A): allocation units differ between an exFAT stick
+# and APFS, and the bar must end at 100 %, not before or past it.
+# The name comes from the read side: ditto writes into a temporary .BC.T_*
+# file and renames it when done, so the destination never shows the real one.
+SRC="$1" DEST="$2"
+[ -d "$SRC" ] && [ -n "$DEST" ] || { echo "usage: wow-copy SRC DEST"; exit 1; }
+SRC="$(cd "$SRC" && pwd -P)"
+TOTAL="$(du -skA "$SRC" 2>/dev/null | cut -f1)"
+ditto "$SRC" "$DEST" &
+PID=$!
+# killed mid-copy (the launcher quit), take ditto along instead of leaving it
+trap 'kill $PID 2>/dev/null; exit 1' INT TERM HUP
+while kill -0 $PID 2>/dev/null; do
+  sleep 1
+  kill -0 $PID 2>/dev/null || break
+  DONE="$(du -skA "$DEST" 2>/dev/null | cut -f1)"
+  # lsof -F: one "f<fd><mode>", "t<type>", "n<name>" line each; the regular
+  # file ditto has open under SRC is the one it is copying
+  FILE="$(lsof -Ftn -p $PID 2>/dev/null | awk -v p="$SRC/" '
+    /^tREG/ { reg = 1; next } /^t/ { reg = 0; next }
+    /^n/ && reg && index(substr($0, 2), p) == 1 { f = substr($0, 2 + length(p)) }
+    END { print f }')"
+  echo "COPY ${DONE:-0} ${TOTAL:-0} $FILE"
+done
+wait $PID
+RC=$?
+[ "$RC" = 0 ] && echo "COPY ${TOTAL:-0} ${TOTAL:-0}"
+exit "$RC"
