@@ -118,8 +118,9 @@ prefix:
 	@HOME="$(RES)/home" WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all "$(WINE)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyServer /t REG_SZ /d 127.0.0.1:1 /f >/dev/null 2>&1
 	@WINEPREFIX="$(RES)/prefix" "$(WINE)/bin/wineserver" -k >/dev/null 2>&1 || true
 	@# absolute symlinks (dosdevices/z: -> /, users/<builduser> -> $$HOME/Wine)
-	@# make codesign reject the bundle and leak build-machine paths; wine and
-	@# wow-launch recreate them on the user's machine at first run.
+	@# make codesign reject the bundle and leak build-machine paths; they are
+	@# recreated on the user's machine at first run — z: by wow-launch and the
+	@# installer, the profile link (relative, into home/) by wow-wine-home.
 	@find "$(RES)/prefix" -type l -lname '/*' -delete
 	@# the build's own wine HOME (see scripts/wow-wine-home): a fresh bundle ships
 	@# without it, and wow-wine-home recreates it at first run
