@@ -91,16 +91,22 @@ cmd_check() {
   LATEST="${TAG#v}"
   PAGE="$(json html_url "$J")"
   # the release asset is WoW-v<version>.zip (see CLAUDE.md, "Making a release")
-  local i=0 name
+  local i name
   ASSET=""; SIZE=""; DIGEST=""
-  while name="$(json "assets.$i.name" "$J")"; [ -n "$name" ]; do
+  # Bounded, and ended by plutil's exit status rather than by an empty answer:
+  # the CI runner's older plutil prints "no value at that key path" on stdout,
+  # so running off the end of the list does not read as the end of the list —
+  # and a loop waiting for an empty string there never returns. A release has
+  # one asset; ten is room to spare.
+  for i in 0 1 2 3 4 5 6 7 8 9; do
+    name="$(plutil -extract "assets.$i.name" raw -o - -- "$J" 2>/dev/null)" || break
+    [ -n "$name" ] || break
     case "$name" in
       WoW-v*.zip) ASSET="$(json "assets.$i.browser_download_url" "$J")"
                   SIZE="$(json "assets.$i.size" "$J")"
                   DIGEST="$(json "assets.$i.digest" "$J")"
                   break ;;
     esac
-    i=$((i + 1))
   done
   echo "LATEST=$LATEST"
   echo "PAGE=$PAGE"
