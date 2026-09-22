@@ -209,12 +209,12 @@ No Xcode, no dependencies.
   and click **Test Connection**: macOS asks right away; allow it, then quit
   and reopen both the launcher and the game. The result under the button says
   whether the server was reached, or that macOS is blocking access. The
-  permission belongs to the launcher, so it keeps running while you play —
-  hidden, with no window or Dock icon — and quits by itself when you exit the
-  game; on macOS 27 the game loses the connection if it quits earlier. So keep
-  **Close the launcher when the game starts** (Play screen) unchecked, the
-  default. Every rebuilt, renamed or moved copy of the app is a new app to
-  macOS and has to be allowed again. Run the app from `Applications` (not
+  permission belongs to the launcher — on macOS 27 the game loses the
+  connection when the launcher really quits — so closing it while the game
+  runs (Cmd+Q, or **Close the launcher when the game starts** on the Play
+  screen) only takes it off the screen; it quits by itself when you exit the
+  game. To get it back mid-game, open the app again. Every rebuilt, renamed or
+  moved copy of the app is a new app to macOS and has to be allowed again. Run the app from `Applications` (not
   `Downloads`): for unsigned apps macOS silently blocks a copy it doesn't
   recognize. If it still won't connect, open **System
   Settings → Privacy & Security → Local Network**, toggle **WoW** off and on,
