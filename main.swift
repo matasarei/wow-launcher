@@ -880,9 +880,18 @@ final class Store: ObservableObject {
         p.standardOutput = pipe
         p.standardError = pipe
         var buf = ""
+        // Finished at end of output, not at process exit: a terminationHandler
+        // can run while the last lines — "game installed" among them — still
+        // sit unread in the pipe (the same wait shell() did with readDataToEndOfFile).
         pipe.fileHandleForReading.readabilityHandler = { [weak self] h in
             let d = h.availableData
-            guard !d.isEmpty else { return }
+            guard !d.isEmpty else {
+                h.readabilityHandler = nil
+                p.waitUntilExit()
+                // queued behind the last line handlers, so `lines` is complete here
+                DispatchQueue.main.async { self?.finishInstall(lines) }
+                return
+            }
             buf += String(data: d, encoding: .utf8) ?? ""
             while let r = buf.range(of: "\n") {
                 let line = String(buf[..<r.lowerBound])
@@ -896,28 +905,24 @@ final class Store: ObservableObject {
                 }
             }
         }
-        p.terminationHandler = { [weak self] _ in
-            pipe.fileHandleForReading.readabilityHandler = nil
-            // queued behind the last line handlers, so `lines` is complete here
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.busy = false
-                self.installProgress = nil
-                self.installStatus = ""
-                self.note = lines.suffix(2).joined(separator: " — ")
-                self.refreshGames()
-                self.refreshStatus()
-                self.refreshRealms()
-                self.refreshAddons()
-                if lines.contains(where: { $0.contains("game installed") }) {
-                    self.verifyGame()   // confirm the fresh install right away
-                }
-            }
-        }
         do { try p.run() } catch {
             pipe.fileHandleForReading.readabilityHandler = nil
             busy = false
             note = "ERROR: \(error.localizedDescription)"
+        }
+    }
+
+    private func finishInstall(_ lines: [String]) {
+        busy = false
+        installProgress = nil
+        installStatus = ""
+        note = lines.suffix(2).joined(separator: " — ")
+        refreshGames()
+        refreshStatus()
+        refreshRealms()
+        refreshAddons()
+        if lines.contains(where: { $0.contains("game installed") }) {
+            verifyGame()   // confirm the fresh install right away
         }
     }
 
