@@ -1063,11 +1063,12 @@ echo mine > "$RES/patch-kit/DivxDecoder.dll.3.3.5a.orig"
 OUT="$(WOW_TEST_RETINA=N "$BIN/wow-install-client" "$OLD" 2>&1)"
 assert_eq "$(cat "$RES/patch-kit/DivxDecoder.dll.3.3.5a.orig")" "mine" "existing kit reference kept"
 # a pre-2.4 app: SILICON=0 is its patch level
-sed -i '' '/^PATCHES=/d' "$OLDRES/launcher.conf"; echo 'SILICON=0' >> "$OLDRES/launcher.conf"
+sed -i '' '/^PATCHES=/d; s/^AUTO_RES=.*/AUTO_RES=0/' "$OLDRES/launcher.conf"; echo 'SILICON=0' >> "$OLDRES/launcher.conf"
 mk_plist "$OLD" io.github.matasarei.wow-launcher 2.3
 OUT="$(WOW_TEST_RETINA=N "$BIN/wow-install-client" "$OLD" 2>&1)"
 assert_contains "$OUT" "patch level: no-silicon" "SILICON=0 from a 2.3 app means no-silicon"
 assert_contains "$(cat "$RES/launcher.conf")" "SILICON=0" "and is carried"
+assert_contains "$(cat "$RES/launcher.conf")" "AUTO_RES=0" "resolution managed by hand stays so"
 # an old app that never managed to patch Divx (installed without Rosetta):
 # no .bak, no kit references anywhere — the move patches it as an install would
 mk_plist "$OLD" io.github.matasarei.wow-launcher 2.7

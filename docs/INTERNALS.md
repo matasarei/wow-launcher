@@ -188,7 +188,8 @@ skipped); the old kit's self-populated references (`DivxDecoder/DivxTac
 has) and its `fonts-client/` stash if `wow-client-fonts check` passes (pre-2.3
 remaps do not); and the player's choices from `launcher.conf`: `PATCHES`
 (`SILICON` only when there is no `PATCHES`), `CHAT_CP`, `RENDERER`,
-`SPATIAL_AUDIO`, `NORMALIZE_AUDIO`, `CLOSE_ON_PLAY`, `X87`, `RETINA`. Not the
+`SPATIAL_AUDIO`, `NORMALIZE_AUDIO`, `CLOSE_ON_PLAY`, `X87`, `RETINA`, and
+`AUTO_RES=0` (resolution managed by hand, for gx*-cvar clients). Not the
 screen setup (`DISPLAY_RECT`, `GAME_DISPLAY`) nor `GAME_*` (recomputed).
 Nothing is patched by the installer — the Divx DLL is already patched, and
 patching it live again would patch a patched file; `wow-verify-game --fix`

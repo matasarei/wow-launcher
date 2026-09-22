@@ -291,10 +291,15 @@ fi
 RESET='GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|GAME_EXE|AUTO_RES|GAME_DISPLAY|DISPLAY_RECT'
 [ "$MIGRATE" = 1 ] || RESET="$RESET|RENDERER|RETINA"
 grep -vE "^($RESET)=" "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
+# AUTO_RES=0 is the player's choice too (resolution managed by hand) — kept from
+# a previous app, but only where there are gx* cvars to auto-match at all
+AUTO="$CAP_CVARS"
+[ "$MIGRATE" = 1 ] && [ "$CAP_CVARS" = 1 ] \
+  && [ "$(grep -sE '^AUTO_RES=' "$OLD_RES/launcher.conf" | cut -d= -f2)" = 0 ] && AUTO=0
 # GAME_EXE lets the GUI recognise the running game by name — a repack may call
 # its executable anything, and pgrep needs to know what to look for.
 printf 'AUTO_RES=%s\nGAME=main\nGAME_VERSION=%s\nGAME_FAMILY=%s\nGAME_BUILD=%s\nGAME_EXE=%s\n' \
-  "$CAP_CVARS" "$V" "$FAMILY" "$BUILD" "$EXE" >> "$RES/launcher.conf.tmp"
+  "$AUTO" "$V" "$FAMILY" "$BUILD" "$EXE" >> "$RES/launcher.conf.tmp"
 mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
 if [ "$MIGRATE" = 1 ]; then
   # resolution and RetinaMode follow this screen in verify --fix, at the end
