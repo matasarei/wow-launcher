@@ -72,6 +72,7 @@ enum Paths {
     static let settings  = resources + "/bin/wow-settings"
     static let launcher  = resources + "/bin/wow-launch"
     static let rosettaTool = resources + "/bin/wow-check-rosetta"
+    static let updateTool  = resources + "/bin/wow-update"
     static let conf      = resources + "/launcher.conf"
 }
 
@@ -156,6 +157,12 @@ final class Store: ObservableObject {
     @Published var installStatus = ""
     private var installSourceApp: String?   // set while importing from a previous app
 
+    // MARK: updates (wow-update)
+    @Published var autoUpdateCheck = true    // UPDATE_CHECK=0 turns it off
+    @Published var updateChecking = false
+    @Published var updateNote = ""
+    private var updateOffer: [String: String]?   // the check's fields, while a dialog is up
+
     init() {
         loadSettings()
         refreshDisplays()
@@ -165,6 +172,7 @@ final class Store: ObservableObject {
         refreshStatus()
         checkRunning()
         checkRosetta()
+        checkForUpdate()   // weekly, in the background — see checkForUpdate
     }
 
     // The choices the panes show, from launcher.conf. Read again after an
@@ -182,6 +190,86 @@ final class Store: ObservableObject {
         if ["all", "no-silicon", "winerosetta", "none"].contains(lvl) { patches = lvl }
         else if confGet("SILICON") == "0" { patches = "no-silicon" }   // pre-2.4 toggle
         else { patches = "all" }
+        autoUpdateCheck = confGet("UPDATE_CHECK") != "0"   // absent = on
+    }
+
+    // The weekly check, from init: on a background queue and never waited for,
+    // so a slow or missing line cannot hold the window up (wow-update's own
+    // curl timeout is the outer bound). It stays quiet unless there is news.
+    func checkForUpdate(force: Bool = false) {
+        if updateChecking { return }
+        updateChecking = true
+        if force { updateNote = L("Checking…") }
+        DispatchQueue.global().async {
+            let out = shell(Paths.updateTool, force ? ["check", "--force"] : ["check"])
+            var f: [String: String] = [:]
+            for line in out.split(separator: "\n") {
+                if let eq = line.firstIndex(of: "="), !line.hasPrefix("RESULT") {
+                    f[String(line[line.startIndex..<eq])] = String(line[line.index(after: eq)...])
+                }
+                if line.hasPrefix("RESULT: ") { f["RESULT"] = String(line.dropFirst(8)) }
+            }
+            DispatchQueue.main.async {
+                self.updateChecking = false
+                switch f["RESULT"] ?? "" {
+                case "UPDATE":
+                    self.updateNote = LF("Version %@ is available.", f["LATEST"] ?? "")
+                    self.updateOffer = f
+                    self.offerUpdate(f)
+                case "CURRENT":
+                    if force { self.updateNote = LF("Up to date (%@).", f["CURRENT"] ?? "") }
+                case "UNREACHABLE":
+                    if force { self.updateNote = L("GitHub could not be reached.") }
+                default:   // OFF, TOO-SOON, SKIPPED — only the button asks for those
+                    if force { self.updateNote = LF("Up to date (%@).", f["CURRENT"] ?? "") }
+                }
+            }
+        }
+    }
+
+    private func offerUpdate(_ f: [String: String]) {
+        let a = NSAlert()
+        a.messageText = LF("WoW Launcher %@ is available", f["LATEST"] ?? "")
+        a.informativeText = LF("You have %@. The update keeps your game, settings, addons and language packs — it imports them from this copy, then replaces it and restarts.", f["CURRENT"] ?? "")
+        a.addButton(withTitle: L("Update"))
+        a.addButton(withTitle: L("Open Release Page"))
+        a.addButton(withTitle: L("Skip This Version"))
+        switch a.runModal() {
+        case .alertFirstButtonReturn: applyUpdate()
+        case .alertSecondButtonReturn:
+            if let p = f["PAGE"], let url = URL(string: p) { NSWorkspace.shared.open(url) }
+        default:
+            confSet("UPDATE_SKIP", f["LATEST"] ?? "")
+            updateNote = LF("Version %@ skipped.", f["LATEST"] ?? "")
+        }
+    }
+
+    func setAutoUpdateCheck(_ on: Bool) {
+        autoUpdateCheck = on
+        confSet("UPDATE_CHECK", on ? "1" : "0")
+    }
+
+    // Streamed like an install: the DOWNLOAD lines draw the same bar, and
+    // RESTARTING means the swap is waiting for this process to quit.
+    func applyUpdate() {
+        guard let f = updateOffer, let url = f["ASSET"], !url.isEmpty else { return }
+        busy = true
+        updateNote = ""
+        installStatus = L("Starting the update…")
+        let args = [url, f["SIZE"] ?? "0", f["DIGEST"] ?? "", String(ProcessInfo.processInfo.processIdentifier)]
+        streamTool(Paths.updateTool, ["apply"] + args) { [weak self] lines in
+            guard let self = self else { return }
+            self.busy = false
+            self.installProgress = nil
+            self.installStatus = ""
+            if lines.contains("RESTARTING") {
+                self.updateNote = L("Restarting…")
+                self.quitAfterGame = true   // the swap out there waits for this process
+                NSApp.terminate(nil)
+            } else {
+                self.updateNote = lines.last ?? L("The update did not finish.")
+            }
+        }
     }
 
     func checkRosetta() {
@@ -931,12 +1019,17 @@ final class Store: ObservableObject {
         installSourceApp = url.pathExtension.lowercased() == "app" ? url.deletingPathExtension().lastPathComponent : nil
         busy = true
         note = LF("Installing from %@…", url.lastPathComponent)
-        // Streamed rather than run through shell(): copying from a slow drive
-        // takes minutes, and wow-copy's COPY lines are what the bar is drawn from.
+        streamTool(Paths.installTool, [url.path]) { [weak self] lines in self?.finishInstall(lines) }
+    }
+
+    // Streamed rather than run through shell(): a copy from a slow drive, or a
+    // release download, takes minutes, and the COPY/DOWNLOAD lines are what the
+    // bar is drawn from. `finish` gets every other line, in order.
+    private func streamTool(_ tool: String, _ args: [String], finish: @escaping ([String]) -> Void) {
         var lines: [String] = []
         let p = Process()
-        p.executableURL = URL(fileURLWithPath: Paths.installTool)
-        p.arguments = [url.path]
+        p.executableURL = URL(fileURLWithPath: tool)
+        p.arguments = args
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = pipe
@@ -950,7 +1043,7 @@ final class Store: ObservableObject {
                 h.readabilityHandler = nil
                 p.waitUntilExit()
                 // queued behind the last line handlers, so `lines` is complete here
-                DispatchQueue.main.async { self?.finishInstall(lines) }
+                DispatchQueue.main.async { _ = self; finish(lines) }
                 return
             }
             buf += String(data: d, encoding: .utf8) ?? ""
@@ -959,7 +1052,7 @@ final class Store: ObservableObject {
                 buf.removeSubrange(..<r.upperBound)
                 DispatchQueue.main.async {
                     guard let self = self, !line.isEmpty else { return }
-                    if self.handleCopyLine(line) { return }
+                    if self.handleProgressLine(line) { return }
                     lines.append(line)
                     self.installProgress = nil   // patching has no bar, only a spinner
                     self.installStatus = line
@@ -991,13 +1084,20 @@ final class Store: ObservableObject {
         }
     }
 
-    // "COPY <done KB> <total KB> <file>" from wow-copy → the bar and its line.
-    private func handleCopyLine(_ line: String) -> Bool {
-        guard line.hasPrefix("COPY ") else { return false }
+    // "COPY <done KB> <total KB> <file>" from wow-copy, and
+    // "DOWNLOAD <done bytes> <total bytes>" from wow-update → the bar and its line.
+    private func handleProgressLine(_ line: String) -> Bool {
+        let copying = line.hasPrefix("COPY ")
+        guard copying || line.hasPrefix("DOWNLOAD ") else { return false }
         let parts = line.split(separator: " ", maxSplits: 3).map(String.init)
         guard parts.count >= 3, let done = Double(parts[1]), let total = Double(parts[2]), total > 0 else { return true }
         installProgress = min(done / total, 1)
-        let size = { (kb: Double) in ByteCountFormatter.string(fromByteCount: Int64(kb * 1024), countStyle: .file) }
+        let unit: Double = copying ? 1024 : 1
+        let size = { (n: Double) in ByteCountFormatter.string(fromByteCount: Int64(n * unit), countStyle: .file) }
+        guard copying else {
+            installStatus = LF("Downloaded %@ of %@", size(done), size(total))
+            return true
+        }
         let file = parts.count > 3 ? parts[3] : ""
         installStatus = file.isEmpty ? LF("Copied %@ of %@", size(done), size(total))
                                      : LF("Copying %@ — %@ of %@", file, size(done), size(total))
@@ -1981,6 +2081,8 @@ struct AudioView: View {
 }
 
 struct AboutView: View {
+    @EnvironmentObject var store: Store
+
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
     }
@@ -1996,6 +2098,27 @@ struct AboutView: View {
             Text("Version \(version)")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            VStack(spacing: 6) {
+                HStack(spacing: 10) {
+                    Button("Check for Updates") { store.checkForUpdate(force: true) }
+                        .disabled(store.busy || store.updateChecking)
+                    Toggle("Check automatically", isOn: Binding(
+                        get: { store.autoUpdateCheck },
+                        set: { store.setAutoUpdateCheck($0) }))
+                        .toggleStyle(.checkbox)
+                        .help("Ask GitHub once a week whether a newer version is out")
+                }
+                if store.busy && !store.installStatus.isEmpty {
+                    InstallProgressView()
+                } else if store.updateChecking {
+                    ProgressView().controlSize(.small)
+                } else if !store.updateNote.isEmpty {
+                    Text(store.updateNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.top, 2)
             Text("Classic-era World of Warcraft on Apple Silicon — self-contained and fast.")
                 .font(.callout)
                 .multilineTextAlignment(.center)
