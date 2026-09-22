@@ -760,6 +760,9 @@ final class Store: ObservableObject {
         verifyResult = ""
         verifyCanFix = false
         verifyNeedsReinstall = false
+        // The script re-probes and prints ROSETTA if it is still missing, so a
+        // flag left over from before Rosetta was installed must not survive.
+        rosettaMissing = false
         verifyRunning = true
         verifySheet = true
         let p = Process()
