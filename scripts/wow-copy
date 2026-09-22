@@ -24,9 +24,13 @@ while kill -0 $PID 2>/dev/null; do
   DONE="$(du -skA "$DEST" 2>/dev/null | cut -f1)"
   # lsof -F: one "f<fd><mode>", "t<type>", "n<name>" line each; the regular
   # file ditto has open under SRC is the one it is copying
-  FILE="$(lsof -Ftn -p $PID 2>/dev/null | awk -v p="$SRC/" '
+  # (a "\" in a path: lsof prints it doubled, and awk -v would read it as an
+  # escape — so SRC goes in through ENVIRON and the name is unescaped first)
+  FILE="$(lsof -Ftn -p $PID 2>/dev/null | P="$SRC/" awk '
+    BEGIN { p = ENVIRON["P"] }
     /^tREG/ { reg = 1; next } /^t/ { reg = 0; next }
-    /^n/ && reg && index(substr($0, 2), p) == 1 { f = substr($0, 2 + length(p)) }
+    /^n/ && reg { n = substr($0, 2); gsub(/\\\\/, "\\", n)
+                  if (index(n, p) == 1) f = substr(n, 1 + length(p)) }
     END { print f }')"
   echo "COPY ${DONE:-0} ${TOTAL:-0} $FILE"
 done

@@ -866,6 +866,10 @@ chmod +x "$TMP/slow-ditto/ditto"
 OUT="$(PATH="$TMP/slow-ditto:$PATH" "$BIN/wow-copy" "$TMP/client-wotlk" "$TMP/copy-slow" 2>&1)"
 assert_contains "$OUT" "Data/common.MPQ" "a progress line names the file being read, relative to SRC"
 diff -r "$TMP/client-wotlk" "$TMP/copy-slow" >/dev/null && ok || bad "the slow copy differs from the source"
+# a backslash is a legal macOS folder-name character, and must not read as an escape
+cp -R "$TMP/client-wotlk" "$TMP/back\\slash"
+OUT="$(PATH="$TMP/slow-ditto:$PATH" "$BIN/wow-copy" "$TMP/back\\slash" "$TMP/copy-bs" 2>&1)"
+assert_contains "$OUT" "Data/common.MPQ" "the name is found under a source path with a backslash"
 # ditto runs in the background, out of reach of the installer's set -e: its
 # failure has to come back through wow-copy's exit status, or a half-copied
 # client gets patched and reported as installed
