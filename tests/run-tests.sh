@@ -1023,8 +1023,17 @@ fake_proc() {  # fake_proc <command line> — started, and listed by ps, before 
 }
 fake_proc "$OLD/Contents/MacOS/WoW Launcher"
 OUT="$("$BIN/wow-install-client" "$OLD" 2>&1)"
+# --updating: an update imports from the launcher that runs it, so that
+# launcher may be running — only its game may not (see wow-update)
+UPD="$("$BIN/wow-install-client" --updating "$OLD" 2>&1)"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "Old Launcher is still running" "a running previous app is refused"
+assert_contains "$UPD" "game installed (3.3.5a)" "--updating imports while the previous launcher runs"
+rm -rf "$RES/games"/* "$RES/patch-kit/"DivxDecoder.dll.*; reset_conf
+fake_proc "$OLD/Contents/Resources/wine/bin/wineserver"
+UPD="$("$BIN/wow-install-client" --updating "$OLD" 2>&1)"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$UPD" "game from Old Launcher is still running" "--updating still refuses a running game"
 fake_proc "Z:$(echo "$OLD" | tr / '\\')\\Contents\\Resources\\games\\main\\Wow.exe"
 OUT="$("$BIN/wow-install-client" "$OLD" 2>&1)"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
