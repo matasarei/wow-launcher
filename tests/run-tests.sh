@@ -1332,6 +1332,19 @@ assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
 assert_contains "$OUT" "could not be moved to the Trash" "and says where the old copy is"
 assert_file "$TMP/swap/Applications/.wow-update.test/old.app/Contents/Info.plist"
 rm -rf "$TMP/swap/Applications/.wow-update.test"
+# the launcher never quits: give up, say so, and change nothing
+swap_setup
+fake_proc "wow-update-swap-stuck"
+OUT="$(WOW_UPDATE_WAIT=1 WOW_UPDATE_TRASH="$TMP/swap/Trash" WOW_UPDATE_OPEN="$TMP/swap/open" \
+  "$BIN/wow-update" swap "$RUNNING" "$TMP/swap/Applications/AzerothCore.app" \
+    "$TMP/swap/Applications/.wow-update.test/new/WoW.app" 2>&1)"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$OUT" "still running 1s on" "a launcher that will not quit gives up"
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.9" "and leaves the app as it was"
+assert_contains "$(cat "$TMP/swap/Applications/AzerothCore.app/Contents/Resources/logs/update-failed.txt" 2>&1)" \
+  "did not quit" "with the reason where the app will read it"
+rm -rf "$TMP/swap/Applications/.wow-update.test"
 # a staging path that is not one: the delete must refuse it
 swap_setup
 mkdir -p "$TMP/swap/Applications/not-staging"

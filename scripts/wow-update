@@ -26,6 +26,7 @@ CONF="$RES/launcher.conf"
 API="${WOW_UPDATE_API:-https://api.github.com/repos/matasarei/wow-launcher/releases/latest}"
 INTERVAL="${WOW_UPDATE_INTERVAL:-604800}"   # a week: releases come every week or two
 TIMEOUT="${WOW_UPDATE_TIMEOUT:-15}"         # a slow line must never hold the launcher up
+WAIT="${WOW_UPDATE_WAIT:-300}"              # how long the swap waits for the launcher to quit
 # The importing is done BY the downloaded copy, and --updating arrived in 2.9:
 # an older release could not install itself even if one were offered.
 FLOOR=2.9
@@ -228,14 +229,15 @@ cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
     mkdir -p "$OLD/Contents/Resources/logs" 2>/dev/null || true
     printf '%s\n' "$1" > "$OLD/Contents/Resources/logs/update-failed.txt" 2>/dev/null || true
   }
-  # Five minutes, not one: the launcher quits itself as soon as it reads
-  # RESTARTING, but a dialog in its way — or a person reading one — must not
-  # cost the update. Giving up here means the app stays exactly as it was.
-  local i=0
+  # Five minutes by default, not one: the launcher quits itself as soon as it
+  # reads RESTARTING, but a dialog in its way — or a person reading one — must
+  # not cost the update. Giving up leaves the app exactly as it was.
+  local i=0 turns
+  turns="$(( WAIT * 2 ))"   # half-second turns
   while kill -0 "$PID" 2>/dev/null; do
     sleep 0.5; i=$((i + 1))
-    [ "$i" -gt 600 ] && { marker "the launcher did not quit, so the update was left where it was — try again"
-                          echo "FAIL: the launcher is still running five minutes on"; exit 1; }
+    [ "$i" -gt "$turns" ] && { marker "the launcher did not quit, so the update was left where it was — try again"
+                               echo "FAIL: the launcher is still running ${WAIT}s on"; exit 1; }
   done
   local NAME PARKED
   NAME="$(basename "$OLD")"
