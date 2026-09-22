@@ -1089,6 +1089,65 @@ assert_contains "$(cat "$WINELOG")" "PatchDivxDecoder" "an unpatched Divx from a
 rm -f "$APP/Contents/Info.plist" "$RES/patch-kit/"DivxDecoder.dll.*
 mv "$TMP/kitrefs/"* "$RES/patch-kit/"; rm -rf "$RES/games"/*; reset_conf
 
+# ============================================================== wow-update check
+section "wow-update check"
+# a release, as the GitHub API answers it — served from a file:// URL
+mk_release() {  # mk_release <file> <tag> [<asset name>]
+  local A="${3-WoW-$2.zip}" ASSETS=""
+  [ -n "$A" ] && ASSETS="{\"name\":\"$A\",\"size\":123,\"digest\":\"sha256:dead\",
+      \"browser_download_url\":\"file://$TMP/rel/$A\"}"
+  printf '{"tag_name":"%s","html_url":"https://example.invalid/%s","assets":[%s]}\n' \
+    "$2" "$2" "$ASSETS" > "$1"
+}
+mkdir -p "$TMP/rel"
+mk_release "$TMP/rel/newer.json"  v2.10
+mk_release "$TMP/rel/same.json"   v2.9
+mk_release "$TMP/rel/older.json"  v2.8
+mk_release "$TMP/rel/noasset.json" v2.10 ""
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.9
+check() {  # check <fixture> [--force] — one check against that release
+  local F="$1"; shift
+  WOW_UPDATE_API="file://$TMP/rel/$F" "$BIN/wow-update" check "$@" 2>&1
+}
+reset_conf
+OUT="$(check newer.json)"
+assert_contains "$OUT" "RESULT: UPDATE" "a newer release is an update"
+assert_contains "$OUT" "LATEST=2.10" "the version comes from the tag"
+assert_contains "$OUT" "CURRENT=2.9" "and the current one from Info.plist"
+assert_contains "$OUT" "ASSET=file://$TMP/rel/WoW-v2.10.zip" "the WoW-v*.zip asset is picked"
+assert_contains "$OUT" "SIZE=123" "with its size"
+assert_contains "$OUT" "DIGEST=sha256:dead" "and its checksum"
+assert_contains "$OUT" "PAGE=https://example.invalid/v2.10" "the release page comes along"
+assert_contains "$(cat "$RES/launcher.conf")" "UPDATE_CHECKED=" "a completed check is remembered"
+# 2.10 > 2.9 as numbers — as text it is not
+reset_conf; assert_contains "$(check same.json)" "RESULT: CURRENT" "the same version is not an update"
+reset_conf; assert_contains "$(check older.json)" "RESULT: CURRENT" "an older release is not an update"
+reset_conf; assert_contains "$(check noasset.json)" "RESULT: CURRENT" "a release without a WoW-v*.zip is not offered"
+# a release older than the floor cannot install itself, whatever this app is
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.1
+reset_conf; assert_contains "$(check older.json)" "RESULT: CURRENT" "a pre-2.9 release is never offered"
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.9
+# the settings, and --force ignoring each of them
+reset_conf; echo 'UPDATE_CHECK=0' >> "$RES/launcher.conf"
+assert_contains "$(check newer.json)" "RESULT: OFF" "automatic checking can be turned off"
+assert_contains "$(check newer.json --force)" "RESULT: UPDATE" "the button checks anyway"
+reset_conf; printf 'UPDATE_CHECKED=%s\n' "$(date +%s)" >> "$RES/launcher.conf"
+assert_contains "$(check newer.json)" "RESULT: TOO-SOON" "checked again within the week"
+assert_contains "$(check newer.json --force)" "RESULT: UPDATE" "the button ignores the interval"
+reset_conf; printf 'UPDATE_CHECKED=%s\n' "$(( $(date +%s) - 604801 ))" >> "$RES/launcher.conf"
+assert_contains "$(check newer.json)" "RESULT: UPDATE" "a week later it checks again"
+reset_conf; echo 'UPDATE_SKIP=2.10' >> "$RES/launcher.conf"
+assert_contains "$(check newer.json)" "RESULT: SKIPPED" "a skipped version stays quiet"
+assert_contains "$(check newer.json --force)" "RESULT: UPDATE" "the button offers it anyway"
+reset_conf; echo 'UPDATE_SKIP=2.9' >> "$RES/launcher.conf"
+assert_contains "$(check newer.json)" "RESULT: UPDATE" "a newer version than the skipped one is offered"
+# GitHub unreachable: say so, and do not start the week
+reset_conf
+OUT="$(check nothing-here.json)"
+assert_contains "$OUT" "RESULT: UNREACHABLE" "an unreachable API is reported"
+assert_eq "$(grep -c '^UPDATE_CHECKED=' "$RES/launcher.conf")" "0" "and is not remembered as a check"
+rm -f "$APP/Contents/Info.plist"; reset_conf
+
 # ================================================================== Swift sources
 section "Swift sources"
 # SDK 27 makes @State an Xcode-only macro; the bare Command Line Tools cannot

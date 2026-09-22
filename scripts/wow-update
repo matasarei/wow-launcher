@@ -1,0 +1,105 @@
+#!/bin/bash
+# Version check and in-app update, against the project's GitHub releases.
+# Usage:
+#   wow-update check [--force]      --force ignores the interval, the off switch
+#                                   and a skipped version (the About button)
+#
+# check prints CURRENT=, and when a release was read also LATEST=, PAGE=,
+# ASSET=, SIZE=, DIGEST=, then one of:
+#   RESULT: UPDATE       a newer release this app can install itself
+#   RESULT: CURRENT      nothing newer (or nothing it can install)
+#   RESULT: SKIPPED      that version was skipped by hand (UPDATE_SKIP=)
+#   RESULT: OFF          automatic checking is off (UPDATE_CHECK=0)
+#   RESULT: TOO-SOON     checked less than a week ago (UPDATE_CHECKED=)
+#   RESULT: UNREACHABLE  GitHub did not answer within the timeout
+# launcher.conf keys: UPDATE_CHECK=1|0 (absent = on), UPDATE_CHECKED=<epoch>,
+# UPDATE_SKIP=<version>. The import carries all three to the next copy.
+set -e
+APP="$(cd "$(dirname "$0")/../../.." && pwd)"
+RES="$APP/Contents/Resources"
+CONF="$RES/launcher.conf"
+# overridable so the test suite can serve a release from a file:// URL
+API="${WOW_UPDATE_API:-https://api.github.com/repos/matasarei/wow-launcher/releases/latest}"
+INTERVAL="${WOW_UPDATE_INTERVAL:-604800}"   # a week: releases come every week or two
+TIMEOUT="${WOW_UPDATE_TIMEOUT:-15}"         # a slow line must never hold the launcher up
+# The importing is done BY the downloaded copy, and --updating arrived in 2.9:
+# an older release could not install itself even if one were offered.
+FLOOR=2.9
+CURRENT="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || true)"
+
+# plutil reads JSON as it stands, so the script needs no JSON parser
+json() { plutil -extract "$1" raw -o - -- "$2" 2>/dev/null || true; }
+TMPJSON="$(mktemp -t wow-update)"
+trap 'rm -f "$TMPJSON"' EXIT
+
+conf_get() { grep -sE "^$1=" "$CONF" | head -1 | cut -d= -f2-; }
+conf_set() {  # conf_set KEY [VALUE] — no value removes the key
+  { grep -svE "^$1=" "$CONF"; [ -n "${2:-}" ] && printf '%s=%s\n' "$1" "$2"; } > "$CONF.tmp" || true
+  mv "$CONF.tmp" "$CONF"
+}
+
+# Versions compare as numbers, never as text: 2.10 is newer than 2.9, and
+# "2.10" > "2.9" is false for a string compare. Missing parts count as 0.
+ver_ge() {  # ver_ge A B → true when A >= B
+  local a b i x y
+  IFS=. read -r -a a <<< "$1"; IFS=. read -r -a b <<< "$2"
+  for i in 0 1 2; do
+    x="${a[i]:-0}"; y="${b[i]:-0}"
+    case "$x" in ''|*[!0-9]*) x=0 ;; esac
+    case "$y" in ''|*[!0-9]*) y=0 ;; esac
+    [ "$x" -gt "$y" ] && return 0
+    [ "$x" -lt "$y" ] && return 1
+  done
+  return 0
+}
+
+cmd_check() {
+  local FORCE=0
+  [ "${1:-}" = --force ] && FORCE=1
+  echo "CURRENT=$CURRENT"
+  if [ "$FORCE" = 0 ]; then
+    [ "$(conf_get UPDATE_CHECK)" = 0 ] && { echo "RESULT: OFF"; return 0; }
+    local LAST NOW
+    LAST="$(conf_get UPDATE_CHECKED)"; NOW="$(date +%s)"
+    case "$LAST" in ''|*[!0-9]*) LAST=0 ;; esac
+    [ "$((NOW - LAST))" -lt "$INTERVAL" ] && { echo "RESULT: TOO-SOON"; return 0; }
+  fi
+  local J="$TMPJSON"
+  curl -sS -L --max-time "$TIMEOUT" -o "$J" "$API" 2>/dev/null \
+    || { echo "RESULT: UNREACHABLE"; return 0; }
+  TAG="$(json tag_name "$J")"
+  [ -n "$TAG" ] || { echo "RESULT: UNREACHABLE"; return 0; }
+  conf_set UPDATE_CHECKED "$(date +%s)"   # a release was read: the week starts now
+  LATEST="${TAG#v}"
+  PAGE="$(json html_url "$J")"
+  # the release asset is WoW-v<version>.zip (see CLAUDE.md, "Making a release")
+  local i=0 name
+  ASSET=""; SIZE=""; DIGEST=""
+  while name="$(json "assets.$i.name" "$J")"; [ -n "$name" ]; do
+    case "$name" in
+      WoW-v*.zip) ASSET="$(json "assets.$i.browser_download_url" "$J")"
+                  SIZE="$(json "assets.$i.size" "$J")"
+                  DIGEST="$(json "assets.$i.digest" "$J")"
+                  break ;;
+    esac
+    i=$((i + 1))
+  done
+  echo "LATEST=$LATEST"
+  echo "PAGE=$PAGE"
+  echo "ASSET=$ASSET"
+  echo "SIZE=$SIZE"
+  echo "DIGEST=$DIGEST"
+  # nothing newer, no installable asset, or a release too old to install itself
+  if ver_ge "$CURRENT" "$LATEST" || [ -z "$ASSET" ] || ! ver_ge "$LATEST" "$FLOOR"; then
+    echo "RESULT: CURRENT"; return 0
+  fi
+  if [ "$FORCE" = 0 ] && [ "$(conf_get UPDATE_SKIP)" = "$LATEST" ]; then
+    echo "RESULT: SKIPPED"; return 0
+  fi
+  echo "RESULT: UPDATE"
+}
+
+case "${1:-}" in
+  check) shift; cmd_check "$@" ;;
+  *) echo "usage: wow-update check [--force]"; exit 1 ;;
+esac
