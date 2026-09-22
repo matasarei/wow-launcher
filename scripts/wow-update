@@ -153,6 +153,9 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   STAGE="$(mktemp -d "$PARENT/.wow-update.XXXXXX")"
   echo "downloading the update..."
   curl -sS -L -o "$STAGE/WoW.zip" "$URL" & local PID=$!
+  # Cancel in the launcher terminates this script: take the download with it and
+  # leave nothing behind, the way wow-copy does with its ditto
+  trap 'kill $PID 2>/dev/null; rm -rf "$STAGE"; exit 1' INT TERM HUP
   while kill -0 "$PID" 2>/dev/null; do
     sleep 1
     kill -0 "$PID" 2>/dev/null || break
@@ -200,6 +203,8 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   fi
   # The swap outlives this app, so it runs from its own copy of this script,
   # detached (reparented to launchd) and waiting for the launcher to quit.
+  # from here the staging dir belongs to the swap: a late signal must not take it
+  trap - INT TERM HUP
   cp "$NEW/Contents/Resources/bin/wow-update" "$STAGE/wow-update-swap"
   chmod +x "$STAGE/wow-update-swap"
   # truncated, not appended: one log, about the update that is running now
