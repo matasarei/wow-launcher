@@ -203,6 +203,13 @@ The update is the import run backwards: the release is downloaded beside this
 app, the **new copy** imports the game out of the running one, and the two are
 then swapped. Nothing in the update knows how to patch a client.
 
+`wow-update check [--force]` also prints `REPLACEABLE=1|0` — a real `mktemp` probe in the
+app's folder, which catches a standard user under `/Applications`
+(`drwxrwxr-x root:admin`), a read-only mount and a translocated copy alike. `0` means the
+dialog for a new version drops the Update button and says the update must be done by hand.
+**Nothing in the updater ever escalates**: no `sudo`, no authorization call, no password
+prompt — an updater that can elevate is a much bigger risk than one that declines and says so.
+
 `wow-update check [--force]` asks
 `api.github.com/repos/matasarei/wow-launcher/releases/latest` (never a draft or a
 pre-release) and prints `CURRENT=`, `LATEST=`, `PAGE=`, `ASSET=`, `SIZE=`,
@@ -228,12 +235,23 @@ than this one, and `codesign --verify --deep` intact. Then
 game installed the settings are copied by key instead. Finally a copy of the new
 `wow-update` is spawned detached and `RESTARTING` tells the launcher to quit.
 
-`wow-update swap <pid> <old> <new>` runs from that staging copy, waits for the
-launcher to exit (60 s cap), moves the old app to `~/.Trash` (a taken name gets a
-numbered suffix; its game shares blocks with the new copy, so it costs almost
-nothing), renames the new app to the old one's **exact path and name** — apps get
-renamed, and the Dock and the Local Network grant follow the path — and opens it.
-A failed rename puts the old app back and opens that.
+`wow-update swap <pid> <old> <new>` runs from that staging copy, waits for the launcher to exit
+(60 s cap), then moves the old app **sideways into the staging dir** (not the Trash: while the
+app's path is empty both copies sit in one place, and the rollback is a single rename back),
+renames the new app to the old one's **exact path and name** — apps get renamed, and the Dock
+and the Local Network grant follow the path — and opens it. Only once it has opened does the old
+copy go to `~/.Trash`, with a numbered suffix when the name is taken; its game shares blocks
+with the new copy, so keeping it costs almost nothing. A Trash move that fails is a `NOTE:`, not
+a failure — the update is already done, and the old copy stays in staging.
+
+A failed rename, or a new version that will not open, puts the old app back and opens that. The
+staging dir is deleted only when its name is the `.wow-update.*` one `mktemp` gave it — what is
+deleted comes from an argument, and a mistyped one must not take a folder of apps with it.
+
+**Failures speak.** Everything here happens after the launcher has quit, so each failure path
+writes one line to `logs/update-failed.txt` **inside the app that reopens**. `Store.init` reads
+it (`checkUpdateFailure`), shows it once as an alert with **Open Release Page**, deletes the
+marker, and keeps it as a banner in About until a check gets through.
 
 **What the checks do and do not prove.** The digest comes from the same API as
 the link, so it proves the download arrived intact, not who built it; the ad-hoc
