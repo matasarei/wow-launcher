@@ -44,7 +44,7 @@ chmod +x "$RES/patch-kit/x87sidecar/x87sidecar" "$RES/patch-kit/rosettax87/"*
 WINELOG="$TMP/wine.log"; : > "$WINELOG"
 cat > "$RES/wine/bin/wine" <<'STUB'
 #!/bin/bash
-echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
+echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} PREFIX=${WINEPREFIX:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
 case "$*" in
   *"reg query"*RetinaMode*)  [ -n "${WOW_TEST_RETINA-Y}" ] \
                                && printf '    RetinaMode    REG_SZ    %s\r\n' "${WOW_TEST_RETINA-Y}" ;;
@@ -1285,9 +1285,17 @@ assert_eq "$(stage_count)" "0" "no staging dir survives a refusal"
 # must not look like a game — this is what refused the first update every time
 apply_setup
 fake_proc "$AAPP/Contents/Resources/wine/bin/wineserver"
+: > "$WINELOG"
 OUT="$(apply "$Z" "$(digest_of "$Z")")"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "downloaded 2.10" "a lingering wineserver does not refuse the update"
+# ...it is asked to go instead, against the bundle's own prefix and home —
+# without them the kill would reach some other wineserver, or none
+assert_contains "$(cat "$WINELOG")" \
+  "WINE ARGS: -k | OVR=" "the update asks the leftover wineserver to exit"
+assert_contains "$(grep -- '-k' "$WINELOG" | head -1)" \
+  "PREFIX=$AAPP/Contents/Resources/prefix HOME=$AAPP/Contents/Resources/home" \
+  "with the bundle's prefix and home"
 rm -f "$APP/Contents/Info.plist"; reset_conf
 
 # Cancel in the launcher: the script is terminated, and the download must not

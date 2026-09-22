@@ -150,7 +150,7 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
     && fail "the game is still running — quit it first"
   # ...and a leftover wineserver is asked to go, so nothing holds the prefix
   # that is about to move (wow-launch does the same before a game starts)
-  HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")" \
+  WINEPREFIX="$RES/prefix" HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")" \
     "$RES/wine/bin/wineserver" -k >/dev/null 2>&1 || true
   # beside the app: the swap is then a rename, and the import clones the game
   # (an earlier update whose Trash move failed leaves its staging dir behind —
