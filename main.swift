@@ -1602,21 +1602,26 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 160, ideal: 180)
         } detail: {
-            switch pane ?? .play {
-            case .play: PlayView()
-            case .game: GameView()
-            case .addons: AddOnsView()
-            case .display: DisplayView()
-            case .audio: AudioView()
-            case .about: AboutView()
+            // The update's sheet hangs here rather than beside the verify one:
+            // two .sheet modifiers on a single view are one too many, and the
+            // second is the one that quietly never appears.
+            Group {
+                switch pane ?? .play {
+                case .play: PlayView()
+                case .game: GameView()
+                case .addons: AddOnsView()
+                case .display: DisplayView()
+                case .audio: AudioView()
+                case .about: AboutView()
+                }
+            }
+            .sheet(isPresented: $store.updateSheet) {
+                UpdateSheet().environmentObject(store)
             }
         }
         .frame(minWidth: 680, minHeight: 440)
         .sheet(isPresented: $store.verifySheet) {
             VerifySheet().environmentObject(store)
-        }
-        .sheet(isPresented: $store.updateSheet) {
-            UpdateSheet().environmentObject(store)
         }
         .onChange(of: store.games.isEmpty) { _, empty in
             if empty, pane == .addons || pane == .display || pane == .audio { pane = .play }
