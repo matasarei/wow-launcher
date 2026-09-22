@@ -135,6 +135,10 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   [ -n "$DIGEST" ] || { rm -rf "$STAGE"; fail "the release has no checksum to check against"; }
   [ "$SUM" = "$DIGEST" ] || { rm -rf "$STAGE"; fail "the download does not match its checksum"; }
   ditto -x -k "$STAGE/WoW.zip" "$STAGE/new" 2>/dev/null || { rm -rf "$STAGE"; fail "the download is not a readable archive"; }
+  # A quarantined ad-hoc app is refused outright by modern macOS, with no "Open
+  # Anyway" — and by then the old copy is in the Trash. Same as the documented
+  # `xattr -dr` the release notes tell people to run after a browser download.
+  xattr -dr com.apple.quarantine "$STAGE/new" 2>/dev/null || true
   NEW="$(find "$STAGE/new" -maxdepth 1 -name '*.app' | head -1)"
   [ -n "$NEW" ] || { rm -rf "$STAGE"; fail "the download holds no app"; }
   # the same questions the import asks of a previous app, the other way round

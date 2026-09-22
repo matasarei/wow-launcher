@@ -1190,12 +1190,23 @@ apply() {  # apply <zip> <digest> — against the disposable copy
 apply_setup
 Z="$TMP/rel/WoW-v2.10.zip"
 mk_release_zip "$Z" 2.10
+printf 'RENDERER=mtld3d\n' >> "$AAPP/Contents/Resources/launcher.conf"
 OUT="$(apply "$Z" "$(digest_of "$Z")")"
 assert_contains "$OUT" "downloaded 2.10" "a good release downloads and checks out"
 assert_contains "$OUT" "no game to import" "an empty wrapper carries only its settings"
 assert_contains "$OUT" "RESTARTING" "and hands over to the swap"
 LAST="$(echo "$OUT" | grep '^DOWNLOAD ' | tail -1)"
 assert_eq "$(echo "$LAST" | awk '{print ($2 == $3 && $2 > 0) ? "done" : $0}')" "done" "the last DOWNLOAD line says all of it"
+# the swap that apply spawned lands on its own; then: no quarantine, settings kept
+for _ in $(seq 100); do
+  [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+      "$AAPP/Contents/Info.plist" 2>/dev/null)" = 2.10 ] && break
+  sleep 0.1
+done
+# (the quarantine strip in wow-update is not asserted here: the flag is put on
+# by LaunchServices when a GUI app downloads, and ditto does not carry one from
+# a zip, so this suite cannot reproduce the case it guards against)
+assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RENDERER=mtld3d" "the settings were carried into it"
 stage_count() { find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' '; }
 apply_setup
 # and everything that must stop before anything is installed
