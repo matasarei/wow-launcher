@@ -799,7 +799,12 @@ assert_contains "$(cat "$WINELOG")" "WINE ARGS: -k" "launch stops a leftover win
 ( exec -a "$G/Wow.exe" sleep 3 ) &                    # a game from this copy is running
 FAKE=$!; sleep 0.2
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
-assert_eq "$(grep -c 'WINE ARGS: -k$' "$WINELOG")" "0" "a running game's wineserver is left alone"
+assert_eq "$(grep -c 'WINE ARGS: -k |' "$WINELOG")" "0" "a running game's wineserver is left alone"
+kill "$FAKE" 2>/dev/null; wait "$FAKE" 2>/dev/null
+( exec -a "Z:$(printf '%s' "$G" | tr '/' '\\')\\Wow.exe" sleep 3 ) &   # Wine's own Z:\ form
+FAKE=$!; sleep 0.2
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_eq "$(grep -c 'WINE ARGS: -k |' "$WINELOG")" "0" "a running game in Wine's Z:\\ form is recognised too"
 kill "$FAKE" 2>/dev/null; wait "$FAKE" 2>/dev/null
 
 # ============================================================ Rosetta missing
