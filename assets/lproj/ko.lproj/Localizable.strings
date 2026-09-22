@@ -122,7 +122,6 @@
 "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "이 클라이언트에는 모드 로더가 후킹할 Divx 디코더가 없어 DLL을 추가할 수 없습니다.";
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch는 3.3.5a(12340)와 1.12 클라이언트에만 있습니다. 나머지 단계는 평소대로 적용됩니다.";
 "Close the launcher when the game starts" = "게임이 시작되면 런처 닫기";
-"Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "서버가 로컬 네트워크에 있다면 런처를 열어 두세요 — macOS는 런처의 이름으로 로컬 네트워크 접근 권한을 요청합니다.";
 "Test Connection" = "연결 테스트";
 "Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access." = "선택한 서버에 한 번 연결합니다. 로컬 네트워크에 있는 서버라면 macOS가 로컬 네트워크 접근 권한을 요청하게 됩니다.";
 "Connected to %@ — this server is reachable." = "%@에 연결됨 — 이 서버에 접속할 수 있습니다.";
@@ -134,3 +133,4 @@
 "The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license" = "게임을 시작할 수 없습니다: Rosetta 2가 설치되어 있지 않습니다. 터미널을 열고 다음을 실행하세요: sudo softwareupdate --install-rosetta --agree-to-license";
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2가 설치되어 있지 않아 게임을 시작할 수 없습니다";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2가 설치되어 있지 않아 wine 프리픽스에 저장된 설정을 확인하지 못했습니다.";
+"Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "게임이 앞으로 나오면 런처를 닫습니다. 게임이 실행 중인 동안에는 화면에서만 사라져 로컬 네트워크의 서버 연결이 유지되며, 게임을 종료하면 함께 종료됩니다.";

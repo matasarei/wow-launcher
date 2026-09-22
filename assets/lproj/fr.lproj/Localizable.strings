@@ -122,7 +122,6 @@
 "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "Ce client n'a pas de décodeur Divx où accrocher le chargeur de mods : aucune DLL supplémentaire ne peut lui être ajoutée.";
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch n'existe que pour les clients 3.3.5a (12340) et 1.12 ; les autres niveaux s'appliquent normalement.";
 "Close the launcher when the game starts" = "Fermer le lanceur au démarrage du jeu";
-"Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "Laissez le lanceur ouvert si votre serveur est sur votre réseau local — macOS demande l'accès au réseau local en son nom.";
 "Test Connection" = "Tester la connexion";
 "Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access." = "Se connecte une fois au serveur sélectionné. Pour un serveur sur votre réseau local, cela pousse macOS à demander l'accès au réseau local.";
 "Connected to %@ — this server is reachable." = "Connecté à %@ — ce serveur est joignable.";
@@ -134,3 +133,4 @@
 "The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license" = "Le jeu ne peut pas démarrer : Rosetta 2 n'est pas installé. Ouvrez le Terminal et lancez : sudo softwareupdate --install-rosetta --agree-to-license";
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2 n'est pas installé — le jeu ne peut pas démarrer";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2 n'est pas installé, les réglages conservés dans le préfixe wine n'ont donc pas pu être vérifiés.";
+"Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "Ferme le lanceur dès que le jeu est au premier plan. Tant que le jeu tourne, il quitte seulement l'écran, pour qu'un serveur sur votre réseau local reste connecté ; il se ferme vraiment quand vous quittez le jeu.";

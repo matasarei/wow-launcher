@@ -38,7 +38,6 @@ enum Paths {
     }
     static var addons: String { game + "/Interface/AddOns" }
     static var runPattern: String {
-        let folder = activeGame.isEmpty ? "game" : activeGame
         // The installer records the entrypoint it found (GAME_EXE=); a repack may
         // name it anything, including something like WoWSirus.exe that the fixed
         // patterns below look like they cover and do not. Always append it — a
@@ -50,7 +49,13 @@ enum Paths {
         if !recorded.isEmpty {
             names.append(NSRegularExpression.escapedPattern(for: recorded))
         }
-        return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\](" + names.joined(separator: "|") + ")"
+        // The whole game path, not just its folder name: every copy of the app
+        // has a games/main, and Stop (pkill -9) or a deferred quit must only ever
+        // count this copy's game. rosettax87 shows the path with slashes, Wine's
+        // Wow.exe as Z:\… backslashes, so each separator matches either.
+        let sep = "[/\\\\]"
+        let path = game.split(separator: "/").map { NSRegularExpression.escapedPattern(for: String($0)) }
+        return sep + path.joined(separator: sep) + sep + "(" + names.joined(separator: "|") + ")"
     }
     // Paths is used before any Store exists, so it reads the conf itself.
     static func confValue(_ key: String) -> String {
@@ -242,11 +247,9 @@ final class Store: ObservableObject {
 
     // Cooperative activation (macOS 14+) only lets the frontmost app pass
     // focus on — the game can never take it by itself. So stay alive until
-    // the game window exists and hand activation over. Quitting afterwards is
-    // opt-in (CLOSE_ON_PLAY): macOS asks for Local Network access on behalf of
-    // the app that launched the game; with the launcher already gone when a
-    // LAN realm is contacted, the connection looks silently blocked (#7).
-    // Staying open, the Play pane shows the running game and notices its exit.
+    // the game window exists and hand activation over. The launcher then stays
+    // behind the game; closing it (CLOSE_ON_PLAY, or by hand) is deferred by
+    // deferQuitWhileGameRuns.
     private func focusGame() {
         let pattern = Paths.runPattern
         let deadline = Date().addingTimeInterval(30)
@@ -258,6 +261,7 @@ final class Store: ObservableObject {
                 let winPID = Store.visibleWindowOwner(among: pids)
                 DispatchQueue.main.async {
                     if let pid = winPID, let app = NSRunningApplication(processIdentifier: pid) {
+                        self.gameApp = app
                         NSApp.yieldActivation(to: app)
                         app.activate(options: [])
                         if self.closeOnPlay {
@@ -272,6 +276,78 @@ final class Store: ObservableObject {
             }
         }
         tick()
+    }
+
+    // MARK: a safe close while the game runs
+
+    private var gameApp: NSRunningApplication?   // the game window's owner, found by focusGame
+    private var gameExitObserver: NSObjectProtocol?
+    private var hiddenForGame = false
+    private var quitAfterGame = false            // the game has gone: let the quit through
+
+    // The game is Wine started as the launcher's child and has no identity of
+    // its own, so its local-network access is the launcher's grant — on macOS 27
+    // really quitting cuts a LAN session a few seconds later (#7). So a quit
+    // while the game runs only takes the launcher off the screen (no window, no
+    // Dock icon, no Cmd-Tab) and completes when the game exits. Returns true
+    // when the quit was deferred.
+    func deferQuitWhileGameRuns() -> Bool {
+        if quitAfterGame { return false }
+        if hiddenForGame { return true }
+        let out = shell("/usr/bin/pgrep", ["-f", Paths.runPattern])
+        guard !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !out.hasPrefix("ERROR") else { return false }
+        hideUntilGameExits()
+        return true
+    }
+
+    private func hideUntilGameExits() {
+        hiddenForGame = true
+        if let pid = gameApp?.processIdentifier, gameApp?.isTerminated == false {
+            gameExitObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
+            ) { [weak self] note in
+                guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                      app.processIdentifier == pid else { return }
+                self?.gameExited()
+            }
+        }
+        NSApp.setActivationPolicy(.accessory)
+        NSApp.hide(nil)
+        pollWhileHidden()
+    }
+
+    // The notification is the fast path; this catches a game process macOS
+    // never registered as an app, which would otherwise leave us hidden forever.
+    private func pollWhileHidden() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self, self.hiddenForGame else { return }
+            let pattern = Paths.runPattern
+            DispatchQueue.global().async {
+                let out = shell("/usr/bin/pgrep", ["-f", pattern])
+                // A pgrep that could not run says nothing — keep waiting rather
+                // than quit and cut the session this exists to protect.
+                let gone = out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                DispatchQueue.main.async { gone ? self.gameExited() : self.pollWhileHidden() }
+            }
+        }
+    }
+
+    private func gameExited() {
+        guard hiddenForGame else { return }
+        quitAfterGame = true
+        NSApp.terminate(nil)
+    }
+
+    // Opened again while it waits: the user wants it back, so it stays — as a
+    // normal window with Stop, and without quitting when the game exits.
+    func showAgain() {
+        guard hiddenForGame else { return }
+        hiddenForGame = false
+        if let o = gameExitObserver { NSWorkspace.shared.notificationCenter.removeObserver(o) }
+        gameExitObserver = nil
+        NSApp.setActivationPolicy(.regular)
+        NSApp.unhide(nil)
+        NSApp.activate()
     }
 
     // Window-list metadata needs no Accessibility/Screen Recording permission.
@@ -1310,7 +1386,7 @@ struct PlayView: View {
                     .toggleStyle(.checkbox)
                     .controlSize(.small)
                     .foregroundStyle(.secondary)
-                    .help("Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf.")
+                    .help("Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game.")
             }
             Spacer()
         }
@@ -1785,13 +1861,32 @@ struct AboutView: View {
 
 // MARK: - App
 
+// Quitting while the game runs is deferred (see Store.deferQuitWhileGameRuns);
+// clicking the app meanwhile (Finder, Launchpad, Spotlight) arrives as a
+// reopen — the way back to the window and Stop.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    weak var store: Store?
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        store?.showAgain()
+        return true
+    }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Logout, restart and shutdown carry a quit reason: never hold those up.
+        if NSAppleEventManager.shared().currentAppleEvent?
+            .attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason)) != nil { return .terminateNow }
+        return store?.deferQuitWhileGameRuns() == true ? .terminateCancel : .terminateNow
+    }
+}
+
 @main
 struct WoWLauncherApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = Store()
 
     var body: some Scene {
         Window("WoW Launcher", id: "main") {
             ContentView().environmentObject(store)
+                .onAppear { appDelegate.store = store }
         }
         .defaultSize(width: 780, height: 500)
     }

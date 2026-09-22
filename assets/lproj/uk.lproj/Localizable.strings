@@ -122,7 +122,6 @@
 "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "У цього клієнта немає декодера Divx, за який чіпляється завантажувач модів, тож додати DLL нікуди.";
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch існує лише для клієнтів 3.3.5a (12340) і 1.12; інші рівні застосовуються як звичайно.";
 "Close the launcher when the game starts" = "Закривати лаунчер після запуску гри";
-"Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "Залиште лаунчер відкритим, якщо ваш сервер у локальній мережі — macOS запитує доступ до локальної мережі від його імені.";
 "Test Connection" = "Перевірити з'єднання";
 "Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access." = "Один раз підключається до вибраного сервера. Якщо сервер у локальній мережі, macOS після цього запитає доступ до локальної мережі.";
 "Connected to %@ — this server is reachable." = "Підключено до %@ — сервер доступний.";
@@ -134,3 +133,4 @@
 "The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license" = "Гра не може запуститися: Rosetta 2 не встановлено. Відкрийте Термінал і виконайте: sudo softwareupdate --install-rosetta --agree-to-license";
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2 не встановлено — гра не запуститься";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2 не встановлено, тому налаштування, що зберігаються в префіксі wine, перевірити не вдалося.";
+"Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "Закриває лаунчер, щойно гра на передньому плані. Поки гра запущена, він лише зникає з екрана, щоб сервер у локальній мережі залишався на зв'язку, і завершується, коли ви виходите з гри.";

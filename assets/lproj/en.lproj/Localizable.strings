@@ -122,7 +122,6 @@
 "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it.";
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual.";
 "Close the launcher when the game starts" = "Close the launcher when the game starts";
-"Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf.";
 "Test Connection" = "Test Connection";
 "Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access." = "Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access.";
 "Connected to %@ — this server is reachable." = "Connected to %@ — this server is reachable.";
@@ -134,3 +133,4 @@
 "The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license" = "The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license";
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2 is not installed — the game cannot start";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked.";
+"Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game.";

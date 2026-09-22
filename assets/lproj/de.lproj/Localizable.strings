@@ -122,7 +122,6 @@
 "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "Dieser Client hat keinen Divx-Decoder, in den sich der Mod-Loader einklinken könnte; es lässt sich also keine zusätzliche DLL hinzufügen.";
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch gibt es nur für Clients 3.3.5a (12340) und 1.12; die übrigen Stufen gelten wie gewohnt.";
 "Close the launcher when the game starts" = "Launcher beim Spielstart schließen";
-"Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "Lass den Launcher geöffnet, wenn dein Server im lokalen Netzwerk steht — macOS fragt in seinem Namen nach dem Zugriff aufs lokale Netzwerk.";
 "Test Connection" = "Verbindung testen";
 "Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access." = "Verbindet sich einmal mit dem ausgewählten Server. Bei einem Server im lokalen Netzwerk bringt das macOS dazu, nach dem Zugriff aufs lokale Netzwerk zu fragen.";
 "Connected to %@ — this server is reachable." = "Verbunden mit %@ — dieser Server ist erreichbar.";
@@ -134,3 +133,4 @@
 "The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license" = "Das Spiel kann nicht starten: Rosetta 2 ist nicht installiert. Öffne das Terminal und führe aus: sudo softwareupdate --install-rosetta --agree-to-license";
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2 ist nicht installiert — das Spiel kann nicht starten";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2 ist nicht installiert, daher konnten die im wine-Prefix gespeicherten Einstellungen nicht geprüft werden.";
+"Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "Schließt den Launcher, sobald das Spiel im Vordergrund ist. Solange das Spiel läuft, verschwindet er nur vom Bildschirm, damit ein Server im lokalen Netzwerk verbunden bleibt; beendet wird er, wenn du das Spiel verlässt.";

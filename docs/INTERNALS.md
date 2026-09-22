@@ -147,6 +147,19 @@ identity directly (`awk '/^PROGRESS/ {print $3}' | sort -u` against the step cou
 
 ## Assorted gotchas
 
+- **A leftover `wineserver` breaks LAN play.** Wine creates sockets inside
+  `wineserver` and hands them to the game, and macOS attributes a socket to the
+  app responsible for the process that created it. `wineserver` can outlive the
+  session that started it; once its launcher is gone it is responsible only for
+  itself — unsigned, no Local Network grant — and a new game reusing it hangs at
+  login on a LAN realm even though its own launcher is alive and responsible for
+  the game. `wow-launch` therefore stops any leftover `wineserver` before it
+  starts wine, unless a game from the same copy is still running. The running
+  check matches the copy's whole game path as literal text in both forms
+  (slashes, and Wine's `Z:\` backslashes), and lists processes before grepping
+  them — a `games/main` pattern matched other copies of the app, and a grep in
+  the same pipeline as `ps` matches its own command line.
+
 - **The wine runtime is `x86_64`, so Rosetta 2 is load-bearing.** It is an
   on-demand component and a macOS upgrade can drop it (macOS 27 did): the
   loader then fails to exec with "Bad CPU type in executable", `nohup` writes
@@ -190,12 +203,23 @@ identity directly (`awk '/^PROGRESS/ {print $3}' | sort -u` against the step cou
   RetinaMode=Y the game renders native pixels. `wow-settings auto` keeps both in
   sync with the display; `hwDetect 0` stops the game from overriding seeded settings.
 - **GUI launches have no locale env** — wow-launch exports one explicitly.
-- After Play the manager hands focus to the game window and stays open (the Play
-  pane shows the running game and notices its exit); it quits instead only with
-  `CLOSE_ON_PLAY=1`, the Play-pane checkbox. Staying open is the default because
-  macOS asks for Local Network access on behalf of the launching app — gone, a
-  LAN realm appeared blocked with no prompt (#7). The game is detached and keeps
-  running either way. Script-app launchers that don't check in with
+- After Play the manager hands focus to the game window and stays behind it.
+  A quit while the game runs — Cmd+Q, the menu, or `CLOSE_ON_PLAY=1` right
+  after the handoff — is deferred in `applicationShouldTerminate`: the manager
+  goes off screen (accessory activation policy, hidden: no window, Dock icon or
+  Cmd-Tab entry) and terminates when the game process exits (NSWorkspace's
+  termination notice, a 5 s `pgrep` poll behind it). Reopening the app
+  meanwhile (`applicationShouldHandleReopen`) brings the window back and cancels
+  the pending quit. Logout/restart/shutdown (`kAEQuitReason`) pass straight
+  through. Why it must outlive the game: macOS attributes a child's network traffic to the app that spawned
+  it (TN3179's "responsible code"), and Wine — unsigned, no bundle — has no
+  identity of its own, so the game's Local Network access *is* the launcher's
+  grant. On macOS 27 the connection drops a few seconds after the launcher quits
+  (seen on three Macs, #7). Of TN3179's exemptions — `launchd` daemons, root,
+  tools run from Terminal/SSH — none fits, which is why disclaiming Wine's
+  responsibility would not help; only a nested app opened through
+  LaunchServices would give the game its own grant (unbuilt). The game is
+  detached and keeps running either way. Script-app launchers that don't check in with
   LaunchServices get "not responding" — the compiled SwiftUI binary is what
   fixed that historically.
 
