@@ -1276,6 +1276,24 @@ assert_contains "$OUT" "the game is still running" "an update while the game run
 assert_eq "$(stage_count)" "0" "no staging dir survives a refusal"
 rm -f "$APP/Contents/Info.plist"; reset_conf
 
+# Cancel in the launcher: the script is terminated, and the download must not
+# outlive it (curl is shimmed to hang, so the moment is ours to choose)
+mkdir -p "$TMP/slowcurl"
+cat > "$TMP/slowcurl/curl" <<'STUB'
+#!/bin/bash
+exec sleep 30
+STUB
+chmod +x "$TMP/slowcurl/curl"
+apply_setup
+PATH="$TMP/slowcurl:$PATH" "$AAPP/Contents/Resources/bin/wow-update" \
+  apply "file://$Z" 100 "sha256:x" "$DEAD" >/dev/null 2>&1 &
+APPLY=$!
+for _ in $(seq 50); do [ -n "$(find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' 2>/dev/null)" ] && break; sleep 0.1; done
+kill -TERM "$APPLY" 2>/dev/null; wait "$APPLY" 2>/dev/null
+for _ in $(seq 50); do PS_NOW="$(ps -axww -o command=)"; printf '%s\n' "$PS_NOW" | grep -q '[s]leep 30' || break; sleep 0.1; done
+assert_eq "$(printf '%s\n' "$PS_NOW" | grep -c '[s]leep 30')" "0" "cancelling the update stops the download"
+assert_eq "$(stage_count)" "0" "and leaves no staging dir behind"
+
 # =============================================================== wow-update swap
 section "wow-update swap"
 # the swap replaces the app it was started from, so it runs detached, after the

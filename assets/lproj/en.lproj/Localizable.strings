@@ -166,3 +166,7 @@
 "This version is still installed. You can update by hand from the release page." = "This version is still installed. You can update by hand from the release page.";
 "OK" = "OK";
 "You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page." = "You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page.";
+"Updating" = "Updating";
+"Updating to %@" = "Updating to %@";
+"Your game and settings move to the new version. The app closes and opens again by itself when it is done." = "Your game and settings move to the new version. The app closes and opens again by itself when it is done.";
+"The update was cancelled." = "The update was cancelled.";

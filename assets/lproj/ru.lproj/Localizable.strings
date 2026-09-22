@@ -166,3 +166,7 @@
 "This version is still installed. You can update by hand from the release page." = "Эта версия осталась установленной. Обновить можно вручную со страницы выпуска.";
 "OK" = "OK";
 "You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page." = "У вас %@. Эта копия не может заменить себя там, где она находится — обновите вручную со страницы выпуска.";
+"Updating" = "Обновление";
+"Updating to %@" = "Обновление до %@";
+"Your game and settings move to the new version. The app closes and opens again by itself when it is done." = "Игра и настройки переедут в новую версию. Приложение закроется и откроется само, когда закончит.";
+"The update was cancelled." = "Обновление отменено.";

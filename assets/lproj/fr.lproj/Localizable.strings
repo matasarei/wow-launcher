@@ -166,3 +166,7 @@
 "This version is still installed. You can update by hand from the release page." = "Cette version reste installée. Tu peux mettre à jour à la main depuis la page de la version.";
 "OK" = "OK";
 "You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page." = "Tu as %@. Cette copie ne peut pas se remplacer là où elle est : la mise à jour doit se faire à la main depuis la page de la version.";
+"Updating" = "Mise à jour";
+"Updating to %@" = "Mise à jour vers %@";
+"Your game and settings move to the new version. The app closes and opens again by itself when it is done." = "Ton jeu et tes réglages passent dans la nouvelle version. L’app se ferme et se rouvre toute seule une fois terminée.";
+"The update was cancelled." = "La mise à jour a été annulée.";
