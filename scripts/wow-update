@@ -99,7 +99,60 @@ cmd_check() {
   echo "RESULT: UPDATE"
 }
 
+# Everything below writes: it downloads the release beside this app, checks it,
+# and (step by step) hands it the game. A failure leaves the app as it was.
+fail() { echo "FAIL: $*"; exit 1; }
+
+cmd_apply() {  # cmd_apply <asset url> <size> <digest>
+  local URL="$1" SIZE="${2:-0}" DIGEST="${3#sha256:}"
+  [ -n "$URL" ] || fail "no download URL"
+  case "$SIZE" in ''|*[!0-9]*) SIZE=0 ;; esac
+  local PARENT; PARENT="$(dirname "$APP")"
+  # A copy opened from a quarantined download runs from a read-only image, and
+  # replacing an app needs its folder: say so instead of downloading 250 MB first.
+  case "$APP" in
+    */AppTranslocation/*) fail "this copy runs from a temporary read-only location — move the app to Applications and try again" ;;
+  esac
+  [ -w "$PARENT" ] || fail "$PARENT is not writable — update from the release page instead"
+  # the game writes its WTF and cache on exit, and its files are about to move
+  local PS; PS="$(ps -axww -o command= | tr '\\' /)"
+  printf '%s\n' "$PS" | grep -qF -e "$APP/Contents/Resources/wine/" -e "$APP/Contents/Resources/games/" \
+    && fail "the game is still running — quit it first"
+  # beside the app: the swap is then a rename, and the import clones the game
+  STAGE="$(mktemp -d "$PARENT/.wow-update.XXXXXX")"
+  echo "downloading the update..."
+  curl -sS -L -o "$STAGE/WoW.zip" "$URL" & local PID=$!
+  while kill -0 "$PID" 2>/dev/null; do
+    sleep 1
+    kill -0 "$PID" 2>/dev/null || break
+    # DOWNLOAD lines are progress for the launcher, like wow-copy's COPY lines
+    echo "DOWNLOAD $(stat -f%z "$STAGE/WoW.zip" 2>/dev/null || echo 0) $SIZE"
+  done
+  wait "$PID" || { rm -rf "$STAGE"; fail "the download did not finish"; }
+  echo "DOWNLOAD $SIZE $SIZE"
+  echo "checking the download..."
+  local SUM; SUM="$(shasum -a 256 "$STAGE/WoW.zip" | cut -d' ' -f1)"
+  [ -n "$DIGEST" ] || { rm -rf "$STAGE"; fail "the release has no checksum to check against"; }
+  [ "$SUM" = "$DIGEST" ] || { rm -rf "$STAGE"; fail "the download does not match its checksum"; }
+  ditto -x -k "$STAGE/WoW.zip" "$STAGE/new" 2>/dev/null || { rm -rf "$STAGE"; fail "the download is not a readable archive"; }
+  NEW="$(find "$STAGE/new" -maxdepth 1 -name '*.app' | head -1)"
+  [ -n "$NEW" ] || { rm -rf "$STAGE"; fail "the download holds no app"; }
+  # the same questions the import asks of a previous app, the other way round
+  local NEW_ID NEW_VER
+  NEW_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$NEW/Contents/Info.plist" 2>/dev/null || true)"
+  NEW_VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$NEW/Contents/Info.plist" 2>/dev/null || true)"
+  [ "$NEW_ID" = io.github.matasarei.wow-launcher ] || { rm -rf "$STAGE"; fail "the download is not a WoW Launcher app"; }
+  ver_ge "$NEW_VER" "$FLOOR" || { rm -rf "$STAGE"; fail "$NEW_VER cannot install itself — update from the release page instead"; }
+  ver_ge "$CURRENT" "$NEW_VER" && { rm -rf "$STAGE"; fail "the download is $NEW_VER, not newer than $CURRENT"; }
+  # a release carries a valid deep ad-hoc seal (make sign); a broken one means a
+  # damaged download, not a forgery — nothing here proves who built it
+  codesign --verify --deep "$NEW" 2>/dev/null || { rm -rf "$STAGE"; fail "the downloaded app is damaged (its signature does not check out)"; }
+  echo "downloaded $NEW_VER"
+  echo "READY $NEW"
+}
+
 case "${1:-}" in
   check) shift; cmd_check "$@" ;;
-  *) echo "usage: wow-update check [--force]"; exit 1 ;;
+  apply) shift; cmd_apply "$@" ;;
+  *) echo "usage: wow-update check [--force] | apply <url> <size> <digest>"; exit 1 ;;
 esac

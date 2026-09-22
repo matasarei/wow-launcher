@@ -1148,6 +1148,58 @@ assert_contains "$OUT" "RESULT: UNREACHABLE" "an unreachable API is reported"
 assert_eq "$(grep -c '^UPDATE_CHECKED=' "$RES/launcher.conf")" "0" "and is not remembered as a check"
 rm -f "$APP/Contents/Info.plist"; reset_conf
 
+# ============================================================== wow-update apply
+section "wow-update apply"
+# a release zip: a wrapper of its own, sealed ad-hoc the way a real one is
+mk_release_app() {  # mk_release_app <dir> <version> [<bundle id>]
+  local D="$1/WoW.app"
+  rm -rf "$1"; mkdir -p "$D/Contents/MacOS" "$D/Contents/Resources/bin"
+  mk_plist "$D" "${3:-io.github.matasarei.wow-launcher}" "$2"
+  printf '#!/bin/bash\nexit 0\n' > "$D/Contents/MacOS/WoW Launcher"
+  chmod +x "$D/Contents/MacOS/WoW Launcher"
+  cp "$ROOT/scripts/wow-"* "$D/Contents/Resources/bin/"
+  printf 'AUTO_RES=1\n' > "$D/Contents/Resources/launcher.conf"
+  codesign --force --deep --sign - "$D" 2>/dev/null
+}
+mk_release_zip() {  # mk_release_zip <zip> <version> [<bundle id>]
+  mk_release_app "$TMP/relsrc" "$2" "${3:-}"
+  rm -f "$1"; ditto -c -k --keepParent "$TMP/relsrc/WoW.app" "$1"
+}
+digest_of() { printf 'sha256:%s\n' "$(shasum -a 256 "$1" | cut -d' ' -f1)"; }
+apply() { "$BIN/wow-update" apply "file://$1" "$(stat -f%z "$1")" "$2" 2>&1; }
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.9
+Z="$TMP/rel/WoW-v2.10.zip"
+mk_release_zip "$Z" 2.10
+OUT="$(apply "$Z" "$(digest_of "$Z")")"
+assert_contains "$OUT" "downloaded 2.10" "a good release downloads and checks out"
+assert_contains "$OUT" "READY " "and is unpacked ready to install"
+LAST="$(echo "$OUT" | grep '^DOWNLOAD ' | tail -1)"
+assert_eq "$(echo "$LAST" | awk '{print ($2 == $3 && $2 > 0) ? "done" : $0}')" "done" "the last DOWNLOAD line says all of it"
+stage_count() { find "$(dirname "$APP")" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' '; }
+rm -rf "$(dirname "$APP")"/.wow-update.*
+# and everything that must stop before anything is installed
+assert_contains "$(apply "$Z" sha256:dead)" "does not match its checksum" "a wrong checksum stops it"
+assert_contains "$(apply "$Z" '')" "no checksum" "a release without a checksum stops it"
+assert_eq "$(stage_count)" "0" "and nothing is left behind"
+mk_release_zip "$TMP/rel/foreign.zip" 3.0 com.example.other
+assert_contains "$(apply "$TMP/rel/foreign.zip" "$(digest_of "$TMP/rel/foreign.zip")")" \
+  "not a WoW Launcher app" "a foreign app is refused"
+mk_release_zip "$TMP/rel/old.zip" 2.2
+assert_contains "$(apply "$TMP/rel/old.zip" "$(digest_of "$TMP/rel/old.zip")")" \
+  "cannot install itself" "a pre-2.9 download is refused"
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.11
+assert_contains "$(apply "$Z" "$(digest_of "$Z")")" "not newer than 2.11" "a download that is not newer is refused"
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.9
+printf 'not a zip\n' > "$TMP/rel/broken.zip"
+assert_contains "$(apply "$TMP/rel/broken.zip" "$(digest_of "$TMP/rel/broken.zip")")" \
+  "not a readable archive" "a corrupt archive is refused"
+fake_proc "$APP/Contents/Resources/wine/bin/wineserver"
+OUT="$(apply "$Z" "$(digest_of "$Z")")"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$OUT" "the game is still running" "an update while the game runs is refused"
+assert_eq "$(stage_count)" "0" "no staging dir survives a refusal"
+rm -f "$APP/Contents/Info.plist"; reset_conf
+
 # ================================================================== Swift sources
 section "Swift sources"
 # SDK 27 makes @State an Xcode-only macro; the bare Command Line Tools cannot
