@@ -23,7 +23,7 @@ export WINEPREFIX="$RES/prefix"
 # app has its own games/main, and its game must not stop this one cleaning up.
 # rosettax87 shows the path with slashes, Wine's Wow.exe as Z:\… backslashes.
 WIN_GAME="Z:$(printf '%s' "$GAME" | tr '/' '\\')"
-PROCS="$(ps -axo command=)"   # listed first: a grep in the same pipeline would match itself
+PROCS="$(ps -wwaxo command=)"   # listed first: a grep in the same pipeline would match itself
 if ! printf '%s\n' "$PROCS" | grep -qF -e "$GAME/" -e "$WIN_GAME\\"; then
   "$RES/wine/bin/wineserver" -k >/dev/null 2>&1 || true
 fi
