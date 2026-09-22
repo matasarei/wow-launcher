@@ -19,6 +19,7 @@ jobs:
   test:
     name: Script tests
     runs-on: macos-15
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - name: make test
@@ -27,6 +28,7 @@ jobs:
   compile:
     name: Swift compiles
     runs-on: macos-15
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - name: make compile
@@ -40,6 +42,7 @@ jobs:
   compile-clt:
     name: Swift compiles (Command Line Tools, SDK 27)
     runs-on: xcode-27
+    timeout-minutes: 5
     env:
       DEVELOPER_DIR: /Library/Developer/CommandLineTools
     steps:
@@ -64,6 +67,7 @@ jobs:
   strings:
     name: Localization parity
     runs-on: macos-15
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       # Also covered by `make test`, but as its own job the red X names the
@@ -75,6 +79,7 @@ jobs:
     name: Tag matches the bundle version
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: macos-15
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - name: Compare the tag with CFBundleShortVersionString

@@ -1142,6 +1142,27 @@ assert_contains "$(check newer.json)" "RESULT: SKIPPED" "a skipped version stays
 assert_contains "$(check newer.json --force)" "RESULT: UPDATE" "the button offers it anyway"
 reset_conf; echo 'UPDATE_SKIP=2.9' >> "$RES/launcher.conf"
 assert_contains "$(check newer.json)" "RESULT: UPDATE" "a newer version than the skipped one is offered"
+# an older plutil (macOS 15, the CI runner) prints its "no value at that key
+# path" error on stdout: the asset walk must end on the exit status, not on an
+# empty answer, or it never ends at all
+mkdir -p "$TMP/oldplutil"
+cat > "$TMP/oldplutil/plutil" <<'STUB'
+#!/bin/bash
+OUT="$(/usr/bin/plutil "$@" 2>&1)"; RC=$?
+printf '%s\n' "$OUT"
+exit "$RC"
+STUB
+chmod +x "$TMP/oldplutil/plutil"
+reset_conf
+# noasset.json: the walk runs off the end of the list, which is where an empty
+# answer never comes and the old loop span forever
+OUT="$(PATH="$TMP/oldplutil:$PATH" perl -e 'alarm 30; exec @ARGV' \
+  env WOW_UPDATE_API="file://$TMP/rel/noasset.json" "$BIN/wow-update" check 2>&1)"
+assert_contains "$OUT" "RESULT: CURRENT" "an error-on-stdout plutil does not hang the asset walk"
+reset_conf
+OUT="$(PATH="$TMP/oldplutil:$PATH" perl -e 'alarm 30; exec @ARGV' \
+  env WOW_UPDATE_API="file://$TMP/rel/newer.json" "$BIN/wow-update" check 2>&1)"
+assert_contains "$OUT" "ASSET=file://$TMP/rel/WoW-v2.10.zip" "and still finds the asset"
 # a folder that cannot be written: the update has to be done by hand
 reset_conf
 OUT="$(chmod a-w "$TMP"; check newer.json; chmod u+w "$TMP")"

@@ -91,9 +91,16 @@ cmd_check() {
   LATEST="${TAG#v}"
   PAGE="$(json html_url "$J")"
   # the release asset is WoW-v<version>.zip (see CLAUDE.md, "Making a release")
-  local i=0 name
+  # How many assets there are, asked rather than guessed: `-extract <array> raw`
+  # prints the element count. Anything that is not a number — an older plutil
+  # answering on stdout, a release shaped differently — counts as none, so the
+  # walk cannot run off the end looking for an answer that never comes.
+  local i=0 count name
+  count="$(json assets "$J")"
+  case "$count" in ''|*[!0-9]*) count=0 ;; esac
   ASSET=""; SIZE=""; DIGEST=""
-  while name="$(json "assets.$i.name" "$J")"; [ -n "$name" ]; do
+  while [ "$i" -lt "$count" ]; do
+    name="$(json "assets.$i.name" "$J")"
     case "$name" in
       WoW-v*.zip) ASSET="$(json "assets.$i.browser_download_url" "$J")"
                   SIZE="$(json "assets.$i.size" "$J")"
