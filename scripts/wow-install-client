@@ -36,20 +36,20 @@ case "$SRC" in
     OLD_VER="$(plist CFBundleShortVersionString)"
     case "$(plist CFBundleIdentifier)" in
       io.github.matasarei.wow-launcher) ;;
-      local.wow335.singleapp) echo "$OLD_NAME ${OLD_VER:-(no version)} is too old to install from — WoW Launcher 2.1 or later is needed"; exit 1 ;;
+      local.wow335.singleapp) echo "$OLD_NAME ${OLD_VER:-(no version)} is too old to import from — WoW Launcher 2.1 or later is needed"; exit 1 ;;
       *) echo "not a WoW Launcher app: $OLD_NAME"; exit 1 ;;
     esac
     MAJ="${OLD_VER%%.*}"; MIN="${OLD_VER#"$MAJ"}"; MIN="${MIN#.}"; MIN="${MIN%%.*}"
     case "$MAJ" in ''|*[!0-9]*) MAJ=0 ;; esac
     case "$MIN" in ''|*[!0-9]*) MIN=0 ;; esac
     if [ "$MAJ" -lt 2 ] || { [ "$MAJ" = 2 ] && [ "$MIN" -lt 1 ]; }; then
-      echo "$OLD_NAME ${OLD_VER:-(no version)} is too old to install from — WoW Launcher 2.1 or later is needed"; exit 1
+      echo "$OLD_NAME ${OLD_VER:-(no version)} is too old to import from — WoW Launcher 2.1 or later is needed"; exit 1
     fi
     [ "$OLD" = "$(cd "$APP" && pwd -P)" ] && { echo "that is this launcher itself — choose the previous app"; exit 1; }
     OLD_RES="$OLD/Contents/Resources"
     OLD_GAME="$(grep -sE '^GAME=' "$OLD_RES/launcher.conf" | head -1 | cut -d= -f2-)"
     SRC="$OLD_RES/games/${OLD_GAME:-main}"
-    [ -n "$(ls "$SRC" 2>/dev/null)" ] || { echo "$OLD_NAME has no game installed — nothing to install from"; exit 1; }
+    [ -n "$(ls "$SRC" 2>/dev/null)" ] || { echo "$OLD_NAME has no game installed — nothing to import"; exit 1; }
     # the old launcher or its game still running: WTF and Cache are written on
     # exit, and its wineserver may hold files open mid-copy. Processes show the
     # path they were started by, which may be a symlinked one (/tmp for
@@ -60,7 +60,7 @@ case "$SRC" in
     printf '%s\n' "$PS" | grep -qF -e "$OLD/Contents/" -e "$GIVEN/Contents/" \
       && { echo "$OLD_NAME is still running — quit it and its game first"; exit 1; }
     MIGRATE=1
-    echo "installing from $OLD_NAME $OLD_VER"
+    echo "importing from $OLD_NAME $OLD_VER"
     ;;
 esac
 # Fingerprint the source BEFORE touching any existing install: what the client
@@ -352,7 +352,7 @@ fi
 # the .bak / icon-backup originals the old app left beside them.
 if [ "$MIGRATE" = 1 ]; then
   "$BIN/wow-verify-game" --fix | grep -E '\(fixed\)|^(FAIL|WARN):' || true
-  echo "game installed ($V) from $OLD_NAME $OLD_VER"
+  echo "game installed ($V), imported from $OLD_NAME $OLD_VER"
 else
   echo "game installed ($V)"
 fi

@@ -136,12 +136,12 @@
 "Rosetta 2 is not installed — the game cannot start" = "未安装 Rosetta 2——游戏无法启动";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "未安装 Rosetta 2，因此无法检查保存在 wine 前缀中的设置。";
 "Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "游戏切换到前台后关闭启动器。游戏运行期间它只是从屏幕上消失，以便局域网中的服务器保持连接；退出游戏时它才真正退出。";
-"Install from Previous App…" = "从旧版应用安装…";
-"Install from Previous App" = "从旧版应用安装";
+"Import from Previous App…" = "从旧版应用导入…";
+"Import from Previous App" = "从旧版应用导入";
 "Choose an older WoW Launcher app (2.1 or later) — its game is copied and verified, the app itself is left as it is" = "选择一个较旧的 WoW Launcher 应用（2.1 或更高版本）——复制并验证其中的游戏，应用本身保持不变";
-"This app cannot be installed from" = "无法从此应用安装";
+"Nothing can be imported from this app" = "无法从此应用导入";
 "That is this launcher itself — choose the previous copy." = "这就是当前启动器本身——请选择之前的副本。";
 "%@ is not a WoW Launcher app." = "%@ 不是 WoW Launcher 应用。";
-"%@ %@ is too old to install from — WoW Launcher 2.1 or later is needed." = "%@ %@ 版本太旧，无法从中安装——需要 WoW Launcher 2.1 或更高版本。";
-"Installed from %@, which was left as it is — it can be deleted once the game runs." = "已从 %@ 安装，该应用保持不变——游戏运行正常后即可删除它。";
+"%@ %@ is too old to import from — WoW Launcher 2.1 or later is needed." = "%@ %@ 版本太旧，无法从中导入——需要 WoW Launcher 2.1 或更高版本。";
+"Imported from %@, which was left as it is — it can be deleted once the game runs." = "已从 %@ 导入，该应用保持不变——游戏运行正常后即可删除它。";
 "Take the game from an older copy of this app — already patched, only copied and verified" = "从此应用的旧副本中获取游戏——已打过补丁，只需复制并验证";

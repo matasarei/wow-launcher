@@ -162,7 +162,7 @@ out of reach of `set -e`, so `wow-copy` hands its exit status back through
 Within a single volume ditto clones instead of copying (`--clone`, asked for
 explicitly), so the bar only ever moves on a copy from another drive.
 
-## Install from a previous app (2.9)
+## Import from a previous app (2.9)
 
 `wow-install-client /path/Old.app` takes the game from an older copy of this
 app — the usual way to update, since the previous version is simply there in

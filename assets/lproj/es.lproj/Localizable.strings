@@ -136,12 +136,12 @@
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2 no está instalado: el juego no puede iniciarse";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2 no está instalado, así que no se pudieron comprobar los ajustes guardados en el prefijo de wine.";
 "Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "Cierra el lanzador en cuanto el juego pasa a primer plano. Mientras el juego sigue abierto solo desaparece de la pantalla, para que un servidor de tu red local siga conectado; se cierra del todo al salir del juego.";
-"Install from Previous App…" = "Instalar desde una app anterior…";
-"Install from Previous App" = "Instalar desde una app anterior";
+"Import from Previous App…" = "Importar desde una app anterior…";
+"Import from Previous App" = "Importar desde una app anterior";
 "Choose an older WoW Launcher app (2.1 or later) — its game is copied and verified, the app itself is left as it is" = "Elige una app WoW Launcher anterior (2.1 o posterior): su juego se copia y se verifica, la app queda tal cual";
-"This app cannot be installed from" = "No se puede instalar desde esta app";
+"Nothing can be imported from this app" = "No se puede importar nada desde esta app";
 "That is this launcher itself — choose the previous copy." = "Es este mismo launcher: elige la copia anterior.";
 "%@ is not a WoW Launcher app." = "%@ no es una app WoW Launcher.";
-"%@ %@ is too old to install from — WoW Launcher 2.1 or later is needed." = "%@ %@ es demasiado antigua para instalar desde ella: se necesita WoW Launcher 2.1 o posterior.";
-"Installed from %@, which was left as it is — it can be deleted once the game runs." = "Instalado desde %@, que quedó tal cual: puedes borrarla cuando el juego funcione.";
+"%@ %@ is too old to import from — WoW Launcher 2.1 or later is needed." = "%@ %@ es demasiado antigua para importar desde ella: se necesita WoW Launcher 2.1 o posterior.";
+"Imported from %@, which was left as it is — it can be deleted once the game runs." = "Importado desde %@, que quedó tal cual: puedes borrarla cuando el juego funcione.";
 "Take the game from an older copy of this app — already patched, only copied and verified" = "Toma el juego de una copia anterior de esta app: ya parcheado, solo se copia y se verifica";

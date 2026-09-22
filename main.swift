@@ -154,7 +154,7 @@ final class Store: ObservableObject {
     // step with no measurable progress runs), and one line saying what it is.
     @Published var installProgress: Double? = nil
     @Published var installStatus = ""
-    private var installSourceApp: String?   // set while installing from a previous app
+    private var installSourceApp: String?   // set while importing from a previous app
 
     init() {
         loadSettings()
@@ -855,7 +855,7 @@ final class Store: ObservableObject {
     // for a proper dialog — the script checks again and is the one that decides.
     func installFromAppPanel() {
         presentOpenPanel({ panel in
-            panel.title = L("Install from Previous App")
+            panel.title = L("Import from Previous App")
             panel.message = L("Choose an older WoW Launcher app (2.1 or later) — its game is copied and verified, the app itself is left as it is")
             panel.canChooseFiles = true
             panel.canChooseDirectories = false
@@ -866,7 +866,7 @@ final class Store: ObservableObject {
             if let why = Store.previousAppProblem(url) {
                 let a = NSAlert()
                 a.alertStyle = .warning
-                a.messageText = L("This app cannot be installed from")
+                a.messageText = L("Nothing can be imported from this app")
                 a.informativeText = why
                 a.runModal()
                 return
@@ -892,7 +892,7 @@ final class Store: ObservableObject {
             return LF("%@ is not a WoW Launcher app.", name)
         }
         if tooOld {
-            return LF("%@ %@ is too old to install from — WoW Launcher 2.1 or later is needed.", name, version)
+            return LF("%@ %@ is too old to import from — WoW Launcher 2.1 or later is needed.", name, version)
         }
         return nil
     }
@@ -985,7 +985,7 @@ final class Store: ObservableObject {
         refreshAddons()
         if lines.contains(where: { $0.contains("game installed") }) {
             if let old = installSourceApp {
-                note = LF("Installed from %@, which was left as it is — it can be deleted once the game runs.", old)
+                note = LF("Imported from %@, which was left as it is — it can be deleted once the game runs.", old)
             }
             verifyGame()   // confirm the fresh install right away
         }
@@ -1485,7 +1485,7 @@ struct PlayView: View {
                 .controlSize(.large)
                 .disabled(store.busy)
                 .padding(.top, 8)
-                Button("Install from Previous App…") { store.installFromAppPanel() }
+                Button("Import from Previous App…") { store.installFromAppPanel() }
                     .buttonStyle(.link)
                     .disabled(store.busy)
                     .help("Take the game from an older copy of this app — already patched, only copied and verified")
@@ -1575,7 +1575,7 @@ struct GameView: View {
                         Label("Install New Game…", systemImage: "plus")
                     }
                     .disabled(store.busy)
-                    Button("Install from Previous App…") { store.installFromAppPanel() }
+                    Button("Import from Previous App…") { store.installFromAppPanel() }
                         .disabled(store.busy)
                         .help("Take the game from an older copy of this app — already patched, only copied and verified")
                     if store.busy && store.installStatus.isEmpty { ProgressView().controlSize(.small) }
