@@ -157,9 +157,22 @@ final class Store: ObservableObject {
     private var installSourceApp: String?   // set while installing from a previous app
 
     init() {
+        loadSettings()
+        refreshDisplays()
+        refreshGames()
+        refreshRealms()
+        refreshAddons()
+        refreshStatus()
+        checkRunning()
+        checkRosetta()
+    }
+
+    // The choices the panes show, from launcher.conf. Read again after an
+    // install: one from a previous app rewrites them underneath the window.
+    func loadSettings() {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         let r = confGet("RENDERER")
-        if !r.isEmpty { renderer = r }
+        renderer = r.isEmpty ? "dxvk" : r
         // on unless launcher.conf says 0 — absent = on, the AUTO_RES idiom wow-launch mirrors
         let sp = confGet("SPATIAL_AUDIO"), nm = confGet("NORMALIZE_AUDIO")
         spatialAudio = sp.isEmpty || sp == "1"
@@ -168,13 +181,7 @@ final class Store: ObservableObject {
         let lvl = confGet("PATCHES")
         if ["all", "no-silicon", "winerosetta", "none"].contains(lvl) { patches = lvl }
         else if confGet("SILICON") == "0" { patches = "no-silicon" }   // pre-2.4 toggle
-        refreshDisplays()
-        refreshGames()
-        refreshRealms()
-        refreshAddons()
-        refreshStatus()
-        checkRunning()
-        checkRosetta()
+        else { patches = "all" }
     }
 
     func checkRosetta() {
@@ -971,6 +978,7 @@ final class Store: ObservableObject {
         installProgress = nil
         installStatus = ""
         note = lines.suffix(2).joined(separator: " — ")
+        loadSettings()
         refreshGames()
         refreshStatus()
         refreshRealms()
