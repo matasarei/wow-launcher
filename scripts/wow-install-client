@@ -127,6 +127,7 @@ echo "copying client..."
 # and where it sits on screen are this install's to work out.
 if [ "$MIGRATE" = 1 ]; then
   KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA'
+  KEYS="$KEYS|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP"   # see wow-update
   CARRY="$(grep -sE "^($KEYS)=" "$OLD_RES/launcher.conf" || true)"
   # SILICON= is the pre-2.4 PATCHES: carried only when there is nothing newer
   printf '%s\n' "$CARRY" | grep -qE '^PATCHES=' && CARRY="$(printf '%s\n' "$CARRY" | grep -vE '^SILICON=')"

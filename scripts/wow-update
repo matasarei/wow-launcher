@@ -103,8 +103,8 @@ cmd_check() {
 # and (step by step) hands it the game. A failure leaves the app as it was.
 fail() { echo "FAIL: $*"; exit 1; }
 
-cmd_apply() {  # cmd_apply <asset url> <size> <digest>
-  local URL="$1" SIZE="${2:-0}" DIGEST="${3#sha256:}"
+cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
+  local URL="$1" SIZE="${2:-0}" DIGEST="${3#sha256:}" WAIT="${4:-$PPID}"
   [ -n "$URL" ] || fail "no download URL"
   case "$SIZE" in ''|*[!0-9]*) SIZE=0 ;; esac
   local PARENT; PARENT="$(dirname "$APP")"
@@ -148,7 +148,28 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest>
   # damaged download, not a forgery — nothing here proves who built it
   codesign --verify --deep "$NEW" 2>/dev/null || { rm -rf "$STAGE"; fail "the downloaded app is damaged (its signature does not check out)"; }
   echo "downloaded $NEW_VER"
-  echo "READY $NEW"
+  # The import is run BY the new copy over this one: it carries the game, the
+  # kit references and the settings, and only it knows how (wow-install-client).
+  if [ -n "$(ls "$RES/games" 2>/dev/null)" ]; then
+    echo "importing the game into $NEW_VER..."
+    "$NEW/Contents/Resources/bin/wow-install-client" --updating "$APP" \
+      || { rm -rf "$STAGE"; fail "the game could not be imported into $NEW_VER"; }
+  else
+    # nothing to import, so carry the settings the import would have carried
+    # (the same keys as wow-install-client's KEYS, minus the ones it recomputes)
+    local KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP'
+    local NEW_CONF="$NEW/Contents/Resources/launcher.conf"
+    { grep -svE "^($KEYS)=" "$NEW_CONF"; grep -sE "^($KEYS)=" "$CONF"; } > "$NEW_CONF.tmp" || true
+    mv "$NEW_CONF.tmp" "$NEW_CONF"
+    echo "no game to import — settings carried over"
+  fi
+  # The swap outlives this app, so it runs from its own copy of this script,
+  # detached (reparented to launchd) and waiting for the launcher to quit.
+  cp "$NEW/Contents/Resources/bin/wow-update" "$STAGE/wow-update-swap"
+  chmod +x "$STAGE/wow-update-swap"
+  nohup "$STAGE/wow-update-swap" swap "$WAIT" "$APP" "$NEW" \
+    >> "${TMPDIR:-/tmp}/wow-update-swap.log" 2>&1 &
+  echo "RESTARTING"
 }
 
 # The swap runs detached, from the staging copy of this script, after the

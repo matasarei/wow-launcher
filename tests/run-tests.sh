@@ -1166,34 +1166,56 @@ mk_release_zip() {  # mk_release_zip <zip> <version> [<bundle id>]
   rm -f "$1"; ditto -c -k --keepParent "$TMP/relsrc/WoW.app" "$1"
 }
 digest_of() { printf 'sha256:%s\n' "$(shasum -a 256 "$1" | cut -d' ' -f1)"; }
-apply() { "$BIN/wow-update" apply "file://$1" "$(stat -f%z "$1")" "$2" 2>&1; }
-mk_plist "$APP" io.github.matasarei.wow-launcher 2.9
+mkdir -p "$TMP/swap/Trash"
+cat > "$TMP/swap/open" <<'STUB'
+#!/bin/bash
+echo "OPEN $*" >> "$WOW_TEST_OPENLOG"
+STUB
+chmod +x "$TMP/swap/open"
+export WOW_TEST_OPENLOG="$TMP/swap/open.log"
+(exec -a wow-swap-probe sleep 0) & DEAD=$!; wait "$DEAD" 2>/dev/null   # a pid that has certainly exited
+# a disposable copy of this wrapper: apply ends by replacing the app it runs
+# from, which must never be the one the rest of the suite uses
+AAPP="$TMP/applytest/WoW.app"
+apply_setup() {
+  rm -rf "$TMP/applytest"; mkdir -p "$TMP/applytest"
+  cp -R "$APP" "$AAPP"
+  rm -rf "$AAPP/Contents/Resources/games"/*
+  mk_plist "$AAPP" io.github.matasarei.wow-launcher "${1:-2.9}"
+}
+apply() {  # apply <zip> <digest> — against the disposable copy
+  WOW_UPDATE_TRASH="$TMP/swap/Trash" WOW_UPDATE_OPEN="$TMP/swap/open" \
+    "$AAPP/Contents/Resources/bin/wow-update" apply "file://$1" "$(stat -f%z "$1")" "$2" "$DEAD" 2>&1
+}
+apply_setup
 Z="$TMP/rel/WoW-v2.10.zip"
 mk_release_zip "$Z" 2.10
 OUT="$(apply "$Z" "$(digest_of "$Z")")"
 assert_contains "$OUT" "downloaded 2.10" "a good release downloads and checks out"
-assert_contains "$OUT" "READY " "and is unpacked ready to install"
+assert_contains "$OUT" "no game to import" "an empty wrapper carries only its settings"
+assert_contains "$OUT" "RESTARTING" "and hands over to the swap"
 LAST="$(echo "$OUT" | grep '^DOWNLOAD ' | tail -1)"
 assert_eq "$(echo "$LAST" | awk '{print ($2 == $3 && $2 > 0) ? "done" : $0}')" "done" "the last DOWNLOAD line says all of it"
-stage_count() { find "$(dirname "$APP")" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' '; }
-rm -rf "$(dirname "$APP")"/.wow-update.*
+stage_count() { find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' '; }
+apply_setup
 # and everything that must stop before anything is installed
 assert_contains "$(apply "$Z" sha256:dead)" "does not match its checksum" "a wrong checksum stops it"
 assert_contains "$(apply "$Z" '')" "no checksum" "a release without a checksum stops it"
 assert_eq "$(stage_count)" "0" "and nothing is left behind"
+apply_setup
 mk_release_zip "$TMP/rel/foreign.zip" 3.0 com.example.other
 assert_contains "$(apply "$TMP/rel/foreign.zip" "$(digest_of "$TMP/rel/foreign.zip")")" \
   "not a WoW Launcher app" "a foreign app is refused"
 mk_release_zip "$TMP/rel/old.zip" 2.2
 assert_contains "$(apply "$TMP/rel/old.zip" "$(digest_of "$TMP/rel/old.zip")")" \
   "cannot install itself" "a pre-2.9 download is refused"
-mk_plist "$APP" io.github.matasarei.wow-launcher 2.11
+apply_setup 2.11
 assert_contains "$(apply "$Z" "$(digest_of "$Z")")" "not newer than 2.11" "a download that is not newer is refused"
-mk_plist "$APP" io.github.matasarei.wow-launcher 2.9
+apply_setup
 printf 'not a zip\n' > "$TMP/rel/broken.zip"
 assert_contains "$(apply "$TMP/rel/broken.zip" "$(digest_of "$TMP/rel/broken.zip")")" \
   "not a readable archive" "a corrupt archive is refused"
-fake_proc "$APP/Contents/Resources/wine/bin/wineserver"
+fake_proc "$AAPP/Contents/Resources/wine/bin/wineserver"
 OUT="$(apply "$Z" "$(digest_of "$Z")")"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "the game is still running" "an update while the game runs is refused"
@@ -1205,13 +1227,7 @@ section "wow-update swap"
 # the swap replaces the app it was started from, so it runs detached, after the
 # launcher has quit — here with a pid that is already gone, a fake Trash and a
 # stub for `open`
-mkdir -p "$TMP/swap/Applications" "$TMP/swap/Trash"
-cat > "$TMP/swap/open" <<'STUB'
-#!/bin/bash
-echo "OPEN $*" >> "$WOW_TEST_OPENLOG"
-STUB
-chmod +x "$TMP/swap/open"
-export WOW_TEST_OPENLOG="$TMP/swap/open.log"
+mkdir -p "$TMP/swap/Applications"
 swap_setup() {  # a 2.9 app in place, a 2.10 one staged beside it
   rm -rf "$TMP/swap/Applications" "$TMP/swap/Trash" "$WOW_TEST_OPENLOG"
   mkdir -p "$TMP/swap/Applications" "$TMP/swap/Trash"
@@ -1224,7 +1240,6 @@ swap_run() {  # swap_run <pid>
     "$BIN/wow-update" swap "$1" "$TMP/swap/Applications/AzerothCore.app" \
       "$TMP/swap/Applications/.wow-update.test/new/WoW.app" 2>&1
 }
-(exec -a wow-swap-probe sleep 0) & DEAD=$!; wait "$DEAD" 2>/dev/null   # a pid that has certainly exited
 swap_setup
 OUT="$(swap_run "$DEAD")"
 assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
@@ -1254,6 +1269,48 @@ assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
 kill "$RUNNING" 2>/dev/null; wait "$WAITER" 2>/dev/null
 assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
   "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.10" "and swaps once it has"
+
+# ========================================================= wow-update end to end
+section "wow-update: download, import, swap"
+# a whole update against a copy of this wrapper: its own game, its own settings,
+# a release built from the same wrapper with a higher version
+mkdir -p "$TMP/e2e/Applications" "$TMP/e2e/Trash"
+E2E="$TMP/e2e/Applications/AzerothCore.app"
+rm -rf "$RES/games"/* "$RES/patch-kit/"DivxDecoder.dll.*; reset_conf
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.9
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+printf 'RENDERER=mtld3d\nCLOSE_ON_PLAY=1\nUPDATE_SKIP=2.98\n' >> "$RES/launcher.conf"
+cp -R "$APP" "$E2E"                                   # the app being updated
+rm -rf "$RES/games"/* "$RES/patch-kit/"DivxDecoder.dll.*; reset_conf
+rm -f "$APP/Contents/Info.plist"
+mk_plist "$E2E" io.github.matasarei.wow-launcher 2.9
+rm -rf "$TMP/e2e/rel"; mkdir -p "$TMP/e2e/rel/WoW.app"   # the release: same wrapper, 2.99
+cp -R "$E2E/" "$TMP/e2e/rel/WoW.app/"
+rm -rf "$TMP/e2e/rel/WoW.app/Contents/Resources/games"/*
+printf 'AUTO_RES=1\n' > "$TMP/e2e/rel/WoW.app/Contents/Resources/launcher.conf"
+mk_plist "$TMP/e2e/rel/WoW.app" io.github.matasarei.wow-launcher 2.99
+codesign --force --deep --sign - "$TMP/e2e/rel/WoW.app" 2>/dev/null
+EZ="$TMP/e2e/WoW-v2.99.zip"; ditto -c -k --keepParent "$TMP/e2e/rel/WoW.app" "$EZ"
+OUT="$(WOW_UPDATE_TRASH="$TMP/e2e/Trash" WOW_UPDATE_OPEN="$TMP/swap/open" \
+  "$E2E/Contents/Resources/bin/wow-update" apply \
+  "file://$EZ" "$(stat -f%z "$EZ")" "$(digest_of "$EZ")" "$DEAD" 2>&1)"
+assert_contains "$OUT" "importing the game into 2.99" "the update imports the game"
+assert_contains "$OUT" "game installed (3.3.5a)" "and the import runs from the new copy"
+assert_contains "$OUT" "RESTARTING" "then hands over to the swap"
+for _ in $(seq 100); do   # the swap is detached: wait for it to land
+  [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+      "$E2E/Contents/Info.plist" 2>/dev/null)" = 2.99 ] && break
+  sleep 0.1
+done
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "$E2E/Contents/Info.plist" 2>/dev/null)" "2.99" "the app at the old path is the new version"
+assert_file "$E2E/Contents/Resources/games/main/Wow.exe"
+CONF="$(cat "$E2E/Contents/Resources/launcher.conf")"
+assert_contains "$CONF" "RENDERER=mtld3d" "the settings came with it"
+assert_contains "$CONF" "UPDATE_SKIP=2.98" "the update settings too"
+assert_contains "$CONF" "GAME_VERSION=3.3.5a" "and the game is recorded"
+assert_file "$TMP/e2e/Trash/AzerothCore.app/Contents/Info.plist"
+assert_eq "$(find "$TMP/e2e/Applications" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' ')" "0" "no staging dir is left"
 
 # ================================================================== Swift sources
 section "Swift sources"
