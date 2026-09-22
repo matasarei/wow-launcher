@@ -242,11 +242,11 @@ final class Store: ObservableObject {
 
     // Cooperative activation (macOS 14+) only lets the frontmost app pass
     // focus on — the game can never take it by itself. So stay alive until
-    // the game window exists and hand activation over. Quitting afterwards is
-    // opt-in (CLOSE_ON_PLAY): macOS asks for Local Network access on behalf of
-    // the app that launched the game; with the launcher already gone when a
-    // LAN realm is contacted, the connection looks silently blocked (#7).
-    // Staying open, the Play pane shows the running game and notices its exit.
+    // the game window exists and hand activation over. Then get out of sight
+    // but stay alive: the game is Wine started as the launcher's child and has
+    // no identity of its own, so its local-network access is the launcher's
+    // grant — on macOS 27 quitting cuts a LAN session a few seconds later (#7).
+    // Quitting right away is opt-in (CLOSE_ON_PLAY).
     private func focusGame() {
         let pattern = Paths.runPattern
         let deadline = Date().addingTimeInterval(30)
@@ -262,6 +262,8 @@ final class Store: ObservableObject {
                         app.activate(options: [])
                         if self.closeOnPlay {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+                        } else {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.hideUntilGameExits(app) }
                         }
                     } else if Date() >= deadline || !NSApp.isActive {
                         if self.closeOnPlay { NSApp.terminate(nil) }
@@ -272,6 +274,59 @@ final class Store: ObservableObject {
             }
         }
         tick()
+    }
+
+    // MARK: out of sight while the game runs
+
+    private var gameExitObserver: NSObjectProtocol?
+    private var hiddenForGame = false
+
+    // No window, no Dock icon, no Cmd-Tab entry — but the same process, so the
+    // Local Network grant stays in force. Leaves when the game does.
+    private func hideUntilGameExits(_ game: NSRunningApplication) {
+        hiddenForGame = true
+        let pid = game.processIdentifier
+        gameExitObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  app.processIdentifier == pid else { return }
+            self?.gameExited()
+        }
+        NSApp.setActivationPolicy(.accessory)
+        NSApp.hide(nil)
+        pollWhileHidden()
+    }
+
+    // The notification is the fast path; this catches a game process macOS
+    // never registered as an app, which would otherwise leave us hidden forever.
+    private func pollWhileHidden() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self, self.hiddenForGame else { return }
+            let pattern = Paths.runPattern
+            DispatchQueue.global().async {
+                let out = shell("/usr/bin/pgrep", ["-f", pattern])
+                let running = !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !out.hasPrefix("ERROR")
+                DispatchQueue.main.async { running ? self.pollWhileHidden() : self.gameExited() }
+            }
+        }
+    }
+
+    private func gameExited() {
+        guard hiddenForGame else { return }
+        NSApp.terminate(nil)
+    }
+
+    // Opened again while the game runs: the user wants it, so it stays — as a
+    // normal window with Stop, and without quitting when the game exits.
+    func showAgain() {
+        guard hiddenForGame else { return }
+        hiddenForGame = false
+        if let o = gameExitObserver { NSWorkspace.shared.notificationCenter.removeObserver(o) }
+        gameExitObserver = nil
+        NSApp.setActivationPolicy(.regular)
+        NSApp.unhide(nil)
+        NSApp.activate()
     }
 
     // Window-list metadata needs no Accessibility/Screen Recording permission.
