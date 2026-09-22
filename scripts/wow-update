@@ -151,8 +151,40 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest>
   echo "READY $NEW"
 }
 
+# The swap runs detached, from the staging copy of this script, after the
+# launcher it replaces has quit — an app cannot move itself out from under
+# its own running process.
+cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
+  local PID="$1" OLD="$2" NEW="$3"
+  local TRASH="${WOW_UPDATE_TRASH:-$HOME/.Trash}"
+  local OPENER="${WOW_UPDATE_OPEN:-/usr/bin/open}"
+  local i=0
+  while kill -0 "$PID" 2>/dev/null; do
+    sleep 0.5; i=$((i + 1))
+    [ "$i" -gt 120 ] && { echo "FAIL: the launcher is still running after a minute"; exit 1; }
+  done
+  local NAME DEST n=1
+  NAME="$(basename "$OLD")"
+  DEST="$TRASH/$NAME"
+  while [ -e "$DEST" ]; do DEST="$TRASH/${NAME%.app} $n.app"; n=$((n + 1)); done
+  mkdir -p "$TRASH"
+  # to the Trash rather than deleted: the game inside it shares its blocks with
+  # the copy that just imported it, so it costs almost nothing to keep
+  mv "$OLD" "$DEST" || { echo "FAIL: could not move $NAME aside"; "$OPENER" "$OLD"; exit 1; }
+  if mv "$NEW" "$OLD"; then
+    rm -rf "$(dirname "$(dirname "$NEW")")"   # the staging dir, this script included
+    "$OPENER" "$OLD"
+  else
+    mv "$DEST" "$OLD" 2>/dev/null || true     # put the old app back and run that
+    "$OPENER" "$OLD"
+    echo "FAIL: could not move the new app into place — the old one is back"
+    exit 1
+  fi
+}
+
 case "${1:-}" in
   check) shift; cmd_check "$@" ;;
   apply) shift; cmd_apply "$@" ;;
-  *) echo "usage: wow-update check [--force] | apply <url> <size> <digest>"; exit 1 ;;
+  swap)  shift; cmd_swap "$@" ;;
+  *) echo "usage: wow-update check [--force] | apply <url> <size> <digest> | swap <pid> <old> <new>"; exit 1 ;;
 esac

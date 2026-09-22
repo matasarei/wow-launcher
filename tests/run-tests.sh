@@ -1200,6 +1200,61 @@ assert_contains "$OUT" "the game is still running" "an update while the game run
 assert_eq "$(stage_count)" "0" "no staging dir survives a refusal"
 rm -f "$APP/Contents/Info.plist"; reset_conf
 
+# =============================================================== wow-update swap
+section "wow-update swap"
+# the swap replaces the app it was started from, so it runs detached, after the
+# launcher has quit — here with a pid that is already gone, a fake Trash and a
+# stub for `open`
+mkdir -p "$TMP/swap/Applications" "$TMP/swap/Trash"
+cat > "$TMP/swap/open" <<'STUB'
+#!/bin/bash
+echo "OPEN $*" >> "$WOW_TEST_OPENLOG"
+STUB
+chmod +x "$TMP/swap/open"
+export WOW_TEST_OPENLOG="$TMP/swap/open.log"
+swap_setup() {  # a 2.9 app in place, a 2.10 one staged beside it
+  rm -rf "$TMP/swap/Applications" "$TMP/swap/Trash" "$WOW_TEST_OPENLOG"
+  mkdir -p "$TMP/swap/Applications" "$TMP/swap/Trash"
+  mk_release_app "$TMP/swap/old" 2.9
+  mv "$TMP/swap/old/WoW.app" "$TMP/swap/Applications/AzerothCore.app"   # renamed by its owner
+  mk_release_app "$TMP/swap/Applications/.wow-update.test/new" 2.10
+}
+swap_run() {  # swap_run <pid>
+  WOW_UPDATE_TRASH="$TMP/swap/Trash" WOW_UPDATE_OPEN="$TMP/swap/open" \
+    "$BIN/wow-update" swap "$1" "$TMP/swap/Applications/AzerothCore.app" \
+      "$TMP/swap/Applications/.wow-update.test/new/WoW.app" 2>&1
+}
+(exec -a wow-swap-probe sleep 0) & DEAD=$!; wait "$DEAD" 2>/dev/null   # a pid that has certainly exited
+swap_setup
+OUT="$(swap_run "$DEAD")"
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.10" \
+  "the new version takes the old app's exact path and name"
+assert_file "$TMP/swap/Trash/AzerothCore.app/Contents/Info.plist"
+assert_contains "$(cat "$WOW_TEST_OPENLOG")" "OPEN $TMP/swap/Applications/AzerothCore.app" "and it is opened again"
+assert_eq "$(find "$TMP/swap/Applications" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' ')" "0" "the staging dir is gone"
+# a second update with the first still in the Trash: the name gets a suffix
+swap_setup; mkdir -p "$TMP/swap/Trash/AzerothCore.app"
+OUT="$(swap_run "$DEAD")"
+assert_file "$TMP/swap/Trash/AzerothCore 1.app/Contents/Info.plist"
+# the new app cannot be moved into place: the old one comes back and runs
+swap_setup; rm -rf "$TMP/swap/Applications/.wow-update.test/new/WoW.app"
+OUT="$(swap_run "$DEAD")"
+assert_contains "$OUT" "the old one is back" "a failed swap says so"
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.9" "the old app is back in place"
+assert_contains "$(cat "$WOW_TEST_OPENLOG")" "OPEN $TMP/swap/Applications/AzerothCore.app" "and it is the one opened"
+# it waits for the launcher to quit before touching anything
+swap_setup
+fake_proc "wow-update-swap-wait"
+( swap_run "$RUNNING" > "$TMP/swap/waiting.out" 2>&1 ) & WAITER=$!
+sleep 1
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.9" "nothing moves while the launcher runs"
+kill "$RUNNING" 2>/dev/null; wait "$WAITER" 2>/dev/null
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.10" "and swaps once it has"
+
 # ================================================================== Swift sources
 section "Swift sources"
 # SDK 27 makes @State an Xcode-only macro; the bare Command Line Tools cannot
