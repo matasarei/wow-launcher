@@ -334,7 +334,13 @@ final class Store: ObservableObject {
             if lines.contains("RESTARTING") {
                 self.updateNote = L("Restarting…")
                 self.quitAfterGame = true   // the swap out there waits for this process
-                NSApp.terminate(nil)
+                // The sheet has to go first: a window-modal sheet swallows the
+                // termination, the app sits there with a spinner, and the swap
+                // waiting outside gives up and puts nothing in place.
+                self.updateSheet = false
+                // and a moment for it to actually go: the dismissal is animated,
+                // and terminating into a sheet that is still up is the same trap
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { NSApp.terminate(nil) }
             } else {
                 self.updateNote = lines.last ?? L("The update did not finish.")
             }

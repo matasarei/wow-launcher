@@ -228,11 +228,14 @@ cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
     mkdir -p "$OLD/Contents/Resources/logs" 2>/dev/null || true
     printf '%s\n' "$1" > "$OLD/Contents/Resources/logs/update-failed.txt" 2>/dev/null || true
   }
+  # Five minutes, not one: the launcher quits itself as soon as it reads
+  # RESTARTING, but a dialog in its way — or a person reading one — must not
+  # cost the update. Giving up here means the app stays exactly as it was.
   local i=0
   while kill -0 "$PID" 2>/dev/null; do
     sleep 0.5; i=$((i + 1))
-    [ "$i" -gt 120 ] && { marker "the launcher was still running a minute after the update started"
-                          echo "FAIL: the launcher is still running after a minute"; exit 1; }
+    [ "$i" -gt 600 ] && { marker "the launcher did not quit, so the update was left where it was — try again"
+                          echo "FAIL: the launcher is still running five minutes on"; exit 1; }
   done
   local NAME PARKED
   NAME="$(basename "$OLD")"
