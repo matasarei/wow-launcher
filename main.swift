@@ -38,7 +38,6 @@ enum Paths {
     }
     static var addons: String { game + "/Interface/AddOns" }
     static var runPattern: String {
-        let folder = activeGame.isEmpty ? "game" : activeGame
         // The installer records the entrypoint it found (GAME_EXE=); a repack may
         // name it anything, including something like WoWSirus.exe that the fixed
         // patterns below look like they cover and do not. Always append it — a
@@ -50,7 +49,13 @@ enum Paths {
         if !recorded.isEmpty {
             names.append(NSRegularExpression.escapedPattern(for: recorded))
         }
-        return NSRegularExpression.escapedPattern(for: folder) + "[/\\\\](" + names.joined(separator: "|") + ")"
+        // The whole game path, not just its folder name: every copy of the app
+        // has a games/main, and Stop (pkill -9) or a deferred quit must only ever
+        // count this copy's game. rosettax87 shows the path with slashes, Wine's
+        // Wow.exe as Z:\… backslashes, so each separator matches either.
+        let sep = "[/\\\\]"
+        let path = game.split(separator: "/").map { NSRegularExpression.escapedPattern(for: String($0)) }
+        return sep + path.joined(separator: sep) + sep + "(" + names.joined(separator: "|") + ")"
     }
     // Paths is used before any Store exists, so it reads the conf itself.
     static func confValue(_ key: String) -> String {
