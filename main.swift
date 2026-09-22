@@ -520,10 +520,12 @@ final class Store: ObservableObject {
         }
     }
 
+    // The one place a Retina choice made by hand is dropped again: detecting the
+    // screen means "set what fits it best", including Retina.
     func detectNow() {
         busy = true
         DispatchQueue.global().async {
-            let out = shell(Paths.settings, ["auto"])
+            let out = shell(Paths.settings, ["auto", "reset"])
             DispatchQueue.main.async {
                 self.busy = false
                 self.note = out.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1849,7 +1851,14 @@ struct DisplayView: View {
                 .disabled(store.busy)
                 .help("Detect the main screen and apply its resolution now")
                 Toggle("Retina (render at native pixels)", isOn: retinaBinding)
-                LabeledContent("Game resolution", value: store.loadingStatus ? "…" : store.resolution)
+                // the busy spinner sits where its result lands; in the toolbar,
+                // macOS 26+ draws every item in a glass capsule, like a button
+                LabeledContent("Game resolution") {
+                    HStack(spacing: 6) {
+                        if store.busy { ProgressView().controlSize(.small) }
+                        Text(verbatim: store.loadingStatus ? "…" : store.resolution)
+                    }
+                }
             }
             Section("Renderer") {
                 Picker("Graphics backend", selection: rendererBinding) {
@@ -1868,11 +1877,6 @@ struct DisplayView: View {
             }
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem {
-                if store.busy { ProgressView().controlSize(.small) }
-            }
-        }
         .onAppear {
             store.refreshDisplays()
             store.refreshStatus()
