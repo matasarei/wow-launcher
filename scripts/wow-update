@@ -189,17 +189,25 @@ cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
   local TRASH="${WOW_UPDATE_TRASH:-$HOME/.Trash}"
   local STAGE_DIR; STAGE_DIR="$(dirname "$(dirname "$NEW")")"
   local OPENER="${WOW_UPDATE_OPEN:-/usr/bin/open}"
+  # A failure here has nobody watching: the launcher has quit, and what reopens
+  # is the old app. It reads this marker at its next start and says so.
+  marker() {  # marker <reason>
+    mkdir -p "$OLD/Contents/Resources/logs" 2>/dev/null || true
+    printf '%s\n' "$1" > "$OLD/Contents/Resources/logs/update-failed.txt" 2>/dev/null || true
+  }
   local i=0
   while kill -0 "$PID" 2>/dev/null; do
     sleep 0.5; i=$((i + 1))
-    [ "$i" -gt 120 ] && { echo "FAIL: the launcher is still running after a minute"; exit 1; }
+    [ "$i" -gt 120 ] && { marker "the launcher was still running a minute after the update started"
+                          echo "FAIL: the launcher is still running after a minute"; exit 1; }
   done
   local NAME PARKED
   NAME="$(basename "$OLD")"
   PARKED="$STAGE_DIR/old.app"
   # sideways into staging, not to the Trash: while the path is empty both copies
   # are in one place, and putting the old one back is a single rename
-  mv "$OLD" "$PARKED" || { echo "FAIL: could not move $NAME aside"; "$OPENER" "$OLD" || true; exit 1; }
+  mv "$OLD" "$PARKED" || { marker "$NAME could not be moved aside — manual update required"
+                           echo "FAIL: could not move $NAME aside"; "$OPENER" "$OLD" || true; exit 1; }
   if mv "$NEW" "$OLD"; then
     # the new version has to actually start: it is all that is left running
     if "$OPENER" "$OLD"; then
@@ -224,12 +232,14 @@ cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
     else
       mv "$OLD" "$NEW" 2>/dev/null || true      # the new app back into staging
       mv "$PARKED" "$OLD" 2>/dev/null || true   # and the old one back into place
+      marker "$NEW_VER would not open, so this version was kept"
       "$OPENER" "$OLD" || true
       echo "FAIL: $NEW_VER would not open — the old app is back"
       exit 1
     fi
   else
     mv "$PARKED" "$OLD" 2>/dev/null || true     # put the old app back and run that
+    marker "$NEW_VER could not be moved into place — manual update required"
     "$OPENER" "$OLD" || true
     echo "FAIL: could not move the new app into place — the old one is back"
     exit 1

@@ -1293,6 +1293,8 @@ export WOW_TEST_OPEN_FAIL=AzerothCore   # exported: the stub is run by wow-updat
 OUT="$(swap_run "$DEAD")"
 unset WOW_TEST_OPEN_FAIL
 assert_contains "$OUT" "would not open — the old app is back" "a new version that will not start is rolled back"
+assert_contains "$(cat "$TMP/swap/Applications/AzerothCore.app/Contents/Resources/logs/update-failed.txt" 2>&1)" \
+  "would not open" "and leaves the reason where the app will read it"
 assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
   "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.9" "the old version is back in place"
 assert_eq "$(find "$TMP/swap/Trash" -maxdepth 1 -name '*.app' | wc -l | tr -d ' ')" "0" "and out of the Trash"
@@ -1303,6 +1305,8 @@ assert_contains "$OUT" "the old one is back" "a failed swap says so"
 assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
   "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.9" "the old app is back in place"
 assert_contains "$(cat "$WOW_TEST_OPENLOG")" "OPEN $TMP/swap/Applications/AzerothCore.app" "and it is the one opened"
+assert_contains "$(cat "$TMP/swap/Applications/AzerothCore.app/Contents/Resources/logs/update-failed.txt" 2>&1)" \
+  "could not be moved into place" "the app that reopens is told why"
 # it waits for the launcher to quit before touching anything
 swap_setup
 fake_proc "wow-update-swap-wait"
