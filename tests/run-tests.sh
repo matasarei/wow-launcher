@@ -855,6 +855,17 @@ assert_eq "$RC" "0" "a clean copy exits 0"
 diff -r "$TMP/client-wotlk" "$TMP/copy-ok" >/dev/null && ok || bad "the copy differs from the source"
 assert_eq "$(echo "$OUT" | grep -vc '^COPY ')" "0" "it prints nothing but COPY lines"
 "$BIN/wow-copy" "$TMP/nonexistent" "$TMP/copy-none" >/dev/null 2>&1 && bad "a missing source passes" || ok
+# the name on a progress line is the file ditto is reading: a stand-in ditto
+# holds one open past the first tick, then hands over to the real one
+mkdir -p "$TMP/slow-ditto"
+cat > "$TMP/slow-ditto/ditto" <<'STUB'
+#!/bin/bash
+exec 3<"$1/Data/common.MPQ"; sleep 1.5; exec /usr/bin/ditto "$@"
+STUB
+chmod +x "$TMP/slow-ditto/ditto"
+OUT="$(PATH="$TMP/slow-ditto:$PATH" "$BIN/wow-copy" "$TMP/client-wotlk" "$TMP/copy-slow" 2>&1)"
+assert_contains "$OUT" "Data/common.MPQ" "a progress line names the file being read, relative to SRC"
+diff -r "$TMP/client-wotlk" "$TMP/copy-slow" >/dev/null && ok || bad "the slow copy differs from the source"
 # ditto runs in the background, out of reach of the installer's set -e: its
 # failure has to come back through wow-copy's exit status, or a half-copied
 # client gets patched and reported as installed
