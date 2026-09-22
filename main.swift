@@ -1043,7 +1043,7 @@ final class Store: ObservableObject {
                 h.readabilityHandler = nil
                 p.waitUntilExit()
                 // queued behind the last line handlers, so `lines` is complete here
-                DispatchQueue.main.async { _ = self; finish(lines) }
+                DispatchQueue.main.async { finish(lines) }
                 return
             }
             buf += String(data: d, encoding: .utf8) ?? ""
