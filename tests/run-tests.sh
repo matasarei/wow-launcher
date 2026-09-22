@@ -1016,8 +1016,12 @@ mk_plist "$TMP/Empty.app" io.github.matasarei.wow-launcher 2.8
 mkdir -p "$TMP/Empty.app/Contents/Resources/games"
 OUT="$("$BIN/wow-install-client" "$TMP/Empty.app" 2>&1)"
 assert_contains "$OUT" "Empty has no game installed" "an app without a game is refused"
-(exec -a "$OLD/Contents/MacOS/WoW Launcher" sleep 30) & RUNNING=$!
-sleep 0.2
+fake_proc() {  # fake_proc <command line> — started, and listed by ps, before it returns
+  (exec -a "$1" sleep 30) & RUNNING=$!
+  local L   # listed first: a grep reading ps live would find its own command line
+  for _ in $(seq 50); do L="$(ps -axww -o command=)"; printf '%s\n' "$L" | grep -qF -- "$1" && return; sleep 0.1; done
+}
+fake_proc "$OLD/Contents/MacOS/WoW Launcher"
 OUT="$("$BIN/wow-install-client" "$OLD" 2>&1)"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "Old Launcher is still running" "a running previous app is refused"
