@@ -1,0 +1,24 @@
+#!/bin/bash
+# Where wine's HOME points: inside the bundle, not the user's home folder.
+# This wine (WineAndAqua's macOS branch) runs mkdir("$HOME/Wine") in every
+# process it starts (ntdll unix/loader.c set_home_dir) and links the prefix's
+# C:\users\<name> to $HOME/Wine (shell32 shellpath.c) — so any launcher window
+# left ~/Wine behind in the user's home (issue #12). Every script that runs
+# wine exports HOME="$(wow-wine-home)" first. macOS itself ignores HOME for
+# what the game needs (home directory, keyboard layouts, prefs: checked).
+# Usage: wow-wine-home — creates the folder, fixes the prefix link, prints it.
+# The link is made relative (../../../home/Wine) and re-pointed whenever it is
+# anything else: wine writes it absolute, which breaks the moment the app is
+# moved, and older wrappers point it at ~/Wine. ~/Wine itself is never
+# touched — WoWSilicon uses the same folder.
+RES="$(cd "$(dirname "$0")/.." && pwd)"
+H="$RES/home"
+mkdir -p "$H/Wine"
+U="${USER:-$(id -un)}"
+L="$RES/prefix/drive_c/users/$U"
+# a real folder there is somebody's profile: leave it alone
+if [ -d "$RES/prefix/drive_c/users" ] && { [ -L "$L" ] || [ ! -e "$L" ]; } \
+   && [ "$(readlink "$L" 2>/dev/null)" != "../../../home/Wine" ]; then
+  ln -sfn "../../../home/Wine" "$L" 2>/dev/null
+fi
+echo "$H"

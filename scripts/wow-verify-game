@@ -22,6 +22,7 @@ fail=0; warn=0; canfix=0; reinstall=0; i=0
 CFG="$G/WTF/Config.wtf"
 LOADER="$RES/wine/bin/wine"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
+export HOME="$("$RES/bin/wow-wine-home")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
 # Without Rosetta every "$LOADER reg query" returns nothing, which reads exactly
 # like a setting that was never written — verify would fail the two checks below
 # and offer a --fix that can never succeed. Ask once, then say so instead.
