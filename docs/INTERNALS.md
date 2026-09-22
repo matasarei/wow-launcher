@@ -147,6 +147,19 @@ identity directly (`awk '/^PROGRESS/ {print $3}' | sort -u` against the step cou
 
 ## Assorted gotchas
 
+- **A leftover `wineserver` breaks LAN play.** Wine creates sockets inside
+  `wineserver` and hands them to the game, and macOS attributes a socket to the
+  app responsible for the process that created it. `wineserver` can outlive the
+  session that started it; once its launcher is gone it is responsible only for
+  itself — unsigned, no Local Network grant — and a new game reusing it hangs at
+  login on a LAN realm even though its own launcher is alive and responsible for
+  the game. `wow-launch` therefore stops any leftover `wineserver` before it
+  starts wine, unless a game from the same copy is still running. The running
+  check matches the copy's whole game path as literal text in both forms
+  (slashes, and Wine's `Z:\` backslashes), and lists processes before grepping
+  them — a `games/main` pattern matched other copies of the app, and a grep in
+  the same pipeline as `ps` matches its own command line.
+
 - **The wine runtime is `x86_64`, so Rosetta 2 is load-bearing.** It is an
   on-demand component and a macOS upgrade can drop it (macOS 27 did): the
   loader then fails to exec with "Bad CPU type in executable", `nohup` writes
