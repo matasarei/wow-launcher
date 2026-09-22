@@ -1170,6 +1170,10 @@ mkdir -p "$TMP/swap/Trash"
 cat > "$TMP/swap/open" <<'STUB'
 #!/bin/bash
 echo "OPEN $*" >> "$WOW_TEST_OPENLOG"
+# refuses whatever WOW_TEST_OPEN_FAIL names, the way macOS refuses an app it
+# will not run — the swap must then put the old one back
+case "$1" in *"${WOW_TEST_OPEN_FAIL:-\0}"*) [ -n "${WOW_TEST_OPEN_FAIL:-}" ] && exit 1 ;; esac
+exit 0
 STUB
 chmod +x "$TMP/swap/open"
 export WOW_TEST_OPENLOG="$TMP/swap/open.log"
@@ -1263,6 +1267,15 @@ assert_eq "$(find "$TMP/swap/Applications" -maxdepth 1 -name '.wow-update.*' | w
 swap_setup; mkdir -p "$TMP/swap/Trash/AzerothCore.app"
 OUT="$(swap_run "$DEAD")"
 assert_file "$TMP/swap/Trash/AzerothCore 1.app/Contents/Info.plist"
+# the new version will not open: the old one comes back out of the Trash
+swap_setup
+export WOW_TEST_OPEN_FAIL=AzerothCore   # exported: the stub is run by wow-update, not here
+OUT="$(swap_run "$DEAD")"
+unset WOW_TEST_OPEN_FAIL
+assert_contains "$OUT" "would not open — the old app is back" "a new version that will not start is rolled back"
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.9" "the old version is back in place"
+assert_eq "$(find "$TMP/swap/Trash" -maxdepth 1 -name '*.app' | wc -l | tr -d ' ')" "0" "and out of the Trash"
 # the new app cannot be moved into place: the old one comes back and runs
 swap_setup; rm -rf "$TMP/swap/Applications/.wow-update.test/new/WoW.app"
 OUT="$(swap_run "$DEAD")"

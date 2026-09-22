@@ -180,7 +180,8 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
 # launcher it replaces has quit — an app cannot move itself out from under
 # its own running process.
 cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
-  local PID="$1" OLD="$2" NEW="$3"
+  local PID="$1" OLD="$2" NEW="$3" NEW_VER
+  NEW_VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$NEW/Contents/Info.plist" 2>/dev/null || true)"
   local TRASH="${WOW_UPDATE_TRASH:-$HOME/.Trash}"
   local OPENER="${WOW_UPDATE_OPEN:-/usr/bin/open}"
   local i=0
@@ -195,13 +196,21 @@ cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
   mkdir -p "$TRASH"
   # to the Trash rather than deleted: the game inside it shares its blocks with
   # the copy that just imported it, so it costs almost nothing to keep
-  mv "$OLD" "$DEST" || { echo "FAIL: could not move $NAME aside"; "$OPENER" "$OLD"; exit 1; }
+  mv "$OLD" "$DEST" || { echo "FAIL: could not move $NAME aside"; "$OPENER" "$OLD" || true; exit 1; }
   if mv "$NEW" "$OLD"; then
-    rm -rf "$(dirname "$(dirname "$NEW")")"   # the staging dir, this script included
-    "$OPENER" "$OLD"
+    # the new version has to actually start: it is all that is left running
+    if "$OPENER" "$OLD"; then
+      rm -rf "$(dirname "$(dirname "$NEW")")"   # the staging dir, this script included
+    else
+      mv "$OLD" "$NEW" 2>/dev/null || true      # the new app back into staging
+      mv "$DEST" "$OLD" 2>/dev/null || true     # and the old one out of the Trash
+      "$OPENER" "$OLD" || true
+      echo "FAIL: $NEW_VER would not open — the old app is back"
+      exit 1
+    fi
   else
     mv "$DEST" "$OLD" 2>/dev/null || true     # put the old app back and run that
-    "$OPENER" "$OLD"
+    "$OPENER" "$OLD" || true
     echo "FAIL: could not move the new app into place — the old one is back"
     exit 1
   fi
