@@ -149,7 +149,7 @@
 "Check automatically" = "自动检查";
 "Ask GitHub once a week whether a newer version is out" = "每周向 GitHub 查询一次是否有新版本";
 "Checking…" = "检查中…";
-"Up to date (%@)." = "已是最新版本（%@）。";
+"Your app is up to date" = "你的应用已是最新版本";
 "GitHub could not be reached." = "无法连接 GitHub。";
 "Version %@ is available." = "有新版本 %@。";
 "WoW Launcher %@ is available" = "WoW Launcher %@ 可用";

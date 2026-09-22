@@ -149,7 +149,7 @@
 "Check automatically" = "Перевіряти автоматично";
 "Ask GitHub once a week whether a newer version is out" = "Раз на тиждень запитувати GitHub, чи вийшла новіша версія";
 "Checking…" = "Перевірка…";
-"Up to date (%@)." = "Встановлено найновішу версію (%@).";
+"Your app is up to date" = "У вас найновіша версія";
 "GitHub could not be reached." = "Не вдалося зв’язатися з GitHub.";
 "Version %@ is available." = "Доступна версія %@.";
 "WoW Launcher %@ is available" = "Доступний WoW Launcher %@";

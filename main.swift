@@ -217,11 +217,11 @@ final class Store: ObservableObject {
                     self.updateOffer = f
                     self.offerUpdate(f)
                 case "CURRENT":
-                    if force { self.updateNote = LF("Up to date (%@).", f["CURRENT"] ?? "") }
+                    if force { self.updateNote = L("Your app is up to date") }
                 case "UNREACHABLE":
                     if force { self.updateNote = L("GitHub could not be reached.") }
                 default:   // OFF, TOO-SOON, SKIPPED — only the button asks for those
-                    if force { self.updateNote = LF("Up to date (%@).", f["CURRENT"] ?? "") }
+                    if force { self.updateNote = L("Your app is up to date") }
                 }
             }
         }

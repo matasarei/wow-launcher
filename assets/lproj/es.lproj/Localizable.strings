@@ -149,7 +149,7 @@
 "Check automatically" = "Buscar automáticamente";
 "Ask GitHub once a week whether a newer version is out" = "Preguntar a GitHub una vez por semana si hay una versión más reciente";
 "Checking…" = "Buscando…";
-"Up to date (%@)." = "Al día (%@).";
+"Your app is up to date" = "Tu app está actualizada";
 "GitHub could not be reached." = "No se pudo conectar con GitHub.";
 "Version %@ is available." = "La versión %@ está disponible.";
 "WoW Launcher %@ is available" = "WoW Launcher %@ está disponible";
