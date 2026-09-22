@@ -520,10 +520,12 @@ final class Store: ObservableObject {
         }
     }
 
+    // The one place a Retina choice made by hand is dropped again: detecting the
+    // screen means "set what fits it best", including Retina.
     func detectNow() {
         busy = true
         DispatchQueue.global().async {
-            let out = shell(Paths.settings, ["auto"])
+            let out = shell(Paths.settings, ["auto", "reset"])
             DispatchQueue.main.async {
                 self.busy = false
                 self.note = out.trimmingCharacters(in: .whitespacesAndNewlines)

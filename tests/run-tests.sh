@@ -926,6 +926,38 @@ HOME="$FAKEHOME" "$BIN/wow-settings" show >/dev/null 2>&1
 chmod +x "$BIN/wow-wine-home"
 assert_eq "$(grep -vc "HOME=$FAKEHOME\$" "$WINELOG")" "0" "a failed helper falls back to the caller's HOME"
 
+# ============================================================ Retina chosen by hand
+# The display here is retina, so every auto-match used to switch RetinaMode back
+# on right after the user turned it off: in the Display pane (retina off, then
+# auto), at every Play (AUTO_RES=1), and in Verify, which called it a failure.
+section "Retina chosen by hand survives the auto-match"
+reset_conf; "$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+G="$RES/games/main"
+retina_writes() { grep -c "RetinaMode /t REG_SZ /d $1" "$WINELOG"; }
+: > "$WINELOG"; OUT="$(WOW_TEST_RETINA=Y "$BIN/wow-settings" retina off)"
+assert_contains "$(cat "$RES/launcher.conf")" "RETINA=off" "retina off is remembered"
+: > "$WINELOG"; OUT="$(WOW_TEST_RETINA=N "$BIN/wow-settings" auto)"
+assert_eq "$(retina_writes Y)" "0" "auto keeps a hand-set retina off"
+assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxResolution "1728x1117"' "and matches the resolution to it (points)"
+: > "$WINELOG"; WOW_TEST_RETINA=N "$BIN/wow-launch" >/dev/null 2>&1; sleep 0.3
+assert_eq "$(retina_writes Y)" "0" "Play keeps it too"
+OUT="$(WOW_TEST_RETINA=N "$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "ok: retina mode off (set by hand)" "verify accepts it"
+assert_eq "$(echo "$OUT" | grep -c '^FAIL: re')" "0" "no resolution or retina failure over it"
+# the detect button: forget the choice, fit the screen again
+: > "$WINELOG"; OUT="$(WOW_TEST_RETINA=N "$BIN/wow-settings" auto reset)"
+assert_eq "$(grep -c '^RETINA=' "$RES/launcher.conf")" "0" "auto reset forgets the choice"
+assert_eq "$(retina_writes Y)" "1" "and turns retina back on for a retina display"
+assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxResolution "3456x2234"' "at native pixels"
+WOW_TEST_RETINA=Y "$BIN/wow-settings" retina on >/dev/null
+assert_contains "$(cat "$RES/launcher.conf")" "RETINA=on" "retina on is remembered as well"
+WOW_TEST_RETINA=Y "$BIN/wow-settings" retina auto >/dev/null
+assert_eq "$(grep -c '^RETINA=' "$RES/launcher.conf")" "0" "retina auto forgets it"
+WOW_TEST_RETINA=Y "$BIN/wow-settings" retina off >/dev/null
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+assert_eq "$(grep -c '^RETINA=' "$RES/launcher.conf")" "0" "a fresh install resets it with the other display settings"
+reset_conf
+
 # ================================================================== Swift sources
 section "Swift sources"
 # SDK 27 makes @State an Xcode-only macro; the bare Command Line Tools cannot

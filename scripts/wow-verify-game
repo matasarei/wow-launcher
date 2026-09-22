@@ -343,6 +343,10 @@ else echo "FAIL: renderer API is '$API', DXVK needs d3d9 — repairable"; fail=$
 
 DETECT="$("$BIN/wow-settings" __detect 2>/dev/null)"
 read -r PX PTS RET <<< "$DETECT"
+# A Retina choice made by hand (launcher.conf RETINA=on|off, set by the Display
+# pane) is what both checks below hold the prefix to — not the display.
+RETINA_SET="$(grep -sE '^RETINA=' "$RES/launcher.conf" | cut -d= -f2)"
+case "$RETINA_SET" in on) RET=yes ;; off) RET=no ;; esac
 step "resolution matches display"
 AUTO="$(grep -sE '^AUTO_RES=' "$RES/launcher.conf" | cut -d= -f2)"
 if [ "${AUTO:-1}" != "1" ]; then
@@ -365,7 +369,8 @@ elif [ -z "$RET" ]; then
 else
   [ "$RET" = yes ] && WANT=Y || WANT=N
   HAVE="$("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*RetinaMode/ {print toupper($NF)}' | tail -1)"
-  if [ "${HAVE:-N}" = "$WANT" ]; then echo "ok: retina mode matches display"
+  if [ "${HAVE:-N}" = "$WANT" ] && [ -n "$RETINA_SET" ]; then echo "ok: retina mode $RETINA_SET (set by hand)"
+  elif [ "${HAVE:-N}" = "$WANT" ]; then echo "ok: retina mode matches display"
   elif [ "$FIX" = 1 ]; then "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d "$WANT" /f >/dev/null 2>&1; echo "ok: retina mode (fixed)"
   else echo "FAIL: retina mode is '${HAVE:-unset}', display wants $WANT — repairable"; fail=$((fail+1)); canfix=1; fi
 fi

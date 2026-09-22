@@ -23,6 +23,7 @@ Contents/Resources/
 | Key | Meaning |
 |---|---|
 | `AUTO_RES=1\|0` | auto-match resolution/Retina to the main display at each launch |
+| `RETINA=on\|off` | a Retina choice made by hand (Display pane toggle, `wow-settings retina on\|off`). Absent = follow the display. Every auto-match keeps it — at Play, in the app, in Verify, which then checks against it — and sizes the resolution to it (points when off). Dropped by the main screen's detect button (`wow-settings auto reset`), by `wow-settings retina auto`, and by a fresh install |
 | `GAME=main` | active game folder under `games/` (installer sets it) |
 | `GAME_VERSION=<label>` | detected client version — the canonical `3.3.5a`/`2.4.3`/`1.12` for a client the launcher knows, otherwise whatever the executable declares (`4.3.4`), or `unknown` |
 | `GAME_FAMILY=wotlk\|tbc\|vanilla\|post-wotlk\|casc\|generic` | which shape of client this is. **Verify trusts this over re-detection**: with `Data/lichking.MPQ` deleted the folder alone reads as TBC, and verify would quietly stop asking for the file that is missing. Absent in wrappers written before 2.5 — derived from `GAME_VERSION` then |
