@@ -166,3 +166,7 @@
 "This version is still installed. You can update by hand from the release page." = "이 버전은 그대로 설치되어 있습니다. 릴리스 페이지에서 직접 업데이트할 수 있습니다.";
 "OK" = "확인";
 "You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page." = "현재 %@입니다. 이 복사본은 현재 위치에서 스스로 교체할 수 없으므로 릴리스 페이지에서 직접 업데이트해야 합니다.";
+"Updating" = "업데이트 중";
+"Updating to %@" = "%@(으)로 업데이트 중";
+"Your game and settings move to the new version. The app closes and opens again by itself when it is done." = "게임과 설정이 새 버전으로 함께 옮겨집니다. 완료되면 앱이 스스로 닫혔다가 다시 열립니다.";
+"The update was cancelled." = "업데이트를 취소했습니다.";

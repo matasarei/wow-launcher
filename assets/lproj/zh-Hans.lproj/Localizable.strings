@@ -166,3 +166,7 @@
 "This version is still installed. You can update by hand from the release page." = "当前版本仍然可用。你可以从发布页面手动更新。";
 "OK" = "好";
 "You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page." = "当前为 %@。此副本无法在所在位置自我替换，需要从发布页面手动更新。";
+"Updating" = "正在更新";
+"Updating to %@" = "正在更新到 %@";
+"Your game and settings move to the new version. The app closes and opens again by itself when it is done." = "游戏和设置会一起迁移到新版本。完成后应用会自动关闭并重新打开。";
+"The update was cancelled." = "更新已取消。";

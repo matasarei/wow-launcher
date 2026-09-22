@@ -164,6 +164,9 @@ final class Store: ObservableObject {
     @Published var updateChecking = false
     @Published var updateNote = ""
     @Published var updateFailure = ""        // what the last update failed on, if it did
+    @Published var updateSheet = false       // the update's own window: it must not run unseen
+    @Published var updateVersion = ""        // the version being installed, for that window
+    private var updateProc: Process?
     private var updateOffer: [String: String]?   // the check's fields, while a dialog is up
 
     init() {
@@ -283,6 +286,18 @@ final class Store: ObservableObject {
         updateNote = LF("Version %@ skipped.", f["LATEST"] ?? "")
     }
 
+    // Stopping mid-download leaves a staging dir behind; the next update clears
+    // it (see wow-update apply), and nothing outside it has been touched yet.
+    func cancelUpdate() {
+        updateProc?.terminate()
+        updateProc = nil
+        updateSheet = false
+        busy = false
+        installProgress = nil
+        installStatus = ""
+        updateNote = L("The update was cancelled.")
+    }
+
     func setAutoUpdateCheck(_ on: Bool) {
         autoUpdateCheck = on
         confSet("UPDATE_CHECK", on ? "1" : "0")
@@ -295,12 +310,20 @@ final class Store: ObservableObject {
         busy = true
         updateNote = ""
         installStatus = L("Starting the update…")
+        installProgress = nil
+        // Its own sheet: an update started from the dialog would otherwise run
+        // behind whichever pane happens to be open, and a 240 MB download with
+        // nothing on screen looks exactly like nothing happening.
+        updateVersion = f["LATEST"] ?? ""
+        updateSheet = true
         let args = [url, f["SIZE"] ?? "0", f["DIGEST"] ?? "", String(ProcessInfo.processInfo.processIdentifier)]
-        streamTool(Paths.updateTool, ["apply"] + args) { [weak self] lines in
+        updateProc = streamTool(Paths.updateTool, ["apply"] + args) { [weak self] lines in
             guard let self = self else { return }
             self.busy = false
+            self.updateProc = nil
             self.installProgress = nil
             self.installStatus = ""
+            if !lines.contains("RESTARTING") { self.updateSheet = false }
             if lines.contains("RESTARTING") {
                 self.updateNote = L("Restarting…")
                 self.quitAfterGame = true   // the swap out there waits for this process
@@ -1064,7 +1087,8 @@ final class Store: ObservableObject {
     // Streamed rather than run through shell(): a copy from a slow drive, or a
     // release download, takes minutes, and the COPY/DOWNLOAD lines are what the
     // bar is drawn from. `finish` gets every other line, in order.
-    private func streamTool(_ tool: String, _ args: [String], finish: @escaping ([String]) -> Void) {
+    @discardableResult
+    private func streamTool(_ tool: String, _ args: [String], finish: @escaping ([String]) -> Void) -> Process {
         var lines: [String] = []
         let p = Process()
         p.executableURL = URL(fileURLWithPath: tool)
@@ -1103,6 +1127,7 @@ final class Store: ObservableObject {
             busy = false
             note = "ERROR: \(error.localizedDescription)"
         }
+        return p
     }
 
     private func finishInstall(_ lines: [String]) {
@@ -1525,6 +1550,40 @@ struct InstallProgressView: View {
     }
 }
 
+// The update, while it runs: the bar, what it is doing, and the warning that
+// the app will restart on its own. Shown from any pane, because Update is
+// offered from a dialog that can come up anywhere.
+struct UpdateSheet: View {
+    @EnvironmentObject var store: Store
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Text(store.updateVersion.isEmpty ? L("Updating") : LF("Updating to %@", store.updateVersion))
+                .font(.headline)
+            if let v = store.installProgress {
+                ProgressView(value: v).frame(width: 320)
+            } else {
+                ProgressView().frame(width: 320)
+            }
+            Text(verbatim: store.installStatus)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: 320)
+            Text("Your game and settings move to the new version. The app closes and opens again by itself when it is done.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(width: 320)
+            Button("Cancel") { store.cancelUpdate() }
+                .disabled(!store.busy)
+        }
+        .padding(24)
+        .frame(minWidth: 380)
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject var store: Store
     @ViewState private var pane: Pane? = .play
@@ -1555,6 +1614,9 @@ struct ContentView: View {
         .frame(minWidth: 680, minHeight: 440)
         .sheet(isPresented: $store.verifySheet) {
             VerifySheet().environmentObject(store)
+        }
+        .sheet(isPresented: $store.updateSheet) {
+            UpdateSheet().environmentObject(store)
         }
         .onChange(of: store.games.isEmpty) { _, empty in
             if empty, pane == .addons || pane == .display || pane == .audio { pane = .play }
