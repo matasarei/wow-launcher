@@ -344,12 +344,11 @@ final class Store: ObservableObject {
             if lines.contains("RESTARTING") {
                 self.updateNote = L("Restarting…")
                 self.quitAfterGame = true   // the swap out there waits for this process
-                // A window-modal sheet swallows the termination — the app then
-                // sits there with a spinner while the swap outside gives up — so
-                // the sheet goes first and the quit waits for it to be gone.
+                // A window-modal sheet swallows the termination, so it goes
+                // first and the quit waits for it to be gone — with one retry,
+                // in case the sheet never reports back.
                 self.quitWhenSheetCloses = true
                 self.updateSheet = false
-                // in case the sheet never reports back, ask again shortly
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.quitForUpdate() }
             } else {
                 self.updateNote = lines.last ?? L("The update did not finish.")
