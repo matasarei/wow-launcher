@@ -242,11 +242,9 @@ final class Store: ObservableObject {
 
     // Cooperative activation (macOS 14+) only lets the frontmost app pass
     // focus on — the game can never take it by itself. So stay alive until
-    // the game window exists and hand activation over. Then get out of sight
-    // but stay alive: the game is Wine started as the launcher's child and has
-    // no identity of its own, so its local-network access is the launcher's
-    // grant — on macOS 27 quitting cuts a LAN session a few seconds later (#7).
-    // Quitting right away is opt-in (CLOSE_ON_PLAY).
+    // the game window exists and hand activation over. The launcher then stays
+    // behind the game; closing it (CLOSE_ON_PLAY, or by hand) is deferred by
+    // deferQuitWhileGameRuns.
     private func focusGame() {
         let pattern = Paths.runPattern
         let deadline = Date().addingTimeInterval(30)
@@ -258,12 +256,11 @@ final class Store: ObservableObject {
                 let winPID = Store.visibleWindowOwner(among: pids)
                 DispatchQueue.main.async {
                     if let pid = winPID, let app = NSRunningApplication(processIdentifier: pid) {
+                        self.gameApp = app
                         NSApp.yieldActivation(to: app)
                         app.activate(options: [])
                         if self.closeOnPlay {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
-                        } else {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.hideUntilGameExits(app) }
                         }
                     } else if Date() >= deadline || !NSApp.isActive {
                         if self.closeOnPlay { NSApp.terminate(nil) }
@@ -276,22 +273,38 @@ final class Store: ObservableObject {
         tick()
     }
 
-    // MARK: out of sight while the game runs
+    // MARK: a safe close while the game runs
 
+    private var gameApp: NSRunningApplication?   // the game window's owner, found by focusGame
     private var gameExitObserver: NSObjectProtocol?
     private var hiddenForGame = false
+    private var quitAfterGame = false            // the game has gone: let the quit through
 
-    // No window, no Dock icon, no Cmd-Tab entry — but the same process, so the
-    // Local Network grant stays in force. Leaves when the game does.
-    private func hideUntilGameExits(_ game: NSRunningApplication) {
+    // The game is Wine started as the launcher's child and has no identity of
+    // its own, so its local-network access is the launcher's grant — on macOS 27
+    // really quitting cuts a LAN session a few seconds later (#7). So a quit
+    // while the game runs only takes the launcher off the screen (no window, no
+    // Dock icon, no Cmd-Tab) and completes when the game exits. Returns true
+    // when the quit was deferred.
+    func deferQuitWhileGameRuns() -> Bool {
+        if quitAfterGame { return false }
+        if hiddenForGame { return true }
+        let out = shell("/usr/bin/pgrep", ["-f", Paths.runPattern])
+        guard !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !out.hasPrefix("ERROR") else { return false }
+        hideUntilGameExits()
+        return true
+    }
+
+    private func hideUntilGameExits() {
         hiddenForGame = true
-        let pid = game.processIdentifier
-        gameExitObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
-        ) { [weak self] note in
-            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                  app.processIdentifier == pid else { return }
-            self?.gameExited()
+        if let pid = gameApp?.processIdentifier, gameApp?.isTerminated == false {
+            gameExitObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
+            ) { [weak self] note in
+                guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                      app.processIdentifier == pid else { return }
+                self?.gameExited()
+            }
         }
         NSApp.setActivationPolicy(.accessory)
         NSApp.hide(nil)
@@ -306,18 +319,21 @@ final class Store: ObservableObject {
             let pattern = Paths.runPattern
             DispatchQueue.global().async {
                 let out = shell("/usr/bin/pgrep", ["-f", pattern])
-                let running = !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !out.hasPrefix("ERROR")
-                DispatchQueue.main.async { running ? self.pollWhileHidden() : self.gameExited() }
+                // A pgrep that could not run says nothing — keep waiting rather
+                // than quit and cut the session this exists to protect.
+                let gone = out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                DispatchQueue.main.async { gone ? self.gameExited() : self.pollWhileHidden() }
             }
         }
     }
 
     private func gameExited() {
         guard hiddenForGame else { return }
+        quitAfterGame = true
         NSApp.terminate(nil)
     }
 
-    // Opened again while the game runs: the user wants it, so it stays — as a
+    // Opened again while it waits: the user wants it back, so it stays — as a
     // normal window with Stop, and without quitting when the game exits.
     func showAgain() {
         guard hiddenForGame else { return }
@@ -1840,13 +1856,20 @@ struct AboutView: View {
 
 // MARK: - App
 
-// Clicking the app (Finder, Launchpad, Spotlight) while it hides behind the
-// game arrives as a reopen: that is the way back to the window and Stop.
+// Quitting while the game runs is deferred (see Store.deferQuitWhileGameRuns);
+// clicking the app meanwhile (Finder, Launchpad, Spotlight) arrives as a
+// reopen — the way back to the window and Stop.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var store: Store?
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         store?.showAgain()
         return true
+    }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Logout, restart and shutdown carry a quit reason: never hold those up.
+        if NSAppleEventManager.shared().currentAppleEvent?
+            .attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason)) != nil { return .terminateNow }
+        return store?.deferQuitWhileGameRuns() == true ? .terminateCancel : .terminateNow
     }
 }
 
