@@ -1112,6 +1112,7 @@ check() {  # check <fixture> [--force] — one check against that release
 reset_conf
 OUT="$(check newer.json)"
 assert_contains "$OUT" "RESULT: UPDATE" "a newer release is an update"
+assert_contains "$OUT" "REPLACEABLE=1" "a copy in a writable folder can replace itself"
 assert_contains "$OUT" "LATEST=2.10" "the version comes from the tag"
 assert_contains "$OUT" "CURRENT=2.9" "and the current one from Info.plist"
 assert_contains "$OUT" "ASSET=file://$TMP/rel/WoW-v2.10.zip" "the WoW-v*.zip asset is picked"
@@ -1141,6 +1142,12 @@ assert_contains "$(check newer.json)" "RESULT: SKIPPED" "a skipped version stays
 assert_contains "$(check newer.json --force)" "RESULT: UPDATE" "the button offers it anyway"
 reset_conf; echo 'UPDATE_SKIP=2.9' >> "$RES/launcher.conf"
 assert_contains "$(check newer.json)" "RESULT: UPDATE" "a newer version than the skipped one is offered"
+# a folder that cannot be written: the update has to be done by hand
+reset_conf; chmod a-w "$TMP"
+OUT="$(check newer.json)"
+chmod u+w "$TMP"
+assert_contains "$OUT" "REPLACEABLE=0" "a copy that cannot be replaced says so"
+assert_contains "$OUT" "RESULT: UPDATE" "and still reports the new version"
 # GitHub unreachable: say so, and do not start the week
 reset_conf
 OUT="$(check nothing-here.json)"
@@ -1215,6 +1222,9 @@ stage_count() { find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' | wc -l 
 apply_setup
 # and everything that must stop before anything is installed
 assert_contains "$(apply "$Z" sha256:dead)" "does not match its checksum" "a wrong checksum stops it"
+chmod a-w "$TMP/applytest"
+assert_contains "$(apply "$Z" "$(digest_of "$Z")")" "manual update required" "an unwritable folder asks for a manual update"
+chmod u+w "$TMP/applytest"
 assert_contains "$(apply "$Z" '')" "no checksum" "a release without a checksum stops it"
 assert_eq "$(stage_count)" "0" "and nothing is left behind"
 apply_setup

@@ -12,6 +12,9 @@
 #   RESULT: OFF          automatic checking is off (UPDATE_CHECK=0)
 #   RESULT: TOO-SOON     checked less than a week ago (UPDATE_CHECKED=)
 #   RESULT: UNREACHABLE  GitHub did not answer within the timeout
+# check also prints REPLACEABLE=1|0 — whether this copy can be replaced at all
+# (its folder is writable). 0 means the update has to be done by hand: nothing
+# here ever asks for a password or escalates.
 # launcher.conf keys: UPDATE_CHECK=1|0 (absent = on), UPDATE_CHECKED=<epoch>,
 # UPDATE_SKIP=<version>. The import carries all three to the next copy.
 set -e
@@ -41,6 +44,19 @@ conf_set() {  # conf_set KEY [VALUE] — no value removes the key
 
 # Versions compare as numbers, never as text: 2.10 is newer than 2.9, and
 # "2.10" > "2.9" is false for a string compare. Missing parts count as 0.
+# Can this copy be replaced where it stands? A real probe, not a permission bit:
+# it is the same mktemp the update itself needs, and it covers a read-only mount
+# and an ACL as well as a plain unwritable folder. Never sudo: an updater that
+# can escalate is a far bigger risk than one that says "do it by hand".
+replaceable() {
+  local P T
+  P="$(dirname "$APP")"
+  case "$APP" in */AppTranslocation/*) return 1 ;; esac
+  T="$(mktemp -d "$P/.wow-update-probe.XXXXXX" 2>/dev/null)" || return 1
+  rmdir "$T" 2>/dev/null || true
+  return 0
+}
+
 ver_ge() {  # ver_ge A B → true when A >= B
   local a b i x y
   IFS=. read -r -a a <<< "$1"; IFS=. read -r -a b <<< "$2"
@@ -58,6 +74,7 @@ cmd_check() {
   local FORCE=0
   [ "${1:-}" = --force ] && FORCE=1
   echo "CURRENT=$CURRENT"
+  if replaceable; then echo "REPLACEABLE=1"; else echo "REPLACEABLE=0"; fi
   if [ "$FORCE" = 0 ]; then
     [ "$(conf_get UPDATE_CHECK)" = 0 ] && { echo "RESULT: OFF"; return 0; }
     local LAST NOW
@@ -112,9 +129,9 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   # A copy opened from a quarantined download runs from a read-only image, and
   # replacing an app needs its folder: say so instead of downloading 250 MB first.
   case "$APP" in
-    */AppTranslocation/*) fail "this copy runs from a temporary read-only location — move the app to Applications and try again" ;;
+    */AppTranslocation/*) fail "manual update required — this copy runs from a temporary read-only location; move the app to Applications and try again" ;;
   esac
-  [ -w "$PARENT" ] || fail "$PARENT is not writable — update from the release page instead"
+  replaceable || fail "manual update required — $PARENT cannot be written, so this copy cannot replace itself"
   # the game writes its WTF and cache on exit, and its files are about to move
   local PS; PS="$(ps -axww -o command= | tr '\\' /)"
   printf '%s\n' "$PS" | grep -qF \
