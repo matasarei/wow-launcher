@@ -911,6 +911,15 @@ HOME="$FAKEHOME" "$BIN/wow-launch" >/dev/null 2>&1; sleep 0.3
 assert_eq "$([ -s "$WINELOG" ] && echo yes)" "yes" "the scripts ran wine at all"
 assert_eq "$(grep -vc "HOME=$RES/home\$" "$WINELOG")" "0" "every wine call carries the bundle's HOME"
 assert_nofile "$FAKEHOME/Wine"
+# the installer's Russian-layout check must still read the caller's own prefs,
+# not the bundle's empty home — or Cyrillic input stops switching itself on
+mkdir -p "$FAKEHOME/Library/Preferences"
+python3 -c 'import plistlib,sys; plistlib.dump({"AppleEnabledInputSources":[{"InputSourceKind":"Keyboard Layout","KeyboardLayout Name":"Russian"}]}, open(sys.argv[1],"wb"))' \
+  "$FAKEHOME/Library/Preferences/com.apple.HIToolbox.plist"
+printf 'AUTO_RES=1\n' > "$RES/launcher.conf"   # no CHAT_CP line: detection is allowed to run
+HOME="$FAKEHOME" "$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+assert_contains "$(cat "$RES/launcher.conf")" "CHAT_CP=1251" "the Russian layout is found in the user's own prefs"
+reset_conf
 
 # ================================================================== Swift sources
 section "Swift sources"
