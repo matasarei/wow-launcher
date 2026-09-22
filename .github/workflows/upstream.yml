@@ -17,6 +17,7 @@ jobs:
   pins:
     name: Pinned downloads still resolve
     runs-on: ubuntu-latest    # no macOS tooling needed: curl and shasum only
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
