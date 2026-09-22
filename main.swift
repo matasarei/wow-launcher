@@ -166,6 +166,7 @@ final class Store: ObservableObject {
     @Published var updateFailure = ""        // what the last update failed on, if it did
     @Published var updateSheet = false       // the update's own window: it must not run unseen
     @Published var updateVersion = ""        // the version being installed, for that window
+    private var updateCancelled = false      // so the kill's own output is not reported as a failure
     private var updateProc: Process?
     private var updateOffer: [String: String]?   // the check's fields, while a dialog is up
 
@@ -289,6 +290,7 @@ final class Store: ObservableObject {
     // Stopping mid-download leaves a staging dir behind; the next update clears
     // it (see wow-update apply), and nothing outside it has been touched yet.
     func cancelUpdate() {
+        updateCancelled = true
         updateProc?.terminate()
         updateProc = nil
         updateSheet = false
@@ -323,7 +325,12 @@ final class Store: ObservableObject {
             self.updateProc = nil
             self.installProgress = nil
             self.installStatus = ""
+            defer { self.updateVersion = "" }
             if !lines.contains("RESTARTING") { self.updateSheet = false }
+            if self.updateCancelled {   // its last line is the kill, not news
+                self.updateCancelled = false
+                return
+            }
             if lines.contains("RESTARTING") {
                 self.updateNote = L("Restarting…")
                 self.quitAfterGame = true   // the swap out there waits for this process
@@ -1577,7 +1584,6 @@ struct UpdateSheet: View {
                 .multilineTextAlignment(.center)
                 .frame(width: 320)
             Button("Cancel") { store.cancelUpdate() }
-                .disabled(!store.busy)
         }
         .padding(24)
         .frame(minWidth: 380)
