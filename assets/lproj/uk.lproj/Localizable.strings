@@ -94,7 +94,9 @@
 "Importing language pack from %@…" = "Імпорт мовного пакета з %@…";
 "Install Game Client" = "Встановлення клієнта гри";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "Оберіть теку клієнта WoW — потрібен виконуваний файл гри й тека Data";
-"Installing %@… copying the client can take a few minutes." = "Встановлення %@… копіювання клієнта може тривати кілька хвилин.";
+"Installing from %@…" = "Встановлення з %@…";
+"Copying %@ — %@ of %@" = "Копіювання %@ — %@ з %@";
+"Copied %@ of %@" = "Скопійовано %@ з %@";
 "Invalid server address." = "Неправильна адреса сервера.";
 "Server %@ added and selected — takes effect at next game start." = "Сервер %@ додано й вибрано — набере чинності після наступного запуску гри.";
 "At least one server is required — add another before removing this one." = "Потрібен принаймні один сервер — додайте інший, перш ніж видаляти цей.";

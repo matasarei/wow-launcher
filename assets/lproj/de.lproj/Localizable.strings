@@ -94,7 +94,9 @@
 "Importing language pack from %@…" = "Sprachpaket wird aus %@ importiert…";
 "Install Game Client" = "Spiel-Client installieren";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "Wähle einen WoW-Clientordner — er braucht eine Spiel-EXE und einen Data-Ordner";
-"Installing %@… copying the client can take a few minutes." = "%@ wird installiert… das Kopieren des Clients kann einige Minuten dauern.";
+"Installing from %@…" = "Installation aus %@…";
+"Copying %@ — %@ of %@" = "Kopiere %@ — %@ von %@";
+"Copied %@ of %@" = "%@ von %@ kopiert";
 "Invalid server address." = "Ungültige Serveradresse.";
 "Server %@ added and selected — takes effect at next game start." = "Server %@ hinzugefügt und ausgewählt — wirksam beim nächsten Spielstart.";
 "At least one server is required — add another before removing this one." = "Mindestens ein Server ist erforderlich — füge einen anderen hinzu, bevor du diesen entfernst.";

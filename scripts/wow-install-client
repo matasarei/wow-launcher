@@ -57,8 +57,9 @@ if [ -n "$(ls "$RES/games" 2>/dev/null)" ]; then
   rm -rf "$RES/games"/*
 fi
 mkdir -p "$RES/games"
-echo "copying client (this can take a few minutes)..."
-ditto "$SRC" "$DEST"
+echo "copying client..."
+# COPY lines are progress for the launcher's install pane (see wow-copy)
+"$BIN/wow-copy" "$SRC" "$DEST"
 echo "applying patch kit..."
 mkdir -p "$DEST/mods"
 # Both are 32-bit x86: on a 64-bit client they could never be loaded at all.

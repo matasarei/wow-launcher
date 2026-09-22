@@ -145,6 +145,20 @@ constant — a step that cannot apply to this client reports so rather than
 disappearing, which keeps the progress bar honest. The suite asserts the
 identity directly (`awk '/^PROGRESS/ {print $3}' | sort -u` against the step count).
 
+## Install progress (wow-install-client ↔ GUI)
+
+The client copy goes through `wow-copy`, which runs `ditto` in the background
+and prints `COPY <done KB> <total KB> <file>` about once a second, then a final
+`COPY <total> <total>`. Every other line is a stage line the install pane shows
+as it is. Traps: ditto writes into a temporary `.BC.T_*` file and renames it
+at the end, so the name being copied is read from the **source** side
+(`lsof`, the regular file open under SRC); sizes are apparent (`du -A`) on both
+sides, or exFAT cluster sizes make the bar stop short. A backgrounded ditto is
+out of reach of `set -e`, so `wow-copy` hands its exit status back through
+`wait`, and the suite checks that a failed copy never reaches the patch step.
+Within a single volume ditto clones instead of copying, so the bar only ever
+moves on a copy from another drive.
+
 ## Assorted gotchas
 
 - **A leftover `wineserver` breaks LAN play.** Wine creates sockets inside
