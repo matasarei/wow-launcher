@@ -14,7 +14,10 @@ SRC="$1" DEST="$2"
 [ -d "$SRC" ] && [ -n "$DEST" ] || { echo "usage: wow-copy SRC DEST"; exit 1; }
 SRC="$(cd "$SRC" && pwd -P)"
 TOTAL="$(du -skA "$SRC" 2>/dev/null | cut -f1)"
-ditto "$SRC" "$DEST" &
+# --clone: on the same APFS volume (an old launcher's game, a client folder in
+# ~/Games) files are cloned — near-instant, no extra disk until one changes.
+# Across volumes ditto just copies.
+ditto --clone "$SRC" "$DEST" &
 PID=$!
 # killed mid-copy (the launcher quit), take ditto along instead of leaving it
 trap 'kill $PID 2>/dev/null; exit 1' INT TERM HUP
