@@ -97,8 +97,20 @@ GAMES_REAL="$(cd "$RES" && pwd -P)/games"
 case "$SRC_REAL/" in
   "$GAMES_REAL"/*) echo "the source is the installed game itself — choose the original client folder"; exit 1 ;;
 esac
-# From a previous app the player's own choices come along; the patch level
-# decides what the profile offers, so it is read again after. What the game is
+echo "detected client version: $V"
+[ "$CONFIDENCE" = guess ] \
+  && echo "NOTE: this client is not one the launcher recognises — installing it as it is"
+if [ -n "$(ls "$RES/games" 2>/dev/null)" ]; then
+  echo "replacing the existing game..."
+  rm -rf "$RES/games"/*
+fi
+mkdir -p "$RES/games"
+echo "copying client..."
+# COPY lines are progress for the launcher's install pane (see wow-copy)
+"$BIN/wow-copy" "$SRC" "$DEST"
+# From a previous app the player's own choices come along — once the copy has
+# made it, so a failed one changes nothing else. The patch level decides what
+# the profile offers, so it is read again after. What the game is
 # and where it sits on screen are this install's to work out.
 if [ "$MIGRATE" = 1 ]; then
   KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA'
@@ -111,17 +123,6 @@ if [ "$MIGRATE" = 1 ]; then
   [ -n "$CARRY" ] && echo "settings kept: $(printf '%s\n' "$CARRY" | cut -d= -f1 | tr '\n' ' ' | sed 's/ $//')"
   read_profile
 fi
-echo "detected client version: $V"
-[ "$CONFIDENCE" = guess ] \
-  && echo "NOTE: this client is not one the launcher recognises — installing it as it is"
-if [ -n "$(ls "$RES/games" 2>/dev/null)" ]; then
-  echo "replacing the existing game..."
-  rm -rf "$RES/games"/*
-fi
-mkdir -p "$RES/games"
-echo "copying client..."
-# COPY lines are progress for the launcher's install pane (see wow-copy)
-"$BIN/wow-copy" "$SRC" "$DEST"
 # The old kit's self-populated references (the patched Divx DLLs, the icon-
 # patched Wow.exe, the Cyrillic font stash) came out of the same WoWSilicon
 # payload, so they are this kit's too. Never over one this kit already has, and
