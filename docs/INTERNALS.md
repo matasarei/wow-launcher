@@ -190,12 +190,21 @@ identity directly (`awk '/^PROGRESS/ {print $3}' | sort -u` against the step cou
   RetinaMode=Y the game renders native pixels. `wow-settings auto` keeps both in
   sync with the display; `hwDetect 0` stops the game from overriding seeded settings.
 - **GUI launches have no locale env** — wow-launch exports one explicitly.
-- After Play the manager hands focus to the game window and stays open (the Play
-  pane shows the running game and notices its exit); it quits instead only with
-  `CLOSE_ON_PLAY=1`, the Play-pane checkbox. Staying open is the default because
-  macOS asks for Local Network access on behalf of the launching app — gone, a
-  LAN realm appeared blocked with no prompt (#7). The game is detached and keeps
-  running either way. Script-app launchers that don't check in with
+- After Play the manager hands focus to the game window, then hides — accessory
+  activation policy, so no window, Dock icon or Cmd-Tab entry — and terminates
+  when the game process exits (NSWorkspace's termination notice, a 5 s `pgrep`
+  poll behind it). Reopening the app meanwhile (`applicationShouldHandleReopen`)
+  brings the window back and drops the auto-quit. `CLOSE_ON_PLAY=1`, the
+  Play-pane checkbox, quits right after the handoff instead. Why it must outlive
+  the game: macOS attributes a child's network traffic to the app that spawned
+  it (TN3179's "responsible code"), and Wine — unsigned, no bundle — has no
+  identity of its own, so the game's Local Network access *is* the launcher's
+  grant. On macOS 27 the connection drops a few seconds after the launcher quits
+  (seen on three Macs, #7). Of TN3179's exemptions — `launchd` daemons, root,
+  tools run from Terminal/SSH — none fits, which is why disclaiming Wine's
+  responsibility would not help; only a nested app opened through
+  LaunchServices would give the game its own grant (unbuilt). The game is
+  detached and keeps running either way. Script-app launchers that don't check in with
   LaunchServices get "not responding" — the compiled SwiftUI binary is what
   fixed that historically.
 
