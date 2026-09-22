@@ -247,11 +247,17 @@ cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
         echo "NOTE: $NAME could not be moved to the Trash — it is in $STAGE_DIR"
       fi
     else
-      mv "$OLD" "$NEW" 2>/dev/null || true      # the new app back into staging
-      mv "$PARKED" "$OLD" 2>/dev/null || true   # and the old one back into place
-      marker "$NEW_VER would not open, so this version was kept"
-      "$OPENER" "$OLD" || true
-      echo "FAIL: $NEW_VER would not open — the old app is back"
+      # Both moves have to succeed for the old version to be back; if the path
+      # cannot be cleared, what sits there is the version that just refused to
+      # open, and saying "the old app is back" would be a lie.
+      if mv "$OLD" "$NEW" 2>/dev/null && mv "$PARKED" "$OLD" 2>/dev/null; then
+        marker "$NEW_VER would not open, so this version was kept"
+        "$OPENER" "$OLD" || true
+        echo "FAIL: $NEW_VER would not open — the old app is back"
+      else
+        marker "$NEW_VER would not open and could not be undone — the app in place is $NEW_VER, and $NAME is in $STAGE_DIR — manual update required"
+        echo "FAIL: $NEW_VER would not open, and the old app could not be put back — it is in $STAGE_DIR"
+      fi
       exit 1
     fi
   else

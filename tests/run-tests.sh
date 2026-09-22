@@ -1178,8 +1178,16 @@ cat > "$TMP/swap/open" <<'STUB'
 #!/bin/bash
 echo "OPEN $*" >> "$WOW_TEST_OPENLOG"
 # refuses whatever WOW_TEST_OPEN_FAIL names, the way macOS refuses an app it
-# will not run — the swap must then put the old one back
-case "$1" in *"${WOW_TEST_OPEN_FAIL:-\0}"*) [ -n "${WOW_TEST_OPEN_FAIL:-}" ] && exit 1 ;; esac
+# will not run — the swap must then put the old one back. WOW_TEST_BLOCK_PATH
+# additionally takes that path, so the putting back cannot finish either.
+case "$1" in
+  *"${WOW_TEST_OPEN_FAIL:-\0}"*)
+    if [ -n "${WOW_TEST_OPEN_FAIL:-}" ]; then
+      # a plain file there: moving a folder onto one fails, a folder into one does not
+      [ -n "${WOW_TEST_BLOCK_PATH:-}" ] && { mkdir -p "$(dirname "$WOW_TEST_BLOCK_PATH")"; : > "$WOW_TEST_BLOCK_PATH"; }
+      exit 1
+    fi ;;
+esac
 exit 0
 STUB
 chmod +x "$TMP/swap/open"
@@ -1308,6 +1316,21 @@ assert_contains "$(cat "$TMP/swap/Applications/AzerothCore.app/Contents/Resource
 assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
   "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.9" "the old version is back in place"
 assert_eq "$(find "$TMP/swap/Trash" -maxdepth 1 -name '*.app' | wc -l | tr -d ' ')" "0" "and out of the Trash"
+# it will not open AND the path cannot be cleared: say which copy is where
+swap_setup
+export WOW_TEST_OPEN_FAIL=AzerothCore
+# the stub takes the staging path the moment open is called, so the new app
+# cannot be moved back out of the way
+export WOW_TEST_BLOCK_PATH="$TMP/swap/Applications/.wow-update.test/new/WoW.app"
+OUT="$(swap_run "$DEAD")"
+unset WOW_TEST_BLOCK_PATH
+unset WOW_TEST_OPEN_FAIL
+assert_contains "$OUT" "could not be put back" "a rollback that cannot finish says so"
+assert_contains "$(cat "$TMP/swap/Applications/AzerothCore.app/Contents/Resources/logs/update-failed.txt" 2>&1)" \
+  "manual update required" "and the marker names what is where"
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.10" "the copy in place is the new one, as the marker says"
+rm -rf "$TMP/swap/Applications/.wow-update.test"
 # the new app cannot be moved into place: the old one comes back and runs
 swap_setup; rm -rf "$TMP/swap/Applications/.wow-update.test/new/WoW.app"
 OUT="$(swap_run "$DEAD")"
