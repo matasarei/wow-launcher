@@ -62,8 +62,9 @@ case "$SRC" in
     # does not find its own command line.)
     PS="$(ps -axww -o command= | tr '\\' /)"
     if [ "$UPDATING" = 1 ]; then
-      set -- "$OLD/Contents/Resources/wine/"  "$GIVEN/Contents/Resources/wine/" \
-             "$OLD/Contents/Resources/games/" "$GIVEN/Contents/Resources/games/"
+      # only the game: the launcher doing the updating reads its display
+      # settings through wine, and that wineserver lingers for seconds
+      set -- "$OLD/Contents/Resources/games/" "$GIVEN/Contents/Resources/games/"
       BUSY="the game from $OLD_NAME is still running — quit it first"
     else
       set -- "$OLD/Contents/" "$GIVEN/Contents/"

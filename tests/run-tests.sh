@@ -44,7 +44,7 @@ chmod +x "$RES/patch-kit/x87sidecar/x87sidecar" "$RES/patch-kit/rosettax87/"*
 WINELOG="$TMP/wine.log"; : > "$WINELOG"
 cat > "$RES/wine/bin/wine" <<'STUB'
 #!/bin/bash
-echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
+echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} PREFIX=${WINEPREFIX:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
 case "$*" in
   *"reg query"*RetinaMode*)  [ -n "${WOW_TEST_RETINA-Y}" ] \
                                && printf '    RetinaMode    REG_SZ    %s\r\n' "${WOW_TEST_RETINA-Y}" ;;
@@ -1030,7 +1030,14 @@ kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "Old Launcher is still running" "a running previous app is refused"
 assert_contains "$UPD" "game installed (3.3.5a)" "--updating imports while the previous launcher runs"
 rm -rf "$RES/games"/* "$RES/patch-kit/"DivxDecoder.dll.*; reset_conf
+# a wineserver of its own is not a running game: reading the display settings
+# leaves one behind for seconds, and it used to refuse every update after that
 fake_proc "$OLD/Contents/Resources/wine/bin/wineserver"
+UPD="$("$BIN/wow-install-client" --updating "$OLD" 2>&1)"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$UPD" "game installed (3.3.5a)" "--updating ignores a lingering wineserver"
+rm -rf "$RES/games"/* "$RES/patch-kit/"DivxDecoder.dll.*; reset_conf
+fake_proc "$OLD/Contents/Resources/games/main/Wow.exe"
 UPD="$("$BIN/wow-install-client" --updating "$OLD" 2>&1)"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$UPD" "game from Old Launcher is still running" "--updating still refuses a running game"
@@ -1269,11 +1276,26 @@ apply_setup
 printf 'not a zip\n' > "$TMP/rel/broken.zip"
 assert_contains "$(apply "$TMP/rel/broken.zip" "$(digest_of "$TMP/rel/broken.zip")")" \
   "not a readable archive" "a corrupt archive is refused"
-fake_proc "$AAPP/Contents/Resources/wine/bin/wineserver"
+fake_proc "$AAPP/Contents/Resources/games/main/Wow.exe"
 OUT="$(apply "$Z" "$(digest_of "$Z")")"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "the game is still running" "an update while the game runs is refused"
 assert_eq "$(stage_count)" "0" "no staging dir survives a refusal"
+# the launcher's own wineserver, left over from reading the display settings,
+# must not look like a game — this is what refused the first update every time
+apply_setup
+fake_proc "$AAPP/Contents/Resources/wine/bin/wineserver"
+: > "$WINELOG"
+OUT="$(apply "$Z" "$(digest_of "$Z")")"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$OUT" "downloaded 2.10" "a lingering wineserver does not refuse the update"
+# ...it is asked to go instead, against the bundle's own prefix and home —
+# without them the kill would reach some other wineserver, or none
+assert_contains "$(cat "$WINELOG")" \
+  "WINE ARGS: -k | OVR=" "the update asks the leftover wineserver to exit"
+assert_contains "$(grep -- '-k' "$WINELOG" | head -1)" \
+  "PREFIX=$AAPP/Contents/Resources/prefix HOME=$AAPP/Contents/Resources/home" \
+  "with the bundle's prefix and home"
 rm -f "$APP/Contents/Info.plist"; reset_conf
 
 # Cancel in the launcher: the script is terminated, and the download must not

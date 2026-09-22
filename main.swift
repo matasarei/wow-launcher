@@ -74,6 +74,7 @@ enum Paths {
     static let rosettaTool = resources + "/bin/wow-check-rosetta"
     static let updateTool  = resources + "/bin/wow-update"
     static let updateFailed = resources + "/logs/update-failed.txt"   // left by wow-update swap
+    static let updateLog    = resources + "/logs/update.log"          // what the last update said
     static let releasesPage = "https://github.com/matasarei/wow-launcher/releases/latest"
     static let conf      = resources + "/launcher.conf"
 }
@@ -215,7 +216,11 @@ final class Store: ObservableObject {
         DispatchQueue.main.async { self.reportUpdateFailure() }
     }
 
-    private func reportUpdateFailure() {
+    // An update that did not finish has to say so where the player is looking:
+    // its reason used to reach only the About pane, so an update started from
+    // the dialog over any other pane just vanished.
+    private func reportUpdateFailure(_ reason: String? = nil) {
+        if let reason = reason { updateFailure = reason }
         let a = NSAlert()
         a.alertStyle = .warning
         a.messageText = L("The update did not complete")
@@ -225,6 +230,17 @@ final class Store: ObservableObject {
         if a.runModal() == .alertFirstButtonReturn, let url = URL(string: Paths.releasesPage) {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    // Everything the update said, kept for the run after it: an update that
+    // fails does so once, in front of nobody, and "it disappeared" is not
+    // something anyone can act on.
+    private func writeUpdateLog(_ lines: [String]) {
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        let text = "[\(stamp)] wow-update apply\n" + lines.joined(separator: "\n") + "\n"
+        try? FileManager.default.createDirectory(atPath: (Paths.updateLog as NSString).deletingLastPathComponent,
+                                                 withIntermediateDirectories: true)
+        try? text.write(toFile: Paths.updateLog, atomically: true, encoding: .utf8)
     }
 
     // The weekly check, from init: on a background queue and never waited for,
@@ -335,6 +351,7 @@ final class Store: ObservableObject {
             self.updateProc = nil
             self.installProgress = nil
             self.installStatus = ""
+            self.writeUpdateLog(lines)
             defer { self.updateVersion = "" }
             if !lines.contains("RESTARTING") { self.updateSheet = false }
             if self.updateCancelled {   // its last line is the kill, not news
@@ -351,7 +368,9 @@ final class Store: ObservableObject {
                 self.updateSheet = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.quitForUpdate() }
             } else {
-                self.updateNote = lines.last ?? L("The update did not finish.")
+                let reason = lines.last ?? L("The update did not finish.")
+                self.updateNote = reason
+                self.reportUpdateFailure(reason)
             }
         }
     }
