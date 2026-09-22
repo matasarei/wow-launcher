@@ -1840,13 +1840,25 @@ struct AboutView: View {
 
 // MARK: - App
 
+// Clicking the app (Finder, Launchpad, Spotlight) while it hides behind the
+// game arrives as a reopen: that is the way back to the window and Stop.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    weak var store: Store?
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        store?.showAgain()
+        return true
+    }
+}
+
 @main
 struct WoWLauncherApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = Store()
 
     var body: some Scene {
         Window("WoW Launcher", id: "main") {
             ContentView().environmentObject(store)
+                .onAppear { appDelegate.store = store }
         }
         .defaultSize(width: 780, height: 500)
     }
