@@ -926,6 +926,15 @@ HOME="$FAKEHOME" "$BIN/wow-settings" show >/dev/null 2>&1
 chmod +x "$BIN/wow-wine-home"
 assert_eq "$(grep -vc "HOME=$FAKEHOME\$" "$WINELOG")" "0" "a failed helper falls back to the caller's HOME"
 
+# a script added later that runs wine without it would bring ~/Wine back, and
+# nothing above would notice: every script naming the loader must ask for the home
+for f in "$ROOT"/scripts/wow-*; do
+  n="$(basename "$f")"
+  [ "$n" = wow-check-rosetta ] && continue   # inspects the loader (lipo, arch), never runs it
+  grep -v '^[[:space:]]*#' "$f" | grep -qE 'wine/bin/|"\$LOADER"' || continue
+  grep -q 'wow-wine-home' "$f" && ok || bad "$n runs wine without wow-wine-home (~/Wine comes back)"
+done
+
 # ============================================================ Retina chosen by hand
 # The display here is retina, so every auto-match used to switch RetinaMode back
 # on right after the user turned it off: in the Display pane (retina off, then
