@@ -165,6 +165,7 @@ final class Store: ObservableObject {
     @Published var updateNote = ""
     @Published var updateFailure = ""        // what the last update failed on, if it did
     @Published var updateSheet = false       // the update's own window: it must not run unseen
+    private var quitWhenSheetCloses = false  // the swap is waiting; see applyUpdate
     @Published var updateVersion = ""        // the version being installed, for that window
     private var updateCancelled = false      // so the kill's own output is not reported as a failure
     private var updateProc: Process?
@@ -287,6 +288,15 @@ final class Store: ObservableObject {
         updateNote = LF("Version %@ skipped.", f["LATEST"] ?? "")
     }
 
+    // Called when the update sheet has actually gone from the screen, and once
+    // more on a timer: terminating while it is still up is what leaves an update
+    // half done. Harmless to call twice — the second finds nothing to do.
+    func quitForUpdate() {
+        guard quitWhenSheetCloses else { return }
+        quitWhenSheetCloses = false
+        NSApp.terminate(nil)
+    }
+
     // Stopping mid-download leaves a staging dir behind; the next update clears
     // it (see wow-update apply), and nothing outside it has been touched yet.
     func cancelUpdate() {
@@ -334,13 +344,13 @@ final class Store: ObservableObject {
             if lines.contains("RESTARTING") {
                 self.updateNote = L("Restarting…")
                 self.quitAfterGame = true   // the swap out there waits for this process
-                // The sheet has to go first: a window-modal sheet swallows the
-                // termination, the app sits there with a spinner, and the swap
-                // waiting outside gives up and puts nothing in place.
+                // A window-modal sheet swallows the termination — the app then
+                // sits there with a spinner while the swap outside gives up — so
+                // the sheet goes first and the quit waits for it to be gone.
+                self.quitWhenSheetCloses = true
                 self.updateSheet = false
-                // and a moment for it to actually go: the dismissal is animated,
-                // and terminating into a sheet that is still up is the same trap
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { NSApp.terminate(nil) }
+                // in case the sheet never reports back, ask again shortly
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.quitForUpdate() }
             } else {
                 self.updateNote = lines.last ?? L("The update did not finish.")
             }
@@ -1593,6 +1603,7 @@ struct UpdateSheet: View {
         }
         .padding(24)
         .frame(minWidth: 380)
+        .onDisappear { store.quitForUpdate() }   // the update's last step, once this is off screen
     }
 }
 
