@@ -1025,6 +1025,10 @@ fake_proc "$OLD/Contents/MacOS/WoW Launcher"
 OUT="$("$BIN/wow-install-client" "$OLD" 2>&1)"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "Old Launcher is still running" "a running previous app is refused"
+fake_proc "Z:$(echo "$OLD" | tr / '\\')\\Contents\\Resources\\games\\main\\Wow.exe"
+OUT="$("$BIN/wow-install-client" "$OLD" 2>&1)"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$OUT" "Old Launcher is still running" "its game under Wine (Z:\\ path) counts as running"
 assert_eq "$(state)" "$BEFORE" "refusals change nothing here"
 
 # accepted: 2.10 is newer than 2.1 (numbers, not text)

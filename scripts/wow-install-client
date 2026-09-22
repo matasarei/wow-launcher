@@ -53,9 +53,10 @@ case "$SRC" in
     # the old launcher or its game still running: WTF and Cache are written on
     # exit, and its wineserver may hold files open mid-copy. Processes show the
     # path they were started by, which may be a symlinked one (/tmp for
-    # /private/tmp), so both spellings count. (Listed first, so the grep does
-    # not find its own command line.)
-    PS="$(ps -axww -o command=)"
+    # /private/tmp), so both spellings count — and Wine lists the game itself as
+    # Z:\…\Wow.exe, so backslashes read as slashes. (Listed first, so the grep
+    # does not find its own command line.)
+    PS="$(ps -axww -o command= | tr '\\' /)"
     printf '%s\n' "$PS" | grep -qF -e "$OLD/Contents/" -e "$GIVEN/Contents/" \
       && { echo "$OLD_NAME is still running — quit it and its game first"; exit 1; }
     MIGRATE=1
