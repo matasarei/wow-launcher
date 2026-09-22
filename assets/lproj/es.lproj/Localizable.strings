@@ -95,6 +95,8 @@
 "Install Game Client" = "Instalar cliente del juego";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "Elige una carpeta de cliente de WoW: necesita un ejecutable del juego y una carpeta Data";
 "Installing %@… copying the client can take a few minutes." = "Instalando %@… copiar el cliente puede tardar unos minutos.";
+"Copying %@ — %@ of %@" = "Copiando %@ — %@ de %@";
+"Copied %@ of %@" = "Copiado %@ de %@";
 "Invalid server address." = "Dirección de servidor no válida.";
 "Server %@ added and selected — takes effect at next game start." = "Servidor %@ añadido y seleccionado: surte efecto al próximo inicio del juego.";
 "At least one server is required — add another before removing this one." = "Se requiere al menos un servidor: añade otro antes de eliminar este.";

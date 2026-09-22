@@ -95,6 +95,8 @@
 "Install Game Client" = "게임 클라이언트 설치";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "WoW 클라이언트 폴더를 선택하세요 — 게임 실행 파일과 Data 폴더가 필요합니다";
 "Installing %@… copying the client can take a few minutes." = "%@ 설치 중… 클라이언트 복사에 몇 분 걸릴 수 있습니다.";
+"Copying %@ — %@ of %@" = "%@ 복사 중 — %@ / %@";
+"Copied %@ of %@" = "%@ / %@ 복사됨";
 "Invalid server address." = "잘못된 서버 주소입니다.";
 "Server %@ added and selected — takes effect at next game start." = "서버 %@이(가) 추가되고 선택되었습니다. 다음 게임 시작 시 적용됩니다.";
 "At least one server is required — add another before removing this one." = "서버가 최소 하나 필요합니다. 이 서버를 제거하기 전에 다른 서버를 추가하세요.";

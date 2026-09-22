@@ -150,6 +150,10 @@ final class Store: ObservableObject {
     @Published var loadingStatus = true
     @Published var busy = false
     @Published var note = ""
+    // What an install is doing right now: the copy's share done (nil while a
+    // step with no measurable progress runs), and one line saying what it is.
+    @Published var installProgress: Double? = nil
+    @Published var installStatus = ""
 
     init() {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
@@ -866,20 +870,68 @@ final class Store: ObservableObject {
     private func startInstall(from url: URL) {
         busy = true
         note = LF("Installing %@… copying the client can take a few minutes.", url.lastPathComponent)
-        DispatchQueue.global().async {
-            let out = shell(Paths.installTool, [url.path])
+        // Streamed rather than run through shell(): copying from a slow drive
+        // takes minutes, and wow-copy's COPY lines are what the bar is drawn from.
+        var lines: [String] = []
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: Paths.installTool)
+        p.arguments = [url.path]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = pipe
+        var buf = ""
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] h in
+            let d = h.availableData
+            guard !d.isEmpty else { return }
+            buf += String(data: d, encoding: .utf8) ?? ""
+            while let r = buf.range(of: "\n") {
+                let line = String(buf[..<r.lowerBound])
+                buf.removeSubrange(..<r.upperBound)
+                DispatchQueue.main.async {
+                    guard let self = self, !line.isEmpty else { return }
+                    if self.handleCopyLine(line) { return }
+                    lines.append(line)
+                    self.installProgress = nil   // patching has no bar, only a spinner
+                    self.installStatus = line
+                }
+            }
+        }
+        p.terminationHandler = { [weak self] _ in
+            pipe.fileHandleForReading.readabilityHandler = nil
+            // queued behind the last line handlers, so `lines` is complete here
             DispatchQueue.main.async {
+                guard let self = self else { return }
                 self.busy = false
-                self.note = out.split(separator: "\n").suffix(2).joined(separator: " — ")
+                self.installProgress = nil
+                self.installStatus = ""
+                self.note = lines.suffix(2).joined(separator: " — ")
                 self.refreshGames()
                 self.refreshStatus()
                 self.refreshRealms()
                 self.refreshAddons()
-                if out.contains("game installed") {
+                if lines.contains(where: { $0.contains("game installed") }) {
                     self.verifyGame()   // confirm the fresh install right away
                 }
             }
         }
+        do { try p.run() } catch {
+            pipe.fileHandleForReading.readabilityHandler = nil
+            busy = false
+            note = "ERROR: \(error.localizedDescription)"
+        }
+    }
+
+    // "COPY <done KB> <total KB> <file>" from wow-copy → the bar and its line.
+    private func handleCopyLine(_ line: String) -> Bool {
+        guard line.hasPrefix("COPY ") else { return false }
+        let parts = line.split(separator: " ", maxSplits: 3).map(String.init)
+        guard parts.count >= 3, let done = Double(parts[1]), let total = Double(parts[2]), total > 0 else { return true }
+        installProgress = min(done / total, 1)
+        let size = { (kb: Double) in ByteCountFormatter.string(fromByteCount: Int64(kb * 1024), countStyle: .file) }
+        let file = parts.count > 3 ? parts[3] : ""
+        installStatus = file.isEmpty ? LF("Copied %@ of %@", size(done), size(total))
+                                     : LF("Copying %@ — %@ of %@", file, size(done), size(total))
+        return true
     }
 
     // MARK: realmlist
@@ -1242,6 +1294,28 @@ enum Pane: String, CaseIterable, Identifiable {
     }
 }
 
+// A running install: the copy's bar (a spinner for steps with no measurable
+// progress) and the line saying what it is doing — on both panes that install.
+struct InstallProgressView: View {
+    @EnvironmentObject var store: Store
+
+    var body: some View {
+        VStack(spacing: 4) {
+            if let v = store.installProgress {
+                ProgressView(value: v).frame(width: 260)
+            } else {
+                ProgressView().controlSize(.small)
+            }
+            Text(verbatim: store.installStatus)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 380)
+        }
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject var store: Store
     @ViewState private var pane: Pane? = .play
@@ -1341,7 +1415,9 @@ struct PlayView: View {
                 .controlSize(.large)
                 .disabled(store.busy)
                 .padding(.top, 8)
-                if store.busy {
+                if store.busy && !store.installStatus.isEmpty {
+                    InstallProgressView().padding(.top, 4)
+                } else if store.busy {
                     ProgressView().controlSize(.small).padding(.top, 4)
                 }
                 if !store.note.isEmpty {
@@ -1420,7 +1496,10 @@ struct GameView: View {
                         Label("Install New Game…", systemImage: "plus")
                     }
                     .disabled(store.busy)
-                    if store.busy { ProgressView().controlSize(.small) }
+                    if store.busy && store.installStatus.isEmpty { ProgressView().controlSize(.small) }
+                }
+                if store.busy && !store.installStatus.isEmpty {
+                    InstallProgressView()
                 }
                 Text("Choose any WoW client folder — it is copied into the app and gets the Apple Silicon patches that apply to it. 3.3.5a, 2.4.3 and 1.12 clients get the full treatment.")
                     .font(.caption)
