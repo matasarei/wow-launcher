@@ -16,6 +16,7 @@
 # UPDATE_SKIP=<version>. The import carries all three to the next copy.
 set -e
 APP="$(cd "$(dirname "$0")/../../.." && pwd)"
+APP_REAL="$(cd "$APP" && pwd -P)"   # processes show either spelling (see the game check)
 RES="$APP/Contents/Resources"
 CONF="$RES/launcher.conf"
 # overridable so the test suite can serve a release from a file:// URL
@@ -116,7 +117,9 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   [ -w "$PARENT" ] || fail "$PARENT is not writable — update from the release page instead"
   # the game writes its WTF and cache on exit, and its files are about to move
   local PS; PS="$(ps -axww -o command= | tr '\\' /)"
-  printf '%s\n' "$PS" | grep -qF -e "$APP/Contents/Resources/wine/" -e "$APP/Contents/Resources/games/" \
+  printf '%s\n' "$PS" | grep -qF \
+    -e "$APP/Contents/Resources/wine/"      -e "$APP/Contents/Resources/games/" \
+    -e "$APP_REAL/Contents/Resources/wine/" -e "$APP_REAL/Contents/Resources/games/" \
     && fail "the game is still running — quit it first"
   # beside the app: the swap is then a rename, and the import clones the game
   STAGE="$(mktemp -d "$PARENT/.wow-update.XXXXXX")"
@@ -171,8 +174,9 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   # detached (reparented to launchd) and waiting for the launcher to quit.
   cp "$NEW/Contents/Resources/bin/wow-update" "$STAGE/wow-update-swap"
   chmod +x "$STAGE/wow-update-swap"
+  # truncated, not appended: one log, about the update that is running now
   nohup "$STAGE/wow-update-swap" swap "$WAIT" "$APP" "$NEW" \
-    >> "${TMPDIR:-/tmp}/wow-update-swap.log" 2>&1 &
+    > "${TMPDIR:-/tmp}/wow-update-swap.log" 2>&1 &
   echo "RESTARTING"
 }
 
