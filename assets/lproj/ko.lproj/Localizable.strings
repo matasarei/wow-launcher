@@ -133,4 +133,4 @@
 "The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license" = "게임을 시작할 수 없습니다: Rosetta 2가 설치되어 있지 않습니다. 터미널을 열고 다음을 실행하세요: sudo softwareupdate --install-rosetta --agree-to-license";
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2가 설치되어 있지 않아 게임을 시작할 수 없습니다";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2가 설치되어 있지 않아 wine 프리픽스에 저장된 설정을 확인하지 못했습니다.";
-"Quits as soon as the game starts. On macOS 27 a server on your local network then disconnects — leave this off for one." = "게임이 시작되자마자 종료됩니다. macOS 27에서는 이때 로컬 네트워크의 서버 연결이 끊기므로, 그런 서버라면 꺼 두세요.";
+"Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game." = "게임이 앞으로 나오면 런처를 닫습니다. 게임이 실행 중인 동안에는 화면에서만 사라져 로컬 네트워크의 서버 연결이 유지되며, 게임을 종료하면 함께 종료됩니다.";

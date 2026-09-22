@@ -1381,7 +1381,7 @@ struct PlayView: View {
                     .toggleStyle(.checkbox)
                     .controlSize(.small)
                     .foregroundStyle(.secondary)
-                    .help("Quits as soon as the game starts. On macOS 27 a server on your local network then disconnects — leave this off for one.")
+                    .help("Closes the launcher once the game is in front. While the game runs it only leaves the screen, so a server on your local network stays connected; it quits when you exit the game.")
             }
             Spacer()
         }
