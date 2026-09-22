@@ -122,7 +122,6 @@
 "This client has no Divx decoder for the mod loader to hook, so no extra DLL can be added to it." = "У этого клиента нет декодера Divx, за который цепляется загрузчик модов, поэтому добавить DLL некуда.";
 "libSiliconPatch exists only for 3.3.5a (12340) and 1.12 clients; the other levels apply as usual." = "libSiliconPatch существует только для клиентов 3.3.5a (12340) и 1.12; остальные уровни работают как обычно.";
 "Close the launcher when the game starts" = "Закрывать лаунчер после запуска игры";
-"Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf." = "Оставьте лаунчер открытым, если ваш сервер в локальной сети — macOS запрашивает доступ к локальной сети от его имени.";
 "Test Connection" = "Проверить соединение";
 "Connects to the selected server once. For a server on your local network, this makes macOS ask for local network access." = "Один раз подключается к выбранному серверу. Если сервер в локальной сети, macOS после этого запросит доступ к локальной сети.";
 "Connected to %@ — this server is reachable." = "Подключено к %@ — сервер доступен.";
@@ -134,3 +133,4 @@
 "The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license" = "Игра не может запуститься: Rosetta 2 не установлена. Откройте Терминал и выполните: sudo softwareupdate --install-rosetta --agree-to-license";
 "Rosetta 2 is not installed — the game cannot start" = "Rosetta 2 не установлена — игра не запустится";
 "Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked." = "Rosetta 2 не установлена, поэтому настройки, хранящиеся в префиксе wine, проверить не удалось.";
+"Quits as soon as the game starts. On macOS 27 a server on your local network then disconnects — leave this off for one." = "Закрывается сразу после запуска игры. В macOS 27 сервер в локальной сети после этого отключается — для него оставьте выключенным.";

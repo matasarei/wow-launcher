@@ -1365,7 +1365,7 @@ struct PlayView: View {
                     .toggleStyle(.checkbox)
                     .controlSize(.small)
                     .foregroundStyle(.secondary)
-                    .help("Keep the launcher open if your server is on your local network — macOS asks for local network access on its behalf.")
+                    .help("Quits as soon as the game starts. On macOS 27 a server on your local network then disconnects — leave this off for one.")
             }
             Spacer()
         }
