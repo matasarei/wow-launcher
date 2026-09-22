@@ -55,6 +55,12 @@ newer WoWSilicon runtime or release:
 
 ## Making a release
 
+**The in-app updater reads the release, so its shape is a contract:** the tag is
+`v<version>` matching `CFBundleShortVersionString`, and the asset is
+`WoW-v<version>.zip` (one app at the zip's top level, sealed by `make sign`).
+GitHub's own `digest` is what the download is checked against. A release that
+breaks any of that is invisible to `wow-update` — every user stays where they are.
+
 A releasable wrapper must be **freshly built** — never a used one. A wrapper
 that has run installs accumulates Blizzard-derived files (the game under
 `games/`, and self-populated patch-kit references: `Wow.exe.*`,

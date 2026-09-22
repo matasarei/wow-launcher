@@ -197,6 +197,58 @@ then brings kit files, mod set, Divx, icon, resolution and Retina to the
 chosen level from the originals the old app left beside them. The source app
 is only ever read (the suite compares its checksum listing before and after).
 
+## Version check and in-app update (2.9) — `wow-update`
+
+The update is the import run backwards: the release is downloaded beside this
+app, the **new copy** imports the game out of the running one, and the two are
+then swapped. Nothing in the update knows how to patch a client.
+
+`wow-update check [--force]` asks
+`api.github.com/repos/matasarei/wow-launcher/releases/latest` (never a draft or a
+pre-release) and prints `CURRENT=`, `LATEST=`, `PAGE=`, `ASSET=`, `SIZE=`,
+`DIGEST=` and one `RESULT:` — `UPDATE`, `CURRENT`, `SKIPPED`, `OFF`, `TOO-SOON`
+or `UNREACHABLE`. `plutil -extract` reads the API's JSON, so there is no JSON
+parser here. Versions compare as numbers: **2.10 is newer than 2.9**, which a
+string compare gets backwards. `launcher.conf`: `UPDATE_CHECK=1|0` (absent = on),
+`UPDATE_CHECKED=<epoch>`, `UPDATE_SKIP=<version>` — all three carried by the
+import. The GUI runs the check from `Store.init` on a background queue, weekly
+(`curl --max-time 15` is the outer bound), and says nothing unless there is news;
+the About button passes `--force`, which ignores the interval, the off switch and
+a skipped version.
+
+`wow-update apply <url> <size> <digest> [<pid>]` refuses first — a translocated
+copy (a quarantined download runs read-only), a folder it cannot write, a running
+game — then downloads into `.wow-update.XXXX` **beside the app** (so the swap is a
+rename and the import clones), prints `DOWNLOAD <done> <total>` for the same bar
+as `COPY`, checks the sha256 against the API's `digest`, unpacks, and asks the
+download what the import asks of a previous app: our bundle identifier, ≥ 2.9
+(`--updating` landed there — an older release could not install itself), newer
+than this one, and `codesign --verify --deep` intact. Then
+`<new>/…/bin/wow-install-client --updating <this app>` carries the game; with no
+game installed the settings are copied by key instead. Finally a copy of the new
+`wow-update` is spawned detached and `RESTARTING` tells the launcher to quit.
+
+`wow-update swap <pid> <old> <new>` runs from that staging copy, waits for the
+launcher to exit (60 s cap), moves the old app to `~/.Trash` (a taken name gets a
+numbered suffix; its game shares blocks with the new copy, so it costs almost
+nothing), renames the new app to the old one's **exact path and name** — apps get
+renamed, and the Dock and the Local Network grant follow the path — and opens it.
+A failed rename puts the old app back and opens that.
+
+**What the checks do and do not prove.** The digest comes from the same API as
+the link, so it proves the download arrived intact, not who built it; the ad-hoc
+seal proves the bundle is internally consistent, not its author. Real provenance
+needs Developer ID signing and notarization (see "Making a release" in
+`CLAUDE.md`). Also: the new copy is a new ad-hoc identity, so the first LAN game
+after an update may have to be granted Local Network access again — and that
+grant needs both launcher and game restarted (below).
+
+**Tests:** `curl` reads `file://` URLs and `WOW_UPDATE_API`, `WOW_UPDATE_INTERVAL`,
+`WOW_UPDATE_TIMEOUT`, `WOW_UPDATE_TRASH` and `WOW_UPDATE_OPEN` are overridable, so
+the hermetic suite drives the whole thing — check in every result, apply against a
+sealed fake release, swap with a fake Trash and a stub `open`, and one end-to-end
+run that leaves the new version at the old path with the game and settings in it.
+
 ## Assorted gotchas
 
 - **This wine creates `$HOME/Wine`** (issue #12). WineAndAqua's macOS branch runs
