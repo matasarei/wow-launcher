@@ -789,6 +789,19 @@ OUT="$("$BIN/wow-install-client" "$G" 2>&1)"
 assert_contains "$OUT" "the source is the installed game itself" "guard triggers"
 assert_file "$G/Wow.exe"
 
+# ============================================================ leftover wineserver
+# Wine creates sockets inside wineserver, and a wineserver from an earlier
+# session belongs to no launcher — macOS then blocks the game's LAN traffic.
+section "a fresh wineserver per session"
+reset_conf; "$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "WINE ARGS: -k" "launch stops a leftover wineserver first"
+( exec -a "$G/Wow.exe" sleep 3 ) &                    # a game from this copy is running
+FAKE=$!; sleep 0.2
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_eq "$(grep -c 'WINE ARGS: -k$' "$WINELOG")" "0" "a running game's wineserver is left alone"
+kill "$FAKE" 2>/dev/null; wait "$FAKE" 2>/dev/null
+
 # ============================================================ Rosetta missing
 # The real probe passes here (the stub wine is a shell script, not x86_64), so
 # the failing path is exercised by swapping the probe itself — the suite must
