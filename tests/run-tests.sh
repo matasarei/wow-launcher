@@ -920,6 +920,11 @@ printf 'AUTO_RES=1\n' > "$RES/launcher.conf"   # no CHAT_CP line: detection is a
 HOME="$FAKEHOME" "$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
 assert_contains "$(cat "$RES/launcher.conf")" "CHAT_CP=1251" "the Russian layout is found in the user's own prefs"
 reset_conf
+# a helper that cannot run leaves the caller's HOME in place, never an empty one
+chmod -x "$BIN/wow-wine-home"; : > "$WINELOG"
+HOME="$FAKEHOME" "$BIN/wow-settings" show >/dev/null 2>&1
+chmod +x "$BIN/wow-wine-home"
+assert_eq "$(grep -vc "HOME=$FAKEHOME\$" "$WINELOG")" "0" "a failed helper falls back to the caller's HOME"
 
 # ================================================================== Swift sources
 section "Swift sources"

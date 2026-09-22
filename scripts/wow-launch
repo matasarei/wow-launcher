@@ -13,7 +13,7 @@ if ! WHY="$("$RES/bin/wow-check-rosetta")"; then
   exit 1
 fi
 export WINEPREFIX="$RES/prefix"
-export HOME="$("$RES/bin/wow-wine-home")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
+export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
 # Wine creates the game's sockets inside wineserver, and macOS credits network
 # traffic to the app that started *that* process. A wineserver left over from
 # an earlier session has outlived its launcher and is responsible only for

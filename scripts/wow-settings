@@ -16,7 +16,7 @@ if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME_DIR="$RES/ga
 CFG="$GAME_DIR/WTF/Config.wtf"
 LOADER="$RES/wine/bin/wine"
 export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
-export HOME="$("$RES/bin/wow-wine-home")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
+export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
 unset ROSETTA_X87_PATH
 
 set_cvar() {
