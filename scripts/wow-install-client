@@ -20,15 +20,60 @@ export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wi
 SRC="$1"
 DEST="$RES/games/main"
 [ -n "$SRC" ] || { echo "usage: wow-install-client /path/to/client"; exit 1; }
+# A previous copy of this app (wow-install-client /Applications/Old.app) is the
+# best source there is: its game is already patched and its kit holds the
+# references this one would otherwise rebuild. It is checked before anything
+# here changes, and only ever read. 2.1 is the floor: the first release with
+# this bundle identifier (1.0/2.0 were local.wow335.singleapp, 3.3.5a-only).
+MIGRATE=0
+case "$SRC" in
+  *.app|*.app/)
+    OLD="$(cd "$SRC" 2>/dev/null && pwd -P)" || { echo "no such app: $SRC"; exit 1; }
+    GIVEN="$(cd "$SRC" && pwd -L)"   # as the caller spelled it (see the running check)
+    OLD_NAME="$(basename "$OLD" .app)"
+    # (PlistBuddy fails on a missing file or key — an empty answer here, not an exit)
+    plist() { [ -f "$OLD/Contents/Info.plist" ] && /usr/libexec/PlistBuddy -c "Print :$1" "$OLD/Contents/Info.plist" 2>/dev/null || true; }
+    OLD_VER="$(plist CFBundleShortVersionString)"
+    case "$(plist CFBundleIdentifier)" in
+      io.github.matasarei.wow-launcher) ;;
+      local.wow335.singleapp) echo "$OLD_NAME ${OLD_VER:-(no version)} is too old to install from — WoW Launcher 2.1 or later is needed"; exit 1 ;;
+      *) echo "not a WoW Launcher app: $OLD_NAME"; exit 1 ;;
+    esac
+    MAJ="${OLD_VER%%.*}"; MIN="${OLD_VER#"$MAJ"}"; MIN="${MIN#.}"; MIN="${MIN%%.*}"
+    case "$MAJ" in ''|*[!0-9]*) MAJ=0 ;; esac
+    case "$MIN" in ''|*[!0-9]*) MIN=0 ;; esac
+    if [ "$MAJ" -lt 2 ] || { [ "$MAJ" = 2 ] && [ "$MIN" -lt 1 ]; }; then
+      echo "$OLD_NAME ${OLD_VER:-(no version)} is too old to install from — WoW Launcher 2.1 or later is needed"; exit 1
+    fi
+    [ "$OLD" = "$(cd "$APP" && pwd -P)" ] && { echo "that is this launcher itself — choose the previous app"; exit 1; }
+    OLD_RES="$OLD/Contents/Resources"
+    OLD_GAME="$(grep -sE '^GAME=' "$OLD_RES/launcher.conf" | head -1 | cut -d= -f2-)"
+    SRC="$OLD_RES/games/${OLD_GAME:-main}"
+    [ -n "$(ls "$SRC" 2>/dev/null)" ] || { echo "$OLD_NAME has no game installed — nothing to install from"; exit 1; }
+    # the old launcher or its game still running: WTF and Cache are written on
+    # exit, and its wineserver may hold files open mid-copy. Processes show the
+    # path they were started by, which may be a symlinked one (/tmp for
+    # /private/tmp), so both spellings count. (Listed first, so the grep does
+    # not find its own command line.)
+    PS="$(ps -axww -o command=)"
+    printf '%s\n' "$PS" | grep -qF -e "$OLD/Contents/" -e "$GIVEN/Contents/" \
+      && { echo "$OLD_NAME is still running — quit it and its game first"; exit 1; }
+    MIGRATE=1
+    echo "installing from $OLD_NAME $OLD_VER"
+    ;;
+esac
 # Fingerprint the source BEFORE touching any existing install: what the client
 # is decides which of the checks below apply and which patches get copied.
-PROFILE="$("$BIN/wow-client-profile" "$SRC")"
+read_profile() {
+  PROFILE="$("$BIN/wow-client-profile" "$SRC")"
+  V="$(prof VERSION)";       FAMILY="$(prof FAMILY)";      BUILD="$(prof BUILD)"
+  EXE="$(prof EXE)";         SRC_LOCALE="$(prof LOCALE)";  CONFIDENCE="$(prof CONFIDENCE)"
+  PATCHES="$(prof PATCHES)"; REQUESTED="$(prof PATCHES_REQUESTED)"
+  CAP_LOADER="$(prof CAP_LOADER)"; CAP_DXVK="$(prof CAP_DXVK)";   CAP_SILICON="$(prof CAP_SILICON)"
+  CAP_ICON="$(prof CAP_ICON)";     CAP_TWEAKS="$(prof CAP_TWEAKS)"; CAP_CVARS="$(prof CAP_CVARS)"
+}
 prof() { printf '%s\n' "$PROFILE" | grep -E "^$1=" | cut -d= -f2-; }
-V="$(prof VERSION)";       FAMILY="$(prof FAMILY)";      BUILD="$(prof BUILD)"
-EXE="$(prof EXE)";         SRC_LOCALE="$(prof LOCALE)";  CONFIDENCE="$(prof CONFIDENCE)"
-PATCHES="$(prof PATCHES)"; REQUESTED="$(prof PATCHES_REQUESTED)"
-CAP_LOADER="$(prof CAP_LOADER)"; CAP_DXVK="$(prof CAP_DXVK)";   CAP_SILICON="$(prof CAP_SILICON)"
-CAP_ICON="$(prof CAP_ICON)";     CAP_TWEAKS="$(prof CAP_TWEAKS)"; CAP_CVARS="$(prof CAP_CVARS)"
+read_profile
 [ -f "$SRC/$EXE" ] || { echo "not a WoW client (no game executable in $SRC)"; exit 1; }
 [ -d "$SRC/Data" ] || { echo "not a WoW client (no Data folder in $SRC)"; exit 1; }
 # Structure checks only for the clients we know the shape of. A Cataclysm or
@@ -51,6 +96,20 @@ GAMES_REAL="$(cd "$RES" && pwd -P)/games"
 case "$SRC_REAL/" in
   "$GAMES_REAL"/*) echo "the source is the installed game itself — choose the original client folder"; exit 1 ;;
 esac
+# From a previous app the player's own choices come along; the patch level
+# decides what the profile offers, so it is read again after. What the game is
+# and where it sits on screen are this install's to work out.
+if [ "$MIGRATE" = 1 ]; then
+  KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA'
+  CARRY="$(grep -sE "^($KEYS)=" "$OLD_RES/launcher.conf" || true)"
+  # SILICON= is the pre-2.4 PATCHES: carried only when there is nothing newer
+  printf '%s\n' "$CARRY" | grep -qE '^PATCHES=' && CARRY="$(printf '%s\n' "$CARRY" | grep -vE '^SILICON=')"
+  grep -svE "^($KEYS)=" "$RES/launcher.conf" > "$RES/launcher.conf.tmp" || true
+  [ -n "$CARRY" ] && printf '%s\n' "$CARRY" >> "$RES/launcher.conf.tmp"
+  mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
+  [ -n "$CARRY" ] && echo "settings kept: $(printf '%s\n' "$CARRY" | cut -d= -f1 | tr '\n' ' ' | sed 's/ $//')"
+  read_profile
+fi
 echo "detected client version: $V"
 [ "$CONFIDENCE" = guess ] \
   && echo "NOTE: this client is not one the launcher recognises — installing it as it is"
@@ -62,6 +121,21 @@ mkdir -p "$RES/games"
 echo "copying client..."
 # COPY lines are progress for the launcher's install pane (see wow-copy)
 "$BIN/wow-copy" "$SRC" "$DEST"
+# The old kit's self-populated references (the patched Divx DLLs, the icon-
+# patched Wow.exe, the Cyrillic font stash) came out of the same WoWSilicon
+# payload, so they are this kit's too. Never over one this kit already has, and
+# a font stash only when it is of the current remap (pre-2.3 ones are not).
+if [ "$MIGRATE" = 1 ]; then
+  for F in "$OLD_RES/patch-kit"/DivxDecoder.dll.*.orig "$OLD_RES/patch-kit"/DivxDecoder.dll.*.patched \
+           "$OLD_RES/patch-kit"/DivxTac.dll.*.orig     "$OLD_RES/patch-kit"/DivxTac.dll.*.patched \
+           "$OLD_RES/patch-kit/Wow.exe.orig"            "$OLD_RES/patch-kit/Wow.exe.icon-patched"; do
+    [ -f "$F" ] && [ ! -e "$KIT/$(basename "$F")" ] && cp "$F" "$KIT/" && echo "kit reference imported: $(basename "$F")"
+  done
+  if [ -z "$(ls "$KIT/fonts-client" 2>/dev/null)" ] \
+     && "$BIN/wow-client-fonts" check "$OLD_RES/patch-kit/fonts-client/"* >/dev/null 2>&1; then
+    ditto "$OLD_RES/patch-kit/fonts-client" "$KIT/fonts-client" && echo "Cyrillic font stash imported"
+  fi
+fi
 echo "applying patch kit..."
 mkdir -p "$DEST/mods"
 # Both are 32-bit x86: on a 64-bit client they could never be loaded at all.
@@ -126,6 +200,10 @@ patch_divx() {  # patch_divx <dll name> <libDllLdr entry>
     fi
   fi
 }
+# From a previous app the Divx DLL is already patched (its .bak is the original)
+# and Wow.exe may carry the icon: patching again would patch patched files.
+# wow-verify-game --fix, at the end, brings both to the chosen level instead.
+if [ "$MIGRATE" = 0 ]; then
 patch_divx DivxDecoder.dll PatchDivxDecoder
 patch_divx DivxTac.dll     PatchDivxTac
 # At PATCHES=none the client must ship unmodified — but patch first anyway, so the
@@ -174,16 +252,18 @@ elif [ -x /usr/bin/bspatch ]; then
   done
 fi
 [ "$ICON_DONE" = 1 ] || echo "icon patch skipped (unknown Wow.exe build — cosmetic only)"
+fi
 # Reset display/compat settings to the known-good baseline — imported clients
 # carry Config.wtf from other machines with incompatible window/renderer settings.
 # The gx* names below are the MPQ-era ones; a client that stores its settings
-# some other way is left alone rather than seeded with guesses.
+# some other way is left alone rather than seeded with guesses. From a previous
+# app it is the player's own Config.wtf from this Mac, which is what is moving.
 CFGD="$DEST/WTF/Config.wtf"
 seed() {
   if grep -qiE "^SET $1 " "$CFGD"; then sed -i '' -E "s|^SET $1 .*|SET $1 \"$2\"|" "$CFGD"
   else printf 'SET %s "%s"\n' "$1" "$2" >> "$CFGD"; fi
 }
-if [ "$CAP_CVARS" = 1 ]; then
+if [ "$CAP_CVARS" = 1 ] && [ "$MIGRATE" = 0 ]; then
 mkdir -p "$DEST/WTF"; touch "$CFGD"
 seed gxWindow 1              # borderless window
 seed gxMaximize 1            # fill the screen (resolution itself is auto-set at launch)
@@ -202,13 +282,20 @@ if [ "$FAMILY" = wotlk ]; then
 fi
 fi
 # record the game + what it is, and reset display/renderer settings to defaults
-grep -vE '^(GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|GAME_EXE|AUTO_RES|GAME_DISPLAY|DISPLAY_RECT|RENDERER|RETINA)=' "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
+# (the renderer and a hand-made Retina choice stay when they came from a previous app)
+RESET='GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|GAME_EXE|AUTO_RES|GAME_DISPLAY|DISPLAY_RECT'
+[ "$MIGRATE" = 1 ] || RESET="$RESET|RENDERER|RETINA"
+grep -vE "^($RESET)=" "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
 # GAME_EXE lets the GUI recognise the running game by name — a repack may call
 # its executable anything, and pgrep needs to know what to look for.
 printf 'AUTO_RES=%s\nGAME=main\nGAME_VERSION=%s\nGAME_FAMILY=%s\nGAME_BUILD=%s\nGAME_EXE=%s\n' \
   "$CAP_CVARS" "$V" "$FAMILY" "$BUILD" "$EXE" >> "$RES/launcher.conf.tmp"
 mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
-if [ "$CAP_CVARS" = 1 ]; then
+if [ "$MIGRATE" = 1 ]; then
+  # resolution and RetinaMode follow this screen in verify --fix, at the end
+  # (`retina auto` here would also forget a Retina choice made by hand)
+  echo "game settings kept from $OLD_NAME"
+elif [ "$CAP_CVARS" = 1 ]; then
   # match resolution + retina mode to the current display right away
   "$BIN/wow-settings" auto >/dev/null 2>&1 || true
   echo "display settings reset to defaults"
@@ -249,4 +336,12 @@ if [ "$SRC_LOCALE" = "ruRU" ] || [ "$CHAT_CP" = "1251" ]; then
     echo "NOTE: Cyrillic fonts unavailable — import a ruRU language pack (or install a ruRU client) once; its original fonts are then reused for any client"
   fi
 fi
-echo "game installed ($V)"
+# From a previous app nothing above patched anything: verify --fix brings the
+# kit files, the mod set, the Divx DLL and the icon to the chosen level, from
+# the .bak / icon-backup originals the old app left beside them.
+if [ "$MIGRATE" = 1 ]; then
+  "$BIN/wow-verify-game" --fix | grep -E '\(fixed\)|^(FAIL|WARN):' || true
+  echo "game installed ($V) from $OLD_NAME $OLD_VER"
+else
+  echo "game installed ($V)"
+fi
