@@ -162,3 +162,7 @@
 "Downloaded %@ of %@" = "Загружено %@ из %@";
 "Restarting…" = "Перезапуск…";
 "The update did not finish." = "Обновление не завершилось.";
+"The update did not complete" = "Обновление не завершилось";
+"This version is still installed. You can update by hand from the release page." = "Эта версия осталась установленной. Обновить можно вручную со страницы выпуска.";
+"OK" = "OK";
+"You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page." = "У вас %@. Эта копия не может заменить себя там, где она находится — обновите вручную со страницы выпуска.";

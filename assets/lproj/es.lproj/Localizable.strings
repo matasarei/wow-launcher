@@ -162,3 +162,7 @@
 "Downloaded %@ of %@" = "Descargado %@ de %@";
 "Restarting…" = "Reiniciando…";
 "The update did not finish." = "La actualización no se completó.";
+"The update did not complete" = "La actualización no se completó";
+"This version is still installed. You can update by hand from the release page." = "Esta versión sigue instalada. Puedes actualizar a mano desde la página de la versión.";
+"OK" = "OK";
+"You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page." = "Tienes %@. Esta copia no puede reemplazarse a sí misma donde está, así que la actualización debe hacerse a mano desde la página de la versión.";

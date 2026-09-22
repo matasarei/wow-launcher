@@ -162,3 +162,7 @@
 "Downloaded %@ of %@" = "已下载 %@ / %@";
 "Restarting…" = "正在重新启动…";
 "The update did not finish." = "更新未完成。";
+"The update did not complete" = "更新未完成";
+"This version is still installed. You can update by hand from the release page." = "当前版本仍然可用。你可以从发布页面手动更新。";
+"OK" = "好";
+"You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page." = "当前为 %@。此副本无法在所在位置自我替换，需要从发布页面手动更新。";

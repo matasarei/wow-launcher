@@ -73,6 +73,8 @@ enum Paths {
     static let launcher  = resources + "/bin/wow-launch"
     static let rosettaTool = resources + "/bin/wow-check-rosetta"
     static let updateTool  = resources + "/bin/wow-update"
+    static let updateFailed = resources + "/logs/update-failed.txt"   // left by wow-update swap
+    static let releasesPage = "https://github.com/matasarei/wow-launcher/releases/latest"
     static let conf      = resources + "/launcher.conf"
 }
 
@@ -161,6 +163,7 @@ final class Store: ObservableObject {
     @Published var autoUpdateCheck = true    // UPDATE_CHECK=0 turns it off
     @Published var updateChecking = false
     @Published var updateNote = ""
+    @Published var updateFailure = ""        // what the last update failed on, if it did
     private var updateOffer: [String: String]?   // the check's fields, while a dialog is up
 
     init() {
@@ -172,6 +175,7 @@ final class Store: ObservableObject {
         refreshStatus()
         checkRunning()
         checkRosetta()
+        checkUpdateFailure()
         checkForUpdate()   // weekly, in the background — see checkForUpdate
     }
 
@@ -191,6 +195,25 @@ final class Store: ObservableObject {
         else if confGet("SILICON") == "0" { patches = "no-silicon" }   // pre-2.4 toggle
         else { patches = "all" }
         autoUpdateCheck = confGet("UPDATE_CHECK") != "0"   // absent = on
+    }
+
+    // An update that failed did so with nobody watching — the launcher had quit
+    // and this copy came back instead of the new one. wow-update's swap leaves
+    // the reason behind; say it once, out loud, and keep it in About after that.
+    func checkUpdateFailure() {
+        guard let reason = try? String(contentsOfFile: Paths.updateFailed, encoding: .utf8) else { return }
+        try? FileManager.default.removeItem(atPath: Paths.updateFailed)
+        updateFailure = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !updateFailure.isEmpty else { return }
+        let a = NSAlert()
+        a.alertStyle = .warning
+        a.messageText = L("The update did not complete")
+        a.informativeText = updateFailure + "\n\n" + L("This version is still installed. You can update by hand from the release page.")
+        a.addButton(withTitle: L("Open Release Page"))
+        a.addButton(withTitle: L("OK"))
+        if a.runModal() == .alertFirstButtonReturn, let url = URL(string: Paths.releasesPage) {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // The weekly check, from init: on a background queue and never waited for,
@@ -213,10 +236,12 @@ final class Store: ObservableObject {
                 self.updateChecking = false
                 switch f["RESULT"] ?? "" {
                 case "UPDATE":
+                    self.updateFailure = ""   // a check that got through supersedes the old failure
                     self.updateNote = LF("Version %@ is available.", f["LATEST"] ?? "")
                     self.updateOffer = f
                     self.offerUpdate(f)
                 case "CURRENT":
+                    self.updateFailure = ""
                     if force { self.updateNote = L("Your app is up to date") }
                 case "UNREACHABLE":
                     if force { self.updateNote = L("GitHub could not be reached.") }
@@ -228,20 +253,28 @@ final class Store: ObservableObject {
     }
 
     private func offerUpdate(_ f: [String: String]) {
+        // A copy that cannot replace itself — /Applications for a standard user,
+        // a read-only mount, a quarantined copy running translocated — is never
+        // offered a button that would fail. It is done by hand, without a password.
+        let replaceable = f["REPLACEABLE"] != "0"
         let a = NSAlert()
         a.messageText = LF("WoW Launcher %@ is available", f["LATEST"] ?? "")
-        a.informativeText = LF("You have %@. The update keeps your game, settings, addons and language packs — it imports them from this copy, then replaces it and restarts.", f["CURRENT"] ?? "")
-        a.addButton(withTitle: L("Update"))
+        a.informativeText = replaceable
+            ? LF("You have %@. The update keeps your game, settings, addons and language packs — it imports them from this copy, then replaces it and restarts.", f["CURRENT"] ?? "")
+            : LF("You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page.", f["CURRENT"] ?? "")
+        if replaceable { a.addButton(withTitle: L("Update")) }
         a.addButton(withTitle: L("Open Release Page"))
         a.addButton(withTitle: L("Skip This Version"))
-        switch a.runModal() {
-        case .alertFirstButtonReturn: applyUpdate()
-        case .alertSecondButtonReturn:
+        let answer = a.runModal()
+        let openPage = replaceable ? NSApplication.ModalResponse.alertSecondButtonReturn
+                                   : NSApplication.ModalResponse.alertFirstButtonReturn
+        if replaceable && answer == .alertFirstButtonReturn { applyUpdate(); return }
+        if answer == openPage {
             if let p = f["PAGE"], let url = URL(string: p) { NSWorkspace.shared.open(url) }
-        default:
-            confSet("UPDATE_SKIP", f["LATEST"] ?? "")
-            updateNote = LF("Version %@ skipped.", f["LATEST"] ?? "")
+            return
         }
+        confSet("UPDATE_SKIP", f["LATEST"] ?? "")
+        updateNote = LF("Version %@ skipped.", f["LATEST"] ?? "")
     }
 
     func setAutoUpdateCheck(_ on: Bool) {
@@ -2107,6 +2140,19 @@ struct AboutView: View {
                         set: { store.setAutoUpdateCheck($0) }))
                         .toggleStyle(.checkbox)
                         .help("Ask GitHub once a week whether a newer version is out")
+                }
+                if !store.updateFailure.isEmpty {
+                    VStack(spacing: 2) {
+                        Label("The update did not complete", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                        Text(verbatim: store.updateFailure)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Link("Open Release Page", destination: URL(string: Paths.releasesPage)!)
+                            .font(.caption)
+                    }
+                    .padding(.top, 2)
                 }
                 if store.busy && !store.installStatus.isEmpty {
                     InstallProgressView()

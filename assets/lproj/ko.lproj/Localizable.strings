@@ -162,3 +162,7 @@
 "Downloaded %@ of %@" = "%@ / %@ 다운로드됨";
 "Restarting…" = "다시 시작하는 중…";
 "The update did not finish." = "업데이트를 완료하지 못했습니다.";
+"The update did not complete" = "업데이트를 완료하지 못했습니다";
+"This version is still installed. You can update by hand from the release page." = "이 버전은 그대로 설치되어 있습니다. 릴리스 페이지에서 직접 업데이트할 수 있습니다.";
+"OK" = "확인";
+"You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page." = "현재 %@입니다. 이 복사본은 현재 위치에서 스스로 교체할 수 없으므로 릴리스 페이지에서 직접 업데이트해야 합니다.";
