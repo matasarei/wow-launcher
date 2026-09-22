@@ -870,7 +870,8 @@ final class Store: ObservableObject {
 
     static func previousAppProblem(_ url: URL) -> String? {
         let name = url.deletingPathExtension().lastPathComponent
-        if url.resolvingSymlinksInPath() == Bundle.main.bundleURL.resolvingSymlinksInPath() {
+        // compared as paths: URLs of the same folder differ by a trailing slash
+        if url.resolvingSymlinksInPath().path == Bundle.main.bundleURL.resolvingSymlinksInPath().path {
             return L("That is this launcher itself — choose the previous copy.")
         }
         let info = NSDictionary(contentsOf: url.appendingPathComponent("Contents/Info.plist")) as? [String: Any] ?? [:]
