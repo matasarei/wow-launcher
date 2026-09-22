@@ -1267,6 +1267,16 @@ assert_eq "$(find "$TMP/swap/Applications" -maxdepth 1 -name '.wow-update.*' | w
 swap_setup; mkdir -p "$TMP/swap/Trash/AzerothCore.app"
 OUT="$(swap_run "$DEAD")"
 assert_file "$TMP/swap/Trash/AzerothCore 1.app/Contents/Info.plist"
+# the Trash cannot be written: the update is done anyway, the old copy waits
+swap_setup
+chmod a-w "$TMP/swap/Trash"
+OUT="$(swap_run "$DEAD")"
+chmod u+w "$TMP/swap/Trash"
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "$TMP/swap/Applications/AzerothCore.app/Contents/Info.plist" 2>/dev/null)" "2.10" "a Trash that cannot be written does not fail the update"
+assert_contains "$OUT" "could not be moved to the Trash" "and says where the old copy is"
+assert_file "$TMP/swap/Applications/.wow-update.test/old.app/Contents/Info.plist"
+rm -rf "$TMP/swap/Applications/.wow-update.test"
 # a staging path that is not one: the delete must refuse it
 swap_setup
 mkdir -p "$TMP/swap/Applications/not-staging"

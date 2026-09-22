@@ -194,32 +194,42 @@ cmd_swap() {  # cmd_swap <pid of the old launcher> <old app> <new app>
     sleep 0.5; i=$((i + 1))
     [ "$i" -gt 120 ] && { echo "FAIL: the launcher is still running after a minute"; exit 1; }
   done
-  local NAME DEST n=1
+  local NAME PARKED
   NAME="$(basename "$OLD")"
-  DEST="$TRASH/$NAME"
-  while [ -e "$DEST" ]; do DEST="$TRASH/${NAME%.app} $n.app"; n=$((n + 1)); done
-  mkdir -p "$TRASH"
-  # to the Trash rather than deleted: the game inside it shares its blocks with
-  # the copy that just imported it, so it costs almost nothing to keep
-  mv "$OLD" "$DEST" || { echo "FAIL: could not move $NAME aside"; "$OPENER" "$OLD" || true; exit 1; }
+  PARKED="$STAGE_DIR/old.app"
+  # sideways into staging, not to the Trash: while the path is empty both copies
+  # are in one place, and putting the old one back is a single rename
+  mv "$OLD" "$PARKED" || { echo "FAIL: could not move $NAME aside"; "$OPENER" "$OLD" || true; exit 1; }
   if mv "$NEW" "$OLD"; then
     # the new version has to actually start: it is all that is left running
     if "$OPENER" "$OLD"; then
-      # only ever a staging dir: what is deleted here comes from an argument,
-      # and a mistyped one must not take a folder full of apps with it
-      case "$(basename "$STAGE_DIR")" in
-        .wow-update.*) rm -rf "$STAGE_DIR" ;;   # this script included; see the note in apply
-        *) echo "NOTE: $STAGE_DIR left in place (not a staging dir)" ;;
-      esac
+      # up and running — only now is the old copy given away. It stays in the
+      # Trash rather than deleted: its game shares blocks with the copy that
+      # imported it, so keeping it costs almost nothing.
+      local DEST n=1
+      mkdir -p "$TRASH"
+      DEST="$TRASH/$NAME"
+      while [ -e "$DEST" ]; do DEST="$TRASH/${NAME%.app} $n.app"; n=$((n + 1)); done
+      if mv "$PARKED" "$DEST" 2>/dev/null; then
+        # only ever a staging dir: what is deleted here comes from an argument,
+        # and a mistyped one must not take a folder full of apps with it
+        case "$(basename "$STAGE_DIR")" in
+          .wow-update.*) rm -rf "$STAGE_DIR" ;;   # this script included; see the note in apply
+          *) echo "NOTE: $STAGE_DIR left in place (not a staging dir)" ;;
+        esac
+      else
+        # the update itself is done; the leftover is untidy, not broken
+        echo "NOTE: $NAME could not be moved to the Trash — it is in $STAGE_DIR"
+      fi
     else
       mv "$OLD" "$NEW" 2>/dev/null || true      # the new app back into staging
-      mv "$DEST" "$OLD" 2>/dev/null || true     # and the old one out of the Trash
+      mv "$PARKED" "$OLD" 2>/dev/null || true   # and the old one back into place
       "$OPENER" "$OLD" || true
       echo "FAIL: $NEW_VER would not open — the old app is back"
       exit 1
     fi
   else
-    mv "$DEST" "$OLD" 2>/dev/null || true     # put the old app back and run that
+    mv "$PARKED" "$OLD" 2>/dev/null || true     # put the old app back and run that
     "$OPENER" "$OLD" || true
     echo "FAIL: could not move the new app into place — the old one is back"
     exit 1
