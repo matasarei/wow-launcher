@@ -36,6 +36,7 @@ Contents/Resources/
 | `SPATIAL_AUDIO=1\|0` | Apple spatial audio for headphones (Audio pane) — **on by default** (absent = on, like `AUTO_RES`): `wow-launch` exports `WOWSILICON_SPATIAL_AUDIO_MODE=fixed`, `0` → `off`; takes effect at the next game start |
 | `NORMALIZE_AUDIO=1\|0` | volume normalizer — quiet up, loud down (Audio pane) — **on by default**: exports `WOWSILICON_NORMALIZE_AUDIO=1`, `0` → `0`; next game start |
 | `PATCHES=all\|no-silicon\|winerosetta\|none` | how much of the patch stack is applied to the client — **`all` by default** (Game pane → Patches picker). This records what the **user asked for**; `wow-client-profile` clamps it down to the best level the installed client can actually take and every tool uses the clamped value, so swapping to a client that cannot take libSiliconPatch and back again restores the full set. The picker only offers the levels in the profile's `LEVELS`. `all`: every patch, libSiliconPatch included. `no-silicon`: everything but libSiliconPatch — its ~400 hooks are hardcoded addresses with no build check, so on a modified client they corrupt memory instead of failing, and Sirus-style clients report the patched bytes to the server (WoWSilicon issue #15). `winerosetta`: only the Divx mod loader + `mods/winerosetta.dll`. That DLL's `DllMain` installs a vectored exception handler which fills two Rosetta 2 instruction gaps — it emulates `ARPL AX,DX` and rewrites `FCOMP ST(0),ST(0)` in place; neither encoding appears in the client itself, so what needs them is server-pushed Warden code. (It also exports `Direct3DCreate9` and can proxy to `d9vk.dll` / `<known folder>\d3d9.dll`; that path is dormant here, since DXVK's own `d3d9.dll` sits in the game dir and the exe imports it directly.) `none`: the client is left exactly as it shipped (Warden servers will most likely disconnect). Levels apply via `wow-verify-game --fix`, which converges the mod set, the Divx DLL and the `Wow.exe` icon patch in both directions. The pre-2.4 `SILICON=` toggle still migrates (`1`→`all`, `0`→`no-silicon`) |
+| `CLOSE_ON_PLAY=1\|0` | quit the launcher once the game is in front (Play pane checkbox) — **off by default** (absent = stay open); while the game runs the launcher only leaves the screen, because the game's Local Network access is the launcher's (Assorted gotchas) |
 | `X87=rosettax87\|sidecar` | x87 engine (conf-only, no UI): default rosettax87 from the game dir; `sidecar` uses patch-kit/x87sidecar via `X87_SIDECAR_PATH` (cooperative attach, no debugger) — fallback if rosettax87 breaks on a future macOS |
 
 ## Wine runtime (what `make runtime` / `make payloads` do)
@@ -158,8 +159,43 @@ at the end, so the name being copied is read from the **source** side
 sides, or exFAT cluster sizes make the bar stop short. A backgrounded ditto is
 out of reach of `set -e`, so `wow-copy` hands its exit status back through
 `wait`, and the suite checks that a failed copy never reaches the patch step.
-Within a single volume ditto clones instead of copying, so the bar only ever
-moves on a copy from another drive.
+Within a single volume ditto clones instead of copying (`--clone`, asked for
+explicitly), so the bar only ever moves on a copy from another drive.
+
+## Import from a previous app (2.9)
+
+`wow-install-client /path/Old.app` takes the game from an older copy of this
+app — the usual way to update, since the previous version is simply there in
+/Applications (often renamed: never trust the file name). Checked first,
+refused with nothing here changed: `CFBundleIdentifier` must be
+`io.github.matasarei.wow-launcher`, `CFBundleShortVersionString` ≥ 2.1
+(numeric), not this app, `games/<GAME>` non-empty, and no process running from
+its `Contents/` (matched both resolved and as given — `/tmp` vs `/private/tmp`).
+
+**Why 2.1 is the floor:** the game layout (`games/main`, `GAME=`) and the
+`.bak` / `Wow.exe.icon-backup` originals are there since 1.0, and every release
+so far shipped the same WoWSilicon 3.0.1 payload, so an old app's patched files
+are byte-identical to what this one would write. But 1.0 and 2.0 carried the
+bundle identifier `local.wow335.singleapp` (and 1.0 unversioned kit references,
+3.3.5a only) — 2.1 is the first release the identifier check can recognise.
+**When the payload pin moves**, this reasoning no longer holds for older apps:
+their `.patched` references and patched Divx DLLs would be of the old payload.
+
+What moves: the game folder, cloned (Config.wtf, AddOns, `locales/` packs,
+realmlist, caches — all as they are; the cvar seeding of a normal install is
+skipped); the old kit's self-populated references (`DivxDecoder/DivxTac
+.dll.<V>.{orig,patched}`, `Wow.exe.{orig,icon-patched}` — never over one this kit
+has) and its `fonts-client/` stash if `wow-client-fonts check` passes (pre-2.3
+remaps do not); and the player's choices from `launcher.conf`: `PATCHES`
+(`SILICON` only when there is no `PATCHES`), `CHAT_CP`, `RENDERER`,
+`SPATIAL_AUDIO`, `NORMALIZE_AUDIO`, `CLOSE_ON_PLAY`, `X87`, `RETINA`, and
+`AUTO_RES=0` (resolution managed by hand, for gx*-cvar clients). Not the
+screen setup (`DISPLAY_RECT`, `GAME_DISPLAY`) nor `GAME_*` (recomputed).
+Nothing is patched by the installer — the Divx DLL is already patched, and
+patching it live again would patch a patched file; `wow-verify-game --fix`
+then brings kit files, mod set, Divx, icon, resolution and Retina to the
+chosen level from the originals the old app left beside them. The source app
+is only ever read (the suite compares its checksum listing before and after).
 
 ## Assorted gotchas
 

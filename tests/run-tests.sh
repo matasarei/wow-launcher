@@ -967,6 +967,119 @@ WOW_TEST_RETINA=Y "$BIN/wow-settings" retina off >/dev/null
 assert_eq "$(grep -c '^RETINA=' "$RES/launcher.conf")" "0" "a fresh install resets it with the other display settings"
 reset_conf
 
+# ======================================================= install from a previous app
+section "install from a previous app"
+mk_plist() {  # mk_plist <app> <bundle id> <version>
+  mkdir -p "$1/Contents"
+  printf '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>%s</string>
+<key>CFBundleShortVersionString</key><string>%s</string>
+</dict></plist>\n' "$2" "$3" > "$1/Contents/Info.plist"
+}
+state() { ls -R "$RES/games"; cat "$RES/launcher.conf"; }
+tree_sums() { (cd "$1" && find . -type f -exec md5 -r {} + | sort); }
+# the previous app: a copy of this wrapper (a space in the name on purpose)
+# with a 3.3.5a installed, the player's choices set, and a pack imported
+reset_conf; rm -rf "$RES/games"/*
+OLD="$TMP/Old Launcher.app"; OLDRES="$OLD/Contents/Resources"
+cp -R "$APP" "$OLD"; mk_plist "$OLD" io.github.matasarei.wow-launcher 2.7
+"$OLD/Contents/Resources/bin/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+printf 'PATCHES=no-silicon\nRENDERER=mtld3d\nCLOSE_ON_PLAY=1\nRETINA=off\nDISPLAY_RECT=1,2,3,4\nGAME_DISPLAY=Old Screen\n' >> "$OLDRES/launcher.conf"
+sed -i '' 's/^SET gxWindow .*/SET gxWindow "0"/' "$OLDRES/games/main/WTF/Config.wtf"
+echo 'SET myCvar "42"' >> "$OLDRES/games/main/WTF/Config.wtf"
+mkdir -p "$OLDRES/games/main/locales/deDE/pack"; echo de-exe > "$OLDRES/games/main/locales/deDE/Wow.exe"
+mkdir -p "$OLDRES/games/main/Interface/AddOns/MyAddon"
+# this wrapper starts as a fresh one: no self-populated kit references
+mkdir -p "$TMP/kitrefs"; mv "$RES/patch-kit/"DivxDecoder.dll.* "$TMP/kitrefs/"
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.8
+BEFORE_OLD="$(tree_sums "$OLD")"
+
+# refused, and nothing here changes
+BEFORE="$(state)"
+mk_plist "$TMP/Other.app" com.example.other 5.0
+OUT="$("$BIN/wow-install-client" "$TMP/Other.app" 2>&1)"
+assert_contains "$OUT" "not a WoW Launcher app: Other" "an unrelated app is refused"
+mkdir -p "$TMP/Bare.app"
+OUT="$("$BIN/wow-install-client" "$TMP/Bare.app" 2>&1)"
+assert_contains "$OUT" "not a WoW Launcher app: Bare" "an app without Info.plist is refused"
+mk_plist "$TMP/Ancient.app" local.wow335.singleapp 2.0
+OUT="$("$BIN/wow-install-client" "$TMP/Ancient.app" 2>&1)"
+assert_contains "$OUT" "Ancient 2.0 is too old to import from" "1.0/2.0 (old bundle id) is refused"
+for ver in 2.0 1.9 2 garbage ""; do
+  mk_plist "$TMP/Old2.app" io.github.matasarei.wow-launcher "$ver"
+  OUT="$("$BIN/wow-install-client" "$TMP/Old2.app" 2>&1)"
+  assert_contains "$OUT" "too old to import from" "version '$ver' is refused"
+done
+OUT="$("$BIN/wow-install-client" "$APP" 2>&1)"
+assert_contains "$OUT" "this launcher itself" "this app itself is refused"
+mk_plist "$TMP/Empty.app" io.github.matasarei.wow-launcher 2.8
+mkdir -p "$TMP/Empty.app/Contents/Resources/games"
+OUT="$("$BIN/wow-install-client" "$TMP/Empty.app" 2>&1)"
+assert_contains "$OUT" "Empty has no game installed" "an app without a game is refused"
+fake_proc() {  # fake_proc <command line> — started, and listed by ps, before it returns
+  (exec -a "$1" sleep 30) & RUNNING=$!
+  local L   # listed first: a grep reading ps live would find its own command line
+  for _ in $(seq 50); do L="$(ps -axww -o command=)"; printf '%s\n' "$L" | grep -qF -- "$1" && return; sleep 0.1; done
+}
+fake_proc "$OLD/Contents/MacOS/WoW Launcher"
+OUT="$("$BIN/wow-install-client" "$OLD" 2>&1)"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$OUT" "Old Launcher is still running" "a running previous app is refused"
+fake_proc "Z:$(echo "$OLD" | tr / '\\')\\Contents\\Resources\\games\\main\\Wow.exe"
+OUT="$("$BIN/wow-install-client" "$OLD" 2>&1)"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$OUT" "Old Launcher is still running" "its game under Wine (Z:\\ path) counts as running"
+assert_eq "$(state)" "$BEFORE" "refusals change nothing here"
+
+# accepted: 2.10 is newer than 2.1 (numbers, not text)
+mk_plist "$OLD" io.github.matasarei.wow-launcher 2.10
+BEFORE_OLD="$(tree_sums "$OLD")"
+: > "$WINELOG"
+OUT="$(WOW_TEST_RETINA=N "$BIN/wow-install-client" "$OLD/" 2>&1)"
+G="$RES/games/main"
+assert_contains "$OUT" "importing from Old Launcher 2.10" "the previous app is accepted"
+assert_contains "$OUT" "game installed (3.3.5a), imported from Old Launcher 2.10" "and its game installed"
+assert_eq "$(tree_sums "$OLD")" "$BEFORE_OLD" "the previous app is left byte-for-byte as it was"
+CONF="$(cat "$RES/launcher.conf")"
+for kv in PATCHES=no-silicon RENDERER=mtld3d CLOSE_ON_PLAY=1 RETINA=off GAME_VERSION=3.3.5a GAME_FAMILY=wotlk; do
+  assert_contains "$CONF" "$kv" "$kv after the move"
+done
+assert_eq "$(grep -cE '^(DISPLAY_RECT|GAME_DISPLAY)=' "$RES/launcher.conf")" "0" "the old screen setup stays behind"
+assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET myCvar "42"' "the player's cvars survive"
+assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxWindow "0"' "and are not re-seeded"
+assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxResolution "1728x1117"' "resolution fits this screen at the kept Retina choice"
+assert_file "$G/locales/deDE/Wow.exe"
+[ -d "$G/Interface/AddOns/MyAddon" ] && ok || bad "addons came along"
+assert_eq "$(cat "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched")" "patcheddivx" "kit reference imported"
+assert_contains "$OUT" "kit reference imported: DivxDecoder.dll.3.3.5a.orig" "and said so"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "patcheddivx" "Divx stays patched, not patched again"
+assert_eq "$(cat "$G/dlls.txt")" "mods/winerosetta.dll" "mod set follows the carried patch level"
+assert_eq "$(grep -c 'PatchDivx' "$WINELOG")" "0" "no live Divx patch was run"
+OUT="$(WOW_TEST_RETINA=N "$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "RESULT: OK — all checks passed" "the moved game verifies clean"
+assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "43" "all 43 checks"
+# a kit reference this wrapper already has is never overwritten
+echo mine > "$RES/patch-kit/DivxDecoder.dll.3.3.5a.orig"
+OUT="$(WOW_TEST_RETINA=N "$BIN/wow-install-client" "$OLD" 2>&1)"
+assert_eq "$(cat "$RES/patch-kit/DivxDecoder.dll.3.3.5a.orig")" "mine" "existing kit reference kept"
+# a pre-2.4 app: SILICON=0 is its patch level
+sed -i '' '/^PATCHES=/d; s/^AUTO_RES=.*/AUTO_RES=0/' "$OLDRES/launcher.conf"; echo 'SILICON=0' >> "$OLDRES/launcher.conf"
+mk_plist "$OLD" io.github.matasarei.wow-launcher 2.3
+OUT="$(WOW_TEST_RETINA=N "$BIN/wow-install-client" "$OLD" 2>&1)"
+assert_contains "$OUT" "patch level: no-silicon" "SILICON=0 from a 2.3 app means no-silicon"
+assert_contains "$(cat "$RES/launcher.conf")" "SILICON=0" "and is carried"
+assert_contains "$(cat "$RES/launcher.conf")" "AUTO_RES=0" "resolution managed by hand stays so"
+# an old app that never managed to patch Divx (installed without Rosetta):
+# no .bak, no kit references anywhere — the move patches it as an install would
+mk_plist "$OLD" io.github.matasarei.wow-launcher 2.7
+cp "$TMP/client-wotlk/DivxDecoder.dll" "$OLDRES/games/main/DivxDecoder.dll"
+rm -f "$OLDRES/games/main/DivxDecoder.dll.bak" "$OLDRES/patch-kit/"DivxDecoder.dll.* "$RES/patch-kit/"DivxDecoder.dll.*
+: > "$WINELOG"
+OUT="$(WOW_TEST_RETINA=N "$BIN/wow-install-client" "$OLD" 2>&1)"
+assert_contains "$(cat "$WINELOG")" "PatchDivxDecoder" "an unpatched Divx from a previous app is patched live"
+rm -f "$APP/Contents/Info.plist" "$RES/patch-kit/"DivxDecoder.dll.*
+mv "$TMP/kitrefs/"* "$RES/patch-kit/"; rm -rf "$RES/games"/*; reset_conf
+
 # ================================================================== Swift sources
 section "Swift sources"
 # SDK 27 makes @State an Xcode-only macro; the bare Command Line Tools cannot
