@@ -1210,8 +1210,10 @@ apply_setup
 Z="$TMP/rel/WoW-v2.10.zip"
 mk_release_zip "$Z" 2.10
 printf 'RENDERER=mtld3d\n' >> "$AAPP/Contents/Resources/launcher.conf"
+mkdir -p "$TMP/applytest/.wow-update.leftover/new"   # an earlier update that could not tidy up
 OUT="$(apply "$Z" "$(digest_of "$Z")")"
 assert_contains "$OUT" "downloaded 2.10" "a good release downloads and checks out"
+assert_nofile "$TMP/applytest/.wow-update.leftover"
 assert_contains "$OUT" "no game to import" "an empty wrapper carries only its settings"
 assert_contains "$OUT" "RESTARTING" "and hands over to the swap"
 LAST="$(echo "$OUT" | grep '^DOWNLOAD ' | tail -1)"

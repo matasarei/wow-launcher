@@ -139,6 +139,10 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
     -e "$APP_REAL/Contents/Resources/wine/" -e "$APP_REAL/Contents/Resources/games/" \
     && fail "the game is still running — quit it first"
   # beside the app: the swap is then a rename, and the import clones the game
+  # (an earlier update whose Trash move failed leaves its staging dir behind —
+  # its copy of the old app is in the Trash-less state the NOTE described, and
+  # by now the player has moved on; a new update reclaims the space)
+  rm -rf "$PARENT"/.wow-update.* 2>/dev/null || true
   STAGE="$(mktemp -d "$PARENT/.wow-update.XXXXXX")"
   echo "downloading the update..."
   curl -sS -L -o "$STAGE/WoW.zip" "$URL" & local PID=$!
