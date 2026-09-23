@@ -140,8 +140,8 @@ check-strings:
 	@bash tests/check-strings.sh
 
 # Shell scripts at shellcheck's error level: what breaks a script, not style
-# (the warnings left are deliberate — see the disable= directives). Needs
-# shellcheck (brew install shellcheck); CI runs it on every push.
+# (warning-level findings are left to review). Needs shellcheck
+# (brew install shellcheck); CI runs it on every push.
 lint:
 	@command -v shellcheck >/dev/null || { echo "ERROR: shellcheck not found — brew install shellcheck"; exit 1; }
 	@shellcheck -S error scripts/wow-* scripts/rosettax87-shim build.sh tests/*.sh && echo "shellcheck: no errors"
