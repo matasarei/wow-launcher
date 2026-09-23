@@ -160,11 +160,13 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   # by now the player has moved on; a new update reclaims the space)
   rm -rf "$PARENT"/.wow-update.* 2>/dev/null || true
   STAGE="$(mktemp -d "$PARENT/.wow-update.XXXXXX")"
-  echo "downloading the update..."
-  curl -sS -L -o "$STAGE/WoW.zip" "$URL" & local PID=$!
   # Cancel in the launcher terminates this script: take the download with it and
-  # leave nothing behind, the way wow-copy does with its ditto
-  trap 'kill $PID 2>/dev/null; rm -rf "$STAGE"; exit 1' INT TERM HUP
+  # leave nothing behind, the way wow-copy does with its ditto. Armed before
+  # curl starts — a signal between the two would leave curl downloading alone.
+  local PID=""
+  trap 'if [ -n "$PID" ]; then kill "$PID" 2>/dev/null; fi; rm -rf "$STAGE"; exit 1' INT TERM HUP
+  echo "downloading the update..."
+  curl -sS -L -o "$STAGE/WoW.zip" "$URL" & PID=$!
   while kill -0 "$PID" 2>/dev/null; do
     sleep 1
     kill -0 "$PID" 2>/dev/null || break
