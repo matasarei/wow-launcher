@@ -1457,21 +1457,28 @@ assert_contains "$(grep -- '-k' "$WINELOG" | head -1)" \
 rm -f "$APP/Contents/Info.plist"; reset_conf
 
 # Cancel in the launcher: the script is terminated, and the download must not
-# outlive it (curl is shimmed to hang, so the moment is ours to choose)
+# outlive it (curl is shimmed to hang, so the moment is ours to choose). The
+# stub names its own pid, and the test waits for it: the download has started,
+# and what must be gone is that process — not every `sleep` on the machine.
 mkdir -p "$TMP/slowcurl"
-cat > "$TMP/slowcurl/curl" <<'STUB'
+cat > "$TMP/slowcurl/curl" <<STUB
 #!/bin/bash
+echo \$\$ > "$TMP/slowcurl.pid"
 exec sleep 30
 STUB
 chmod +x "$TMP/slowcurl/curl"
+rm -f "$TMP/slowcurl.pid"
 apply_setup
 PATH="$TMP/slowcurl:$PATH" "$AAPP/Contents/Resources/bin/wow-update" \
   apply "file://$Z" 100 "sha256:x" "$DEAD" >/dev/null 2>&1 &
 APPLY=$!
-for _ in $(seq 50); do [ -n "$(find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' 2>/dev/null)" ] && break; sleep 0.1; done
+for _ in $(seq 50); do [ -s "$TMP/slowcurl.pid" ] && break; sleep 0.1; done
+CURL_PID="$(cat "$TMP/slowcurl.pid" 2>/dev/null)"
+assert_eq "${CURL_PID:+started}" "started" "the stub download started"
 kill -TERM "$APPLY" 2>/dev/null; wait "$APPLY" 2>/dev/null
-for _ in $(seq 50); do PS_NOW="$(ps -axww -o command=)"; printf '%s\n' "$PS_NOW" | grep -q '[s]leep 30' || break; sleep 0.1; done
-assert_eq "$(printf '%s\n' "$PS_NOW" | grep -c '[s]leep 30')" "0" "cancelling the update stops the download"
+for _ in $(seq 50); do kill -0 "$CURL_PID" 2>/dev/null || break; sleep 0.1; done
+kill -0 "$CURL_PID" 2>/dev/null && bad "cancelling the update stops the download (pid $CURL_PID still running)" || ok
+kill "$CURL_PID" 2>/dev/null
 assert_eq "$(stage_count)" "0" "and leaves no staging dir behind"
 
 # =============================================================== wow-update swap
