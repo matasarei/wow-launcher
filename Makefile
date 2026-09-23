@@ -5,6 +5,7 @@
 #
 #   make test                    hermetic script tests + localization parity
 #   make compile                 type-check the Swift sources, no bundle
+#   make lint                    shellcheck the scripts (error level)
 #   make (or make build)         build the full wrapper into ~/Applications/WoW.app
 #   make build APP=/path/App.app build it somewhere else
 #   make launcher                rebuild just the manager GUI + scripts into it
@@ -29,7 +30,7 @@ PAYLOAD_SHA256 = 4d6fd5aa42d53dbdec86b31cf1c166368cba41a3a01a0bd5e2aba6d11b904ca
 WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))
 LOCAL_PAY   = $(WOWSILICON)/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching
 
-.PHONY: build wrapper check skeleton runtime payloads patch-kit prefix launcher sign install test check-strings compile zip
+.PHONY: build wrapper check skeleton runtime payloads patch-kit prefix launcher sign install test check-strings compile lint zip
 
 build: check skeleton runtime patch-kit prefix launcher sign
 	@echo ""
@@ -137,6 +138,13 @@ test: check-strings
 # English silently, so nothing but a check like this ever notices.
 check-strings:
 	@bash tests/check-strings.sh
+
+# Shell scripts at shellcheck's error level: what breaks a script, not style
+# (the warnings left are deliberate — see the disable= directives). Needs
+# shellcheck (brew install shellcheck); CI runs it on every push.
+lint:
+	@command -v shellcheck >/dev/null || { echo "ERROR: shellcheck not found — brew install shellcheck"; exit 1; }
+	@shellcheck -S error scripts/wow-* scripts/rosettax87-shim build.sh tests/*.sh && echo "shellcheck: no errors"
 
 # Type-check the manager without assembling a bundle (what CI runs, and the
 # quickest way to find out whether main.swift still compiles).
