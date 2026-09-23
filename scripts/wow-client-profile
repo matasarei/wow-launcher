@@ -99,7 +99,7 @@ exe_version() {  # exe_version <exe> — "3,3,5,12340" or empty
   local range
   [ -f "$1" ] || return 0
   range="$(rsrc_range "$1")" || range=""
-  # shellcheck disable=SC2086 — two fields on purpose
+  # shellcheck disable=SC2086  # two fields on purpose
   set -- "$1" $range
   if [ -n "${2:-}" ] && [ -n "${3:-}" ]; then
     tail -c "+$(($2 + 1))" "$1" 2>/dev/null | head -c "$3"

@@ -64,6 +64,16 @@ jobs:
       - name: make compile
         run: make compile
 
+  # Linux is enough to read shell scripts, and its image carries shellcheck.
+  lint:
+    name: Shell scripts lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: make lint
+        run: shellcheck --version | head -2 && make lint
+
   strings:
     name: Localization parity
     runs-on: macos-15

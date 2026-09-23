@@ -181,7 +181,7 @@ if [ "$PATCHES" = all ] && [ -n "$CAP_SILICON" ]; then
   cp "$KIT/libSiliconPatch/$CAP_SILICON/libSiliconPatch.dll" "$DEST/mods/libSiliconPatch.dll"
   MODS="$MODS mods/libSiliconPatch.dll"
 fi
-# shellcheck disable=SC2086 — word splitting is how the list becomes one per line
+# shellcheck disable=SC2086  # word splitting is how the list becomes one per line
 if [ -n "$MODS" ]; then printf '%s\n' $MODS > "$DEST/dlls.txt"; else rm -f "$DEST/dlls.txt"; fi
 # vanilla-tweaks (1.12 only): optional community exe patcher, shipped for later use
 [ "$CAP_TWEAKS" = 1 ] && cp "$KIT/vanilla-tweaks.exe" "$DEST/"
