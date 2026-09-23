@@ -49,7 +49,7 @@ chmod +x "$RES/patch-kit/x87sidecar/x87sidecar" "$RES/patch-kit/rosettax87/"*
 WINELOG="$TMP/wine.log"; : > "$WINELOG"
 cat > "$RES/wine/bin/wine" <<'STUB'
 #!/bin/bash
-echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} PREFIX=${WINEPREFIX:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
+echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} VK=${VK_DRIVER_FILES:-unset} PREFIX=${WINEPREFIX:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
 case "$*" in
   *"reg query"*RetinaMode*)  [ -n "${WOW_TEST_RETINA-Y}" ] \
                                && printf '    RetinaMode    REG_SZ    %s\r\n' "${WOW_TEST_RETINA-Y}" ;;
@@ -554,12 +554,22 @@ rm -f "$RES/prefix/dosdevices/z:"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(cat "$WINELOG")" "games/main/Wow.exe" "launches Wow.exe"
 assert_contains "$(cat "$WINELOG")" "OVR=d3d9=n,b" "DXVK override by default"
+assert_contains "$(cat "$WINELOG")" "VK=unset" "a runtime without a Vulkan driver manifest gets no VK_DRIVER_FILES"
+# runtime r16+: the Vulkan library is the Khronos loader, MoltenVK a driver it
+# has to be pointed at — and a value left in the user's shell must not win
+mkdir -p "$RES/wine/lib/vulkan/icd.d"; echo '{}' > "$RES/wine/lib/vulkan/icd.d/MoltenVK_icd.json"
+: > "$WINELOG"; VK_DRIVER_FILES=/somewhere/else.json "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "VK=$RES/wine/lib/vulkan/icd.d/MoltenVK_icd.json" "DXVK is pointed at the bundled MoltenVK driver"
+rm -rf "$RES/wine/lib/vulkan"
+: > "$WINELOG"; VK_DRIVER_FILES=/somewhere/else.json "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "VK=unset" "without the manifest a stale shell value is cleared too"
 assert_contains "$(cat "$WINELOG")" "ROSETTA=$G/rosettax87/rosettax87-shim" "rosettax87 shim engine by default"
 [ -L "$RES/prefix/dosdevices/z:" ] && ok || bad "z: drive link not recreated"
 printf 'RENDERER=mtld3d\nX87=sidecar\n' >> "$RES/launcher.conf"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(cat "$WINELOG")" "OVR=d3d9=b" "mtld3d override"
 assert_contains "$(cat "$WINELOG")" "SIDECAR=$RES/patch-kit/x87sidecar/x87sidecar" "sidecar engine"
+assert_contains "$(cat "$WINELOG")" "VK=unset" "MTLd3D needs no Vulkan driver"
 # audio (runtime r15 winecoreaudio contract): spatial mixer and normalizer on unless
 # the conf says 0 (absent = on, like AUTO_RES), device following left to the driver's
 # default, control files pinned inside the bundle
