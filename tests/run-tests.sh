@@ -1088,6 +1088,8 @@ disp_json "$TMP/d4.json" "[$SCALED]"
 assert_eq "$(detect "$TMP/d4.json")" "3840x2160 1920x1080 yes" "more pixels than points counts as Retina without the word"
 disp_json "$TMP/d5.json" "[]"
 assert_eq "$(detect "$TMP/d5.json")" "" "no displays: nothing printed"
+disp_json "$TMP/d7.json" '[{"_name":"AirPlay","_spdisplays_resolution":"1920 x 1080 @ 60Hz","spdisplays_main":"spdisplays_yes"}]'
+assert_eq "$(detect "$TMP/d7.json")" "" "a display with no pixel size: nothing, rather than shifted fields"
 printf 'not json\n' > "$TMP/d6.json"
 assert_eq "$(detect "$TMP/d6.json")" "" "an unreadable answer: nothing printed"
 OUT="$(cd "$TMP" && env -u WOW_TEST_DISPLAY PATH="$TMP/nopy:$PATH" WOW_TEST_DISPLAY_JSON="$TMP/d6.json" "$BIN/wow-settings" auto 2>&1 || true)"

@@ -106,7 +106,9 @@ detect_display() {  # prints "PIXELSxPIXELS POINTSxPOINTS retina-yes/no" of the 
     pr="$(jget "$at.spdisplays_pixelresolution")"
     case "$pr" in *Retina*) ret=yes ;; *) ret=no ;; esac
     [ -n "$px" ] && [ -n "$pts" ] && [ "$px" != "$pts" ] && ret=yes
-    echo "$px $pts $ret"
+    # both sizes or nothing: the caller reads three fields, and a missing one
+    # (an AirPlay or virtual display) would shift the rest into the wrong place
+    [ -n "$px" ] && [ -n "$pts" ] && echo "$px $pts $ret"
   fi
   rm -f "$J"
 }
