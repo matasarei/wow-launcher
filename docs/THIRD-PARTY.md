@@ -7,18 +7,18 @@ is the source pointer that travels with the build — keep it reachable.
 ## Wine runtime (`Resources/wine/`)
 
 Downloaded unmodified at build time from
-[`wine-runtime-r15`](https://github.com/WoWSilicon/WoWSilicon/releases/tag/wine-runtime-r15)
+[`wine-runtime-r16`](https://github.com/WoWSilicon/WoWSilicon/releases/tag/wine-runtime-r16)
 (sha256-pinned in the Makefile). `share/wowsilicon/runtime-lock.json` inside the
-runtime records the exact upstream versions. The build carries WoWSilicon's twelve
+runtime records the exact upstream versions. The build carries WoWSilicon's thirteen
 wine patches (device following, spatial audio, x87sidecar attach, winemac input and
-present fixes); their sources are `Packaging/WineRuntime/patches/` in the
+present fixes, the user profile kept inside the prefix); their sources are `Packaging/WineRuntime/patches/` in the
 [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) repository (GPL-3.0), applied
 to the LGPL wine tree below.
 
 | Component | Licence | Source |
 |---|---|---|
 | wine 11.13 | LGPL-2.1-or-later | [WineAndAqua/wine](https://github.com/WineAndAqua/wine), branch `wine-11.13-macos`, commit [`37540b5`](https://github.com/WineAndAqua/wine/commit/37540b5d94ac1c86e2599ef55d7f3a15e3237ce8) |
-| MTLd3D v0.7.0 (Metal-native D3D9) | Zlib | [athei/mtld3d](https://github.com/athei/mtld3d) |
+| MTLd3D v0.10.0 (Metal-native D3D9) | Zlib | [athei/mtld3d](https://github.com/athei/mtld3d) |
 | MoltenVK | Apache-2.0 | [KhronosGroup/MoltenVK](https://github.com/KhronosGroup/MoltenVK) |
 | SDL2 | Zlib | [libsdl.org](https://www.libsdl.org/) |
 | FreeType | FTL or GPL-2.0 (dual) | [freetype.org](https://freetype.org/) |
@@ -35,7 +35,7 @@ to the LGPL wine tree below.
 ## Patch kit (`Resources/patch-kit/`)
 
 Extracted at build time from the
-[WoWSilicon 3.0.1](https://github.com/WoWSilicon/WoWSilicon/releases) release DMG
+[WoWSilicon 3.2.1](https://github.com/WoWSilicon/WoWSilicon/releases/tag/v3.2.1) release DMG
 (sha256-pinned, mounted read-only, never launched or installed).
 
 | Component | Licence | Source |
