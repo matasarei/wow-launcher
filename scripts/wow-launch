@@ -96,8 +96,10 @@ export LC_ALL="$LANG"
 NLSKEY='HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage'
 # Read from the prefix's registry file, not `wine reg query`: that starts wine
 # and a wineserver only to read one value, ~1 s before every Play. The file is
-# current here — the wineserver -k above (or the one after the reg add below,
-# which the next session relies on anyway) makes wineserver save it. Wine
+# taken to be current: this script is the only writer of the codepage, and its
+# reg add below is followed by a wineserver -k whose saved file the next
+# session already has to load the new value from (not a documented wine
+# guarantee — that working in the game is the evidence). Wine
 # writes the key as ControlSet001 (CurrentControlSet is a link to it), with its
 # own capitalisation, so the match ignores case. No file or no value: ask wine.
 CUR_ACP="$(P='[system\\controlset001\\control\\nls\\codepage]' awk '
