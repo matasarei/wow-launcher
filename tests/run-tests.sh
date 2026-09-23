@@ -16,6 +16,11 @@ assert_contains() { echo "$1" | grep -qF -- "$2" && ok || bad "$3 — output mis
 assert_file()     { [ -f "$1" ]               && ok || bad "missing file: ${1#$TMP/}"; }
 assert_nofile()   { [ ! -e "$1" ]             && ok || bad "unexpected file: ${1#$TMP/}"; }
 section() { echo "== $*"; }
+fake_proc() {  # fake_proc <command line> — started, and listed by ps, before it returns
+  (exec -a "$1" sleep 30) & RUNNING=$!
+  local L   # listed first: a grep reading ps live would find its own command line
+  for _ in $(seq 50); do L="$(ps -axww -o command=)"; printf '%s\n' "$L" | grep -qF -- "$1" && return; sleep 0.1; done
+}
 
 # deterministic display for wow-settings (retina 3456x2234 / 1728x1117)
 export WOW_TEST_DISPLAY="3456x2234 1728x1117 yes"
@@ -594,6 +599,14 @@ printf 'WINE REGISTRY Version 2\n' > "$RES/prefix/system.reg"
 assert_contains "$(cat "$WINELOG")" "reg query HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage /v ACP" \
   "no value in the file: wine is asked instead"
 assert_eq "$(grep -c 'reg add.*CodePage' "$WINELOG")" "0" "and its answer is trusted"
+# a game from this copy still running: its wineserver is left alone, and the
+# file is still what is read (nothing but this script writes the codepage)
+acp_reg 1252
+fake_proc "$G/Wow.exe"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_eq "$(grep -c 'WINE ARGS: -k' "$WINELOG")" "0" "a running game's wineserver is not stopped"
+assert_eq "$(grep -c 'reg query.*CodePage' "$WINELOG")" "0" "and the codepage still comes from the file"
 rm -f "$RES/prefix/system.reg"
 
 # ============================================================ language packs
@@ -1041,11 +1054,6 @@ mk_plist "$TMP/Empty.app" io.github.matasarei.wow-launcher 2.8
 mkdir -p "$TMP/Empty.app/Contents/Resources/games"
 OUT="$("$BIN/wow-install-client" "$TMP/Empty.app" 2>&1)"
 assert_contains "$OUT" "Empty has no game installed" "an app without a game is refused"
-fake_proc() {  # fake_proc <command line> — started, and listed by ps, before it returns
-  (exec -a "$1" sleep 30) & RUNNING=$!
-  local L   # listed first: a grep reading ps live would find its own command line
-  for _ in $(seq 50); do L="$(ps -axww -o command=)"; printf '%s\n' "$L" | grep -qF -- "$1" && return; sleep 0.1; done
-}
 fake_proc "$OLD/Contents/MacOS/WoW Launcher"
 OUT="$("$BIN/wow-install-client" "$OLD" 2>&1)"
 # --updating: an update imports from the launcher that runs it, so that
