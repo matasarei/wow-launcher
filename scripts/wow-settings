@@ -71,6 +71,8 @@ get_cvar() { grep -siE "^SET $1 " "$CFG" | sed -E 's/.*"(.*)".*/\1/' | head -1; 
 set_res() { [ -n "$1" ] && { [[ "$1" =~ ^[0-9]+x[0-9]+$ ]] || { echo "bad resolution: $1 (use WxH)"; exit 1; }; set_cvar gxResolution "$1"; }; }
 
 
+# display_json <file> <key path> — one value of system_profiler's JSON, or nothing
+display_json() { plutil -extract "$2" raw -o - -- "$1" 2>/dev/null || true; }
 detect_display() {  # prints "PIXELSxPIXELS POINTSxPOINTS retina-yes/no" of the main display
   # test hook: lets the test suite run display-dependent logic deterministically
   if [ -n "${WOW_TEST_DISPLAY:-}" ]; then echo "$WOW_TEST_DISPLAY"; return; fi
@@ -83,17 +85,16 @@ detect_display() {  # prints "PIXELSxPIXELS POINTSxPOINTS retina-yes/no" of the 
   J="$(mktemp -t wow-display)" || return 0
   if [ -n "${WOW_TEST_DISPLAY_JSON:-}" ]; then cat "$WOW_TEST_DISPLAY_JSON" > "$J"   # test hook: a saved system_profiler answer
   else system_profiler SPDisplaysDataType -json > "$J" 2>/dev/null || true; fi
-  jget() { plutil -extract "$1" raw -o - -- "$J" 2>/dev/null || true; }
-  n_gpu="$(jget SPDisplaysDataType)"
+  n_gpu="$(display_json "$J" SPDisplaysDataType)"
   case "$n_gpu" in ''|*[!0-9]*) n_gpu=0 ;; esac
   g=0
   while [ "$g" -lt "$n_gpu" ]; do
-    n_disp="$(jget "SPDisplaysDataType.$g.spdisplays_ndrvs")"
+    n_disp="$(display_json "$J" "SPDisplaysDataType.$g.spdisplays_ndrvs")"
     case "$n_disp" in ''|*[!0-9]*) n_disp=0 ;; esac
     d=0
     while [ "$d" -lt "$n_disp" ]; do
       [ -n "$at" ] || at="SPDisplaysDataType.$g.spdisplays_ndrvs.$d"
-      if [ "$(jget "SPDisplaysDataType.$g.spdisplays_ndrvs.$d.spdisplays_main")" = spdisplays_yes ]; then
+      if [ "$(display_json "$J" "SPDisplaysDataType.$g.spdisplays_ndrvs.$d.spdisplays_main")" = spdisplays_yes ]; then
         at="SPDisplaysDataType.$g.spdisplays_ndrvs.$d"; g="$n_gpu"; break
       fi
       d=$((d + 1))
@@ -101,9 +102,9 @@ detect_display() {  # prints "PIXELSxPIXELS POINTSxPOINTS retina-yes/no" of the 
     g=$((g + 1))
   done
   if [ -n "$at" ]; then
-    px="$(jget "$at._spdisplays_pixels" | sed 's/ x /x/')"
-    pts="$(jget "$at._spdisplays_resolution" | sed 's/@.*//; s/ x /x/; s/[[:space:]]*$//')"
-    pr="$(jget "$at.spdisplays_pixelresolution")"
+    px="$(display_json "$J" "$at._spdisplays_pixels" | sed 's/ x /x/')"
+    pts="$(display_json "$J" "$at._spdisplays_resolution" | sed 's/@.*//; s/ x /x/; s/[[:space:]]*$//')"
+    pr="$(display_json "$J" "$at.spdisplays_pixelresolution")"
     case "$pr" in *Retina*) ret=yes ;; *) ret=no ;; esac
     [ -n "$px" ] && [ -n "$pts" ] && [ "$px" != "$pts" ] && ret=yes
     # both sizes or nothing: the caller reads three fields, and a missing one
