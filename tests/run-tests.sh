@@ -118,7 +118,9 @@ mk_wotlk_ru "$TMP/client-wotlk-ru"
 mk_tbc     "$TMP/client-tbc"
 mk_vanilla "$TMP/client-vanilla"
 
-reset_conf() { printf 'AUTO_RES=1\nCHAT_CP=\n' > "$RES/launcher.conf"; }
+# also forgets the RetinaMode record wow-settings keeps beside the prefix: left
+# over from an earlier section it would answer instead of the stub's WOW_TEST_RETINA
+reset_conf() { printf 'AUTO_RES=1\nCHAT_CP=\n' > "$RES/launcher.conf"; rm -f "$RES/prefix/.retina-mode"; }
 
 # A minimal but genuinely parseable PE: MZ, e_lfanew at 0x3C pointing at 0x40,
 # the PE signature, the machine word — and, when a version is given, a UTF-16LE
