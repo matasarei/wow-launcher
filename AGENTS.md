@@ -77,7 +77,9 @@ logs. The procedure:
      no `fonts-client/`;
    - `Resources/logs/` is empty;
    - `Resources/home/` does not exist (wine's HOME: a used wrapper keeps the
-     game's Windows user profile there).
+     game's Windows user profile there);
+   - `Resources/prefix/drive_c/users/` holds only `Public` — no folder named
+     after whoever built it.
 4. Run the test matrix (below) with a scratch copy, then **rebuild clean
    again** before zipping — testing dirties the wrapper.
 5. Archive and publish (only with the maintainer's explicit go-ahead):

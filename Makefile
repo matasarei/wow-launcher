@@ -123,6 +123,13 @@ prefix:
 	@# recreated on the user's machine at first run — z: by wow-launch and the
 	@# installer, the profile link (relative, into home/) by wow-wine-home.
 	@find "$(RES)/prefix" -type l -lname '/*' -delete
+	@# Runtime r16+ keeps the wine user profile inside the prefix: wineboot and the
+	@# reg calls above leave a real drive_c/users/<build user>, carrying the
+	@# builder's login name into every copy. Only a real folder goes — a symlink
+	@# there is a player's profile (wow-wine-home links it into home/ at first run,
+	@# before wine can make one), so a wrapper rebuilt in place keeps its own.
+	@U="$(RES)/prefix/drive_c/users/$${USER:-$$(id -un)}"; \
+	  if [ -d "$$U" ] && [ ! -L "$$U" ]; then rm -rf "$$U"; fi
 	@# the build's own wine HOME (see scripts/wow-wine-home): a fresh bundle ships
 	@# without it, and wow-wine-home recreates it at first run
 	@rm -rf "$(RES)/home"
