@@ -94,7 +94,20 @@ else
 fi
 export LC_ALL="$LANG"
 NLSKEY='HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage'
-CUR_ACP="$("$LOADER" reg query "$NLSKEY" /v ACP 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*ACP/ {print $NF}' | tail -1)"
+# Read from the prefix's registry file, not `wine reg query`: that starts wine
+# and a wineserver only to read one value, ~1 s before every Play. The file is
+# taken to be current: this script is the only writer of the codepage, and its
+# reg add below is followed by a wineserver -k whose saved file the next
+# session already has to load the new value from (not a documented wine
+# guarantee — that working in the game is the evidence). Wine
+# writes the key as ControlSet001 (CurrentControlSet is a link to it), with its
+# own capitalisation, so the match ignores case. No file or no value: ask wine.
+CUR_ACP="$(P='[system\\controlset001\\control\\nls\\codepage]' awk '
+  BEGIN { p = ENVIRON["P"] }
+  /^\[/ { in_key = (index(tolower($0), p) == 1); next }
+  in_key && /^"ACP"="/ { v = $0; sub(/^"ACP"="/, "", v); sub(/".*/, "", v); print v; exit }
+' "$RES/prefix/system.reg" 2>/dev/null)"
+[ -n "$CUR_ACP" ] || CUR_ACP="$("$LOADER" reg query "$NLSKEY" /v ACP 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*ACP/ {print $NF}' | tail -1)"
 if [ "$CUR_ACP" != "$ACP" ]; then
   "$LOADER" reg add "$NLSKEY" /v ACP   /t REG_SZ /d "$ACP"   /f >/dev/null 2>&1
   "$LOADER" reg add "$NLSKEY" /v OEMCP /t REG_SZ /d "$OEMCP" /f >/dev/null 2>&1
