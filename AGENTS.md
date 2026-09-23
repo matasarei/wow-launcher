@@ -128,8 +128,8 @@ bundle. `make lint` runs shellcheck over the scripts at error level (needs
 reason only after a second `#`, or shellcheck ignores it.
 
 CI (`.github/workflows/ci.yml`, macOS runners, free while the repo is public)
-runs those three, plus `make lint` on Linux, on every push and pull request, and checks that a `v*` tag
-matches `CFBundleShortVersionString`. A second workflow asks monthly whether
+runs those three, plus `make lint` on Linux, on every push and pull request,
+and checks that a `v*` tag matches `CFBundleShortVersionString`. A second workflow asks monthly whether
 the `RUNTIME_URL`/`PAYLOAD_URL` pins still resolve and whether the wine runtime
 is still the bytes `RUNTIME_SHA256` claims — they live in someone else's
 releases, and a retag there breaks `make build` for every new user silently.
