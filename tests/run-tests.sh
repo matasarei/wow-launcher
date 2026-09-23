@@ -1318,6 +1318,16 @@ reset_conf
 OUT="$(PATH="$TMP/oldplutil:$PATH" perl -e 'alarm 30; exec @ARGV' \
   env WOW_UPDATE_API="file://$TMP/rel/newer.json" "$BIN/wow-update" check 2>&1)"
 assert_contains "$OUT" "ASSET=file://$TMP/rel/WoW-v2.10.zip" "and still finds the asset"
+# ...and an answer that is no release at all (GitHub's rate limit, say) must not
+# pass for one: that plutil prints "Could not extract value…" as the tag, which
+# used to read as a release, mark the week's check done, and go quiet for a week
+printf '{"message":"API rate limit exceeded for 203.0.113.7."}\n' > "$TMP/rel/ratelimit.json"
+reset_conf
+OUT="$(PATH="$TMP/oldplutil:$PATH" perl -e 'alarm 30; exec @ARGV' \
+  env WOW_UPDATE_API="file://$TMP/rel/ratelimit.json" "$BIN/wow-update" check 2>&1)"
+assert_contains "$OUT" "RESULT: UNREACHABLE" "an error answer is not a release, even from that plutil"
+assert_eq "$(grep -c '^UPDATE_CHECKED=' "$RES/launcher.conf")" "0" "and does not start the week's wait"
+assert_eq "$(printf '%s\n' "$OUT" | grep -c 'Could not extract')" "0" "no plutil error text reaches the output"
 # a folder that cannot be written: the update has to be done by hand
 reset_conf
 OUT="$(chmod a-w "$TMP"; check newer.json; chmod u+w "$TMP")"
