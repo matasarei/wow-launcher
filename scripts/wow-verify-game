@@ -64,7 +64,7 @@ esac
 # The patch-stack group is a constant: a step that cannot apply to this client
 # says so instead of disappearing, so the progress bar stays honest.
 nwords() { echo $#; }
-# shellcheck disable=SC2086 — unquoted on purpose, these are word lists
+# shellcheck disable=SC2086  # unquoted on purpose, these are word lists
 TOTAL=$(( 2 + $(nwords $SUPPORT_DLLS) + 10 + $(nwords $CORE_MPQS) + $(nwords $OPT_MPQS) + N_LOCALE + 6 ))
 
 # Each level defines the expected state of the mod loader, libSiliconPatch and
