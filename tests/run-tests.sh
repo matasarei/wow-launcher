@@ -571,6 +571,31 @@ assert_contains "$(cat "$WINELOG")" "SPATIAL=fixed" "SPATIAL_AUDIO=1 is on"
 assert_contains "$(cat "$WINELOG")" "NORM=0" "a value other than 1 or absent is off (AUTO_RES idiom)"
 sed -i '' '/^SPATIAL_AUDIO=/d; /^NORMALIZE_AUDIO=/d' "$RES/launcher.conf"
 
+# the codepage is read from the prefix's registry file: no wine started just to
+# read it. Wine's own spelling — ControlSet001, "Codepage" — with a neighbouring
+# key whose ACP must not be picked up.
+section "launch: codepage from system.reg"
+acp_reg() {  # acp_reg <ACP> — a system.reg the way wine writes it
+  printf 'WINE REGISTRY Version 2\n\n[System\\\\ControlSet001\\\\Control\\\\Nls\\\\CodePage\\\\Other] 1\n"ACP"="9999"\n\n'  > "$RES/prefix/system.reg"
+  printf '[System\\\\ControlSet001\\\\Control\\\\Nls\\\\Codepage] 1790149802\n#time=1dc\n"37"="c_037.nls"\n"ACP"="%s"\n"OEMCP"="437"\n\n' "$1" >> "$RES/prefix/system.reg"
+}
+acp_reg 1252
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_eq "$(grep -c 'reg query.*CodePage' "$WINELOG")" "0" "a matching codepage starts no wine to read it"
+assert_eq "$(grep -c 'reg add.*CodePage' "$WINELOG")" "0" "and writes nothing"
+assert_contains "$(cat "$WINELOG")" "games/main/Wow.exe" "the game still launches"
+acp_reg 1251
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_eq "$(grep -c 'reg query.*CodePage' "$WINELOG")" "0" "a different codepage is read from the file too"
+assert_contains "$(cat "$WINELOG")" "reg add HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage /v ACP /t REG_SZ /d 1252" \
+  "and is rewritten to the game's"
+printf 'WINE REGISTRY Version 2\n' > "$RES/prefix/system.reg"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "reg query HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage /v ACP" \
+  "no value in the file: wine is asked instead"
+assert_eq "$(grep -c 'reg add.*CodePage' "$WINELOG")" "0" "and its answer is trusted"
+rm -f "$RES/prefix/system.reg"
+
 # ============================================================ language packs
 section "wow-language (3.3.5a)"
 OUT="$("$BIN/wow-language" import "$TMP/client-tbc" 2>&1)"
