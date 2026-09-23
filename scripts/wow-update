@@ -32,8 +32,10 @@ WAIT="${WOW_UPDATE_WAIT:-300}"              # how long the swap waits for the la
 FLOOR=2.9
 CURRENT="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || true)"
 
-# plutil reads JSON as it stands, so the script needs no JSON parser
-json() { plutil -extract "$1" raw -o - -- "$2" 2>/dev/null || true; }
+# plutil reads JSON as it stands, so the script needs no JSON parser. Only a
+# successful answer counts: macOS 15's plutil prints "Could not extract value…"
+# on stdout for a missing key, which would otherwise pass for the value.
+json() { local v; v="$(plutil -extract "$1" raw -o - -- "$2" 2>/dev/null)" && printf '%s\n' "$v"; return 0; }
 TMPJSON="$(mktemp -t wow-update)"
 trap 'rm -f "$TMPJSON"' EXIT
 
@@ -158,11 +160,13 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   # by now the player has moved on; a new update reclaims the space)
   rm -rf "$PARENT"/.wow-update.* 2>/dev/null || true
   STAGE="$(mktemp -d "$PARENT/.wow-update.XXXXXX")"
-  echo "downloading the update..."
-  curl -sS -L -o "$STAGE/WoW.zip" "$URL" & local PID=$!
   # Cancel in the launcher terminates this script: take the download with it and
-  # leave nothing behind, the way wow-copy does with its ditto
-  trap 'kill $PID 2>/dev/null; rm -rf "$STAGE"; exit 1' INT TERM HUP
+  # leave nothing behind, the way wow-copy does with its ditto. Armed before
+  # curl starts — a signal between the two would leave curl downloading alone.
+  local PID=""
+  trap 'if [ -n "$PID" ]; then kill "$PID" 2>/dev/null; fi; rm -rf "$STAGE"; exit 1' INT TERM HUP
+  echo "downloading the update..."
+  curl -sS -L -o "$STAGE/WoW.zip" "$URL" & PID=$!
   while kill -0 "$PID" 2>/dev/null; do
     sleep 1
     kill -0 "$PID" 2>/dev/null || break
