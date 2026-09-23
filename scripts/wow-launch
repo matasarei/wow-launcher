@@ -50,6 +50,15 @@ if [ "$RENDERER" = "mtld3d" ]; then
   export WINEDLLOVERRIDES="d3d9=b"
 else
   export WINEDLLOVERRIDES="d3d9=n,b"
+  # DXVK draws through Vulkan. From runtime r16 the Vulkan library is the
+  # Khronos loader, with MoltenVK as one of the drivers in lib/vulkan/icd.d —
+  # not among the macOS loader's default search paths, so left to itself it
+  # may find no driver, or one from a Vulkan SDK installed on the Mac (read
+  # from the loader's documented search order, not reproduced). Named
+  # explicitly, as upstream does; an older runtime (MoltenVK itself as the
+  # library) has no manifest, and then nothing is set.
+  ICD="$RES/wine/lib/vulkan/icd.d/MoltenVK_icd.json"
+  if [ -f "$ICD" ]; then export VK_DRIVER_FILES="$ICD"; else unset VK_DRIVER_FILES; fi
 fi
 export MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS=1
 export DXVK_ASYNC=1

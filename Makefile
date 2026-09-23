@@ -21,10 +21,10 @@ UNIX  = $(WINE)/lib/wine/x86_64-unix
 DEPS  = build/deps
 
 # Pinned upstream artifacts (update the URL and hash together).
-RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/wine-runtime-r15/WoWSilicon-WineRuntime-r15.tar.xz
-RUNTIME_SHA256 = 2414cb391159ea7272bfd74e1c65db8d490299de7651adcb173a65cbe6bbae7e
-PAYLOAD_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/v3.0.1/WoWSilicon-3.0.1.dmg
-PAYLOAD_SHA256 = 4d6fd5aa42d53dbdec86b31cf1c166368cba41a3a01a0bd5e2aba6d11b904ca0
+RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/wine-runtime-r16/WoWSilicon-WineRuntime-r16.tar.xz
+RUNTIME_SHA256 = 5c1d1fac3452a9ddce7673090425add81e3991c0e31122ef89ac0cc2855a1bbc
+PAYLOAD_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/v3.2.1/WoWSilicon-3.2.1.dmg
+PAYLOAD_SHA256 = 35d3b1287d3c7c934ba04e537d9a180693a0401f520130d4336946a5bc004540
 
 # A locally installed WoWSilicon 3.x can serve the payloads without a download.
 WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))
@@ -66,7 +66,7 @@ skeleton:
 
 runtime:
 	@if [ -x "$(WINE)/bin/wine" ]; then echo "==> wine runtime already present, skipping"; else \
-	  echo "==> wine runtime (WineAndAqua wine 11.13 + mtld3d, ~59 MB download)"; \
+	  echo "==> wine runtime (WineAndAqua wine 11.13 + mtld3d, ~64 MB download)"; \
 	  mkdir -p "$(DEPS)"; \
 	  [ -f "$(DEPS)/wine-runtime.tar.xz" ] || curl -fL --progress-bar -o "$(DEPS)/wine-runtime.tar.xz" "$(RUNTIME_URL)"; \
 	  echo "$(RUNTIME_SHA256)  $(DEPS)/wine-runtime.tar.xz" | shasum -a 256 -c - >/dev/null || { echo "ERROR: wine runtime checksum mismatch — delete $(DEPS)/wine-runtime.tar.xz and retry"; exit 1; }; \
@@ -82,7 +82,7 @@ payloads:
 	  echo "==> payloads from $(WOWSILICON)"; \
 	  mkdir -p "$(DEPS)"; ditto "$(LOCAL_PAY)" "$(DEPS)/Patching"; \
 	else \
-	  echo "==> payloads (WoWSilicon 3.0.1 DMG, ~150 MB download — only used as a file source)"; \
+	  echo "==> payloads (WoWSilicon 3.2.1 DMG, ~160 MB download — only used as a file source)"; \
 	  mkdir -p "$(DEPS)"; \
 	  [ -f "$(DEPS)/wowsilicon.dmg" ] || curl -fL --progress-bar -o "$(DEPS)/wowsilicon.dmg" "$(PAYLOAD_URL)"; \
 	  echo "$(PAYLOAD_SHA256)  $(DEPS)/wowsilicon.dmg" | shasum -a 256 -c - >/dev/null || { echo "ERROR: payload DMG checksum mismatch — delete $(DEPS)/wowsilicon.dmg and retry"; exit 1; }; \
@@ -123,6 +123,13 @@ prefix:
 	@# recreated on the user's machine at first run — z: by wow-launch and the
 	@# installer, the profile link (relative, into home/) by wow-wine-home.
 	@find "$(RES)/prefix" -type l -lname '/*' -delete
+	@# Runtime r16+ keeps the wine user profile inside the prefix: wineboot and the
+	@# reg calls above leave a real drive_c/users/<build user>, carrying the
+	@# builder's login name into every copy. Only a real folder goes — a symlink
+	@# there is a player's profile (wow-wine-home links it into home/ at first run,
+	@# before wine can make one), so a wrapper rebuilt in place keeps its own.
+	@U="$(RES)/prefix/drive_c/users/$${USER:-$$(id -un)}"; \
+	  if [ -d "$$U" ] && [ ! -L "$$U" ]; then rm -rf "$$U"; fi
 	@# the build's own wine HOME (see scripts/wow-wine-home): a fresh bundle ships
 	@# without it, and wow-wine-home recreates it at first run
 	@rm -rf "$(RES)/home"
