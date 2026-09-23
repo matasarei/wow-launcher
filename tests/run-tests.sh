@@ -1079,7 +1079,7 @@ EXT='{"_name":"DELL","_spdisplays_pixels":"1920 x 1080","_spdisplays_resolution"
 EXTMAIN="${EXT%\}},\"spdisplays_main\":\"spdisplays_yes\"}"
 SCALED='{"_name":"LG","_spdisplays_pixels":"3840 x 2160","_spdisplays_resolution":"1920 x 1080 @ 60.00Hz","spdisplays_main":"spdisplays_yes","spdisplays_pixelresolution":"spdisplays_2160p"}'
 disp_json "$TMP/d1.json" "[$LAPTOP]"
-assert_eq "$(detect "$TMP/d1.json")" "3456x2234 1728x1117 yes" "a Retina built-in display (this Mac's real system_profiler shape)"
+assert_eq "$(detect "$TMP/d1.json")" "3456x2234 1728x1117 yes" "a built-in Retina display (the fields system_profiler reports for one)"
 disp_json "$TMP/d2.json" "[${LAPTOP/spdisplays_yes/spdisplays_no}]" "[$EXTMAIN]"
 assert_eq "$(detect "$TMP/d2.json")" "1920x1080 1920x1080 no" "the main display wins, on whichever GPU it is"
 disp_json "$TMP/d3.json" "[$EXT,${LAPTOP/spdisplays_yes/spdisplays_no}]"
