@@ -1094,6 +1094,19 @@ printf 'not json\n' > "$TMP/d6.json"
 assert_eq "$(detect "$TMP/d6.json")" "" "an unreadable answer: nothing printed"
 OUT="$(cd "$TMP" && env -u WOW_TEST_DISPLAY PATH="$TMP/nopy:$PATH" WOW_TEST_DISPLAY_JSON="$TMP/d6.json" "$BIN/wow-settings" auto 2>&1 || true)"
 assert_contains "$OUT" "could not detect display" "and auto says so instead of guessing"
+# a plutil that reports a missing key on stdout (as macOS 15's does, seen in CI)
+# must not have its error message taken for a value
+mkdir -p "$TMP/oldplutil"
+cat > "$TMP/oldplutil/plutil" <<'PL'
+#!/bin/sh
+out="$(/usr/bin/plutil "$@" 2>&1)"; rc=$?
+printf '%s\n' "$out"; exit $rc
+PL
+chmod +x "$TMP/oldplutil/plutil"
+detect_old() { env -u WOW_TEST_DISPLAY PATH="$TMP/oldplutil:$TMP/nopy:$PATH" WOW_TEST_DISPLAY_JSON="$1" "$BIN/wow-settings" __detect 2>&1; }
+assert_eq "$(detect_old "$TMP/d1.json")" "3456x2234 1728x1117 yes" "a plutil answering errors on stdout still reads a full display"
+assert_eq "$(detect_old "$TMP/d7.json")" "" "and its error text is never taken for a missing size"
+assert_eq "$(detect_old "$TMP/d3.json")" "1920x1080 1920x1080 no" "nor for a missing main flag"
 ALL="$(for f in d1 d2 d3 d4 d5 d6; do detect "$TMP/$f.json"; done)"
 assert_eq "$(echo "$ALL" | grep -c PYTHON3-WAS-CALLED)" "0" "python3 is never run"
 
