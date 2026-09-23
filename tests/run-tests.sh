@@ -1062,6 +1062,39 @@ assert_contains "$OUT" "retina:     on" "without the files, wine's answer is use
 assert_eq "$(queries)" "1" "by asking it, as before"
 reset_conf
 
+# detect_display reads system_profiler's JSON with plutil — no python3, which
+# is only an install prompt on a Mac without the Command Line Tools
+section "display detection without python3"
+mkdir -p "$TMP/nopy"
+printf '#!/bin/sh\necho PYTHON3-WAS-CALLED\nexit 1\n' > "$TMP/nopy/python3"; chmod +x "$TMP/nopy/python3"
+disp_json() {  # disp_json <file> <gpu displays, one JSON array per GPU...>
+  local f="$1"; shift
+  { printf '{"SPDisplaysDataType":['; local sep=""
+    for a in "$@"; do printf '%s{"_name":"gpu","spdisplays_ndrvs":%s}' "$sep" "$a"; sep=","; done
+    printf ']}\n'; } > "$f"
+}
+detect() { env -u WOW_TEST_DISPLAY PATH="$TMP/nopy:$PATH" WOW_TEST_DISPLAY_JSON="$1" "$BIN/wow-settings" __detect 2>&1; }
+LAPTOP='{"_name":"Color LCD","_spdisplays_pixels":"3456 x 2234","_spdisplays_resolution":"1728 x 1117 @ 120.00Hz","spdisplays_main":"spdisplays_yes","spdisplays_pixelresolution":"spdisplays_3456x2234Retina"}'
+EXT='{"_name":"DELL","_spdisplays_pixels":"1920 x 1080","_spdisplays_resolution":"1920 x 1080 @ 60.00Hz","spdisplays_pixelresolution":"spdisplays_1080p"}'
+EXTMAIN="${EXT%\}},\"spdisplays_main\":\"spdisplays_yes\"}"
+SCALED='{"_name":"LG","_spdisplays_pixels":"3840 x 2160","_spdisplays_resolution":"1920 x 1080 @ 60.00Hz","spdisplays_main":"spdisplays_yes","spdisplays_pixelresolution":"spdisplays_2160p"}'
+disp_json "$TMP/d1.json" "[$LAPTOP]"
+assert_eq "$(detect "$TMP/d1.json")" "3456x2234 1728x1117 yes" "a Retina built-in display (this Mac's real system_profiler shape)"
+disp_json "$TMP/d2.json" "[${LAPTOP/spdisplays_yes/spdisplays_no}]" "[$EXTMAIN]"
+assert_eq "$(detect "$TMP/d2.json")" "1920x1080 1920x1080 no" "the main display wins, on whichever GPU it is"
+disp_json "$TMP/d3.json" "[$EXT,${LAPTOP/spdisplays_yes/spdisplays_no}]"
+assert_eq "$(detect "$TMP/d3.json")" "1920x1080 1920x1080 no" "no display marked main: the first one found"
+disp_json "$TMP/d4.json" "[$SCALED]"
+assert_eq "$(detect "$TMP/d4.json")" "3840x2160 1920x1080 yes" "more pixels than points counts as Retina without the word"
+disp_json "$TMP/d5.json" "[]"
+assert_eq "$(detect "$TMP/d5.json")" "" "no displays: nothing printed"
+printf 'not json\n' > "$TMP/d6.json"
+assert_eq "$(detect "$TMP/d6.json")" "" "an unreadable answer: nothing printed"
+OUT="$(cd "$TMP" && env -u WOW_TEST_DISPLAY PATH="$TMP/nopy:$PATH" WOW_TEST_DISPLAY_JSON="$TMP/d6.json" "$BIN/wow-settings" auto 2>&1 || true)"
+assert_contains "$OUT" "could not detect display" "and auto says so instead of guessing"
+ALL="$(for f in d1 d2 d3 d4 d5 d6; do detect "$TMP/$f.json"; done)"
+assert_eq "$(echo "$ALL" | grep -c PYTHON3-WAS-CALLED)" "0" "python3 is never run"
+
 # ======================================================= install from a previous app
 section "install from a previous app"
 mk_plist() {  # mk_plist <app> <bundle id> <version>

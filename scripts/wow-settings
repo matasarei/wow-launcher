@@ -74,21 +74,41 @@ set_res() { [ -n "$1" ] && { [[ "$1" =~ ^[0-9]+x[0-9]+$ ]] || { echo "bad resolu
 detect_display() {  # prints "PIXELSxPIXELS POINTSxPOINTS retina-yes/no" of the main display
   # test hook: lets the test suite run display-dependent logic deterministically
   if [ -n "${WOW_TEST_DISPLAY:-}" ]; then echo "$WOW_TEST_DISPLAY"; return; fi
-  system_profiler SPDisplaysDataType -json 2>/dev/null | python3 -c '
-import json,sys
-d=json.load(sys.stdin)
-best=None
-for gpu in d.get("SPDisplaysDataType",[]):
-    for disp in gpu.get("spdisplays_ndrvs",[]) or []:
-        if disp.get("spdisplays_main")=="spdisplays_yes" or best is None:
-            best=disp
-            if disp.get("spdisplays_main")=="spdisplays_yes": break
-if best:
-    px=(best.get("_spdisplays_pixels") or "").replace(" x ","x").strip()
-    pts=(best.get("_spdisplays_resolution") or "").split("@")[0].replace(" x ","x").strip()
-    ret="yes" if ("Retina" in str(best.get("spdisplays_pixelresolution","")) or (px and pts and px!=pts)) else "no"
-    print(px, pts, ret)
-'
+  # plutil reads the JSON, as in wow-update. Python is no part of macOS: without
+  # the Command Line Tools its binary is only the stub that offers to install
+  # them, which is what a player who downloaded the app would get.
+  # The main display, else the first one found (a Mac with the lid closed and
+  # no display marked main still gets matched).
+  local J n_gpu n_disp g d at="" px pts pr ret
+  J="$(mktemp -t wow-display)" || return 0
+  if [ -n "${WOW_TEST_DISPLAY_JSON:-}" ]; then cat "$WOW_TEST_DISPLAY_JSON" > "$J"   # test hook: a saved system_profiler answer
+  else system_profiler SPDisplaysDataType -json > "$J" 2>/dev/null || true; fi
+  jget() { plutil -extract "$1" raw -o - -- "$J" 2>/dev/null || true; }
+  n_gpu="$(jget SPDisplaysDataType)"
+  case "$n_gpu" in ''|*[!0-9]*) n_gpu=0 ;; esac
+  g=0
+  while [ "$g" -lt "$n_gpu" ]; do
+    n_disp="$(jget "SPDisplaysDataType.$g.spdisplays_ndrvs")"
+    case "$n_disp" in ''|*[!0-9]*) n_disp=0 ;; esac
+    d=0
+    while [ "$d" -lt "$n_disp" ]; do
+      [ -n "$at" ] || at="SPDisplaysDataType.$g.spdisplays_ndrvs.$d"
+      if [ "$(jget "SPDisplaysDataType.$g.spdisplays_ndrvs.$d.spdisplays_main")" = spdisplays_yes ]; then
+        at="SPDisplaysDataType.$g.spdisplays_ndrvs.$d"; g="$n_gpu"; break
+      fi
+      d=$((d + 1))
+    done
+    g=$((g + 1))
+  done
+  if [ -n "$at" ]; then
+    px="$(jget "$at._spdisplays_pixels" | sed 's/ x /x/')"
+    pts="$(jget "$at._spdisplays_resolution" | sed 's/@.*//; s/ x /x/; s/[[:space:]]*$//')"
+    pr="$(jget "$at.spdisplays_pixelresolution")"
+    case "$pr" in *Retina*) ret=yes ;; *) ret=no ;; esac
+    [ -n "$px" ] && [ -n "$pts" ] && [ "$px" != "$pts" ] && ret=yes
+    echo "$px $pts $ret"
+  fi
+  rm -f "$J"
 }
 
 # RetinaMode lives in the wine prefix, not in the client's Config.wtf — so it is
