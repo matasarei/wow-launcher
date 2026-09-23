@@ -118,7 +118,9 @@ mk_wotlk_ru "$TMP/client-wotlk-ru"
 mk_tbc     "$TMP/client-tbc"
 mk_vanilla "$TMP/client-vanilla"
 
-reset_conf() { printf 'AUTO_RES=1\nCHAT_CP=\n' > "$RES/launcher.conf"; }
+# also forgets the RetinaMode record wow-settings keeps beside the prefix: left
+# over from an earlier section it would answer instead of the stub's WOW_TEST_RETINA
+reset_conf() { printf 'AUTO_RES=1\nCHAT_CP=\n' > "$RES/launcher.conf"; rm -f "$RES/prefix/.retina-mode"; }
 
 # A minimal but genuinely parseable PE: MZ, e_lfanew at 0x3C pointing at 0x40,
 # the PE signature, the machine word — and, when a version is given, a UTF-16LE
@@ -1003,6 +1005,61 @@ assert_eq "$(grep -c '^RETINA=' "$RES/launcher.conf")" "0" "retina auto forgets 
 WOW_TEST_RETINA=Y "$BIN/wow-settings" retina off >/dev/null
 "$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
 assert_eq "$(grep -c '^RETINA=' "$RES/launcher.conf")" "0" "a fresh install resets it with the other display settings"
+reset_conf
+
+# RetinaMode is read without starting wine: from user.reg, or — right after a
+# write, before wineserver has saved user.reg — from the record the write left.
+section "RetinaMode without wine"
+REC="$RES/prefix/.retina-mode"; UREG="$RES/prefix/user.reg"
+retina_reg() {  # retina_reg [Y|N] — a user.reg the way wine writes it; no argument: key absent
+  printf 'WINE REGISTRY Version 2\n\n[Software\\\\Wine\\\\Mac Driver\\\\Other] 1\n"RetinaMode"="Y"\n\n' > "$UREG"
+  [ -n "${1:-}" ] && printf '[Software\\\\Wine\\\\Mac Driver] 1790149802\n#time=1dc\n"RetinaMode"="%s"\n\n' "$1" >> "$UREG"
+  touch -t 202601010000 "$UREG"   # older than any record written below
+}
+queries() { grep -c 'reg query.*RetinaMode' "$WINELOG"; }
+rm -f "$REC"
+retina_reg
+: > "$WINELOG"; OUT="$(WOW_TEST_RETINA=Y "$BIN/wow-settings" show)"
+assert_contains "$OUT" "retina:     off" "no RetinaMode in user.reg reads as off (wine's default)"
+assert_eq "$(queries)" "0" "and starts no wine to read it"
+retina_reg y
+: > "$WINELOG"; OUT="$(WOW_TEST_RETINA=N "$BIN/wow-settings" show)"
+assert_contains "$OUT" "retina:     on" "RetinaMode=y in user.reg reads as on, whatever the case"
+assert_eq "$(queries)" "0" "from the file, not from wine"
+# a write, then a read before wineserver saved user.reg: the record answers
+: > "$WINELOG"; "$BIN/wow-settings" retina off >/dev/null
+assert_eq "$(cat "$REC")" "N" "a write records what was written"
+OUT="$(WOW_TEST_RETINA=Y "$BIN/wow-settings" show)"
+assert_contains "$OUT" "retina:     off" "a read right after the write sees it, not the unsaved user.reg"
+assert_eq "$(queries)" "0" "still without wine"
+# ...until wineserver saves: then user.reg is newer, and it is the truth again
+# (the record is backdated: here the save comes in the same second as the write)
+retina_reg Y; touch -t 202601010000 "$REC"; touch "$UREG"
+OUT="$("$BIN/wow-settings" show)"
+assert_contains "$OUT" "retina:     on" "a user.reg saved after the write wins over the record"
+# auto at every Play: a matching value writes nothing and asks nothing
+reset_conf; rm -f "$REC"; retina_reg Y
+: > "$WINELOG"; "$BIN/wow-settings" auto >/dev/null
+assert_eq "$(queries)" "0" "auto reads RetinaMode without wine"
+assert_eq "$(grep -c 'reg add.*RetinaMode' "$WINELOG")" "0" "and leaves a matching value alone"
+rm -f "$REC"; retina_reg N
+: > "$WINELOG"; "$BIN/wow-settings" auto >/dev/null
+assert_eq "$(grep -c 'RetinaMode /t REG_SZ /d Y' "$WINELOG")" "1" "a mismatch is written"
+assert_eq "$(cat "$REC")" "Y" "and recorded"
+# verify --fix writes through the same path, so its write is recorded too
+reset_conf; rm -f "$REC"; retina_reg N
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+rm -f "$REC"; retina_reg N
+: > "$WINELOG"; OUT="$(WOW_TEST_RETINA=N "$BIN/wow-verify-game" --fix 2>&1)"
+assert_contains "$OUT" "ok: retina mode (fixed)" "verify --fix repairs retina mode"
+assert_eq "$(cat "$REC" 2>/dev/null)" "Y" "and its write is recorded"
+OUT="$("$BIN/wow-settings" __retina-set maybe 2>&1 || true)"
+assert_contains "$OUT" "usage: wow-settings __retina-set Y|N" "__retina-set takes only Y or N"
+# no user.reg and no record (never the case in a built prefix): wine is asked
+rm -f "$REC" "$UREG"
+: > "$WINELOG"; OUT="$(WOW_TEST_RETINA=Y "$BIN/wow-settings" show)"
+assert_contains "$OUT" "retina:     on" "without the files, wine's answer is used"
+assert_eq "$(queries)" "1" "by asking it, as before"
 reset_conf
 
 # ======================================================= install from a previous app

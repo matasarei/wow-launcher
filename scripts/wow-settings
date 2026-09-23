@@ -40,6 +40,33 @@ conf_set() {  # conf_set KEY [VALUE] — no value removes the key
 retina_wanted() {  # retina_wanted <display retina-yes/no> → yes/no
   case "$(conf_get RETINA)" in on) echo yes ;; off) echo no ;; *) echo "$1" ;; esac
 }
+# RetinaMode without starting wine: `wine reg query` costs a wine process and a
+# wineserver (~1 s) at every Play and every time the launcher reads its status.
+# The prefix's user.reg holds it as text — but only once wineserver has saved
+# it, which is seconds (idle) to half a minute (game running) after a write.
+# So every write also records the value next to the prefix; while user.reg is
+# not newer than that record, the record is what wine holds. Nothing else
+# writes RetinaMode (verify --fix goes through __retina-set below). Neither
+# file there: ask wine, as before.
+USER_REG="$RES/prefix/user.reg"
+RETINA_REC="$RES/prefix/.retina-mode"
+retina_have() {  # prints RetinaMode as wine has it (Y/N, upper case), empty when unset
+  if [ -f "$RETINA_REC" ] && ! [ "$USER_REG" -nt "$RETINA_REC" ]; then
+    tr '[:lower:]' '[:upper:]' < "$RETINA_REC"
+  elif [ -f "$USER_REG" ]; then
+    P='[software\\wine\\mac driver]' awk '
+      BEGIN { p = ENVIRON["P"] }
+      /^\[/ { in_key = (index(tolower($0), p) == 1); next }
+      in_key && /^"RetinaMode"="/ { v = $0; sub(/^"RetinaMode"="/, "", v); sub(/".*/, "", v); print toupper(v); exit }
+    ' "$USER_REG"
+  else
+    "$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*RetinaMode/ {print toupper($NF)}' | tail -1
+  fi
+}
+retina_set() {  # retina_set Y|N
+  "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d "$1" /f >/dev/null 2>&1 \
+    && printf '%s\n' "$1" > "$RETINA_REC"
+}
 get_cvar() { grep -siE "^SET $1 " "$CFG" | sed -E 's/.*"(.*)".*/\1/' | head -1; }
 set_res() { [ -n "$1" ] && { [[ "$1" =~ ^[0-9]+x[0-9]+$ ]] || { echo "bad resolution: $1 (use WxH)"; exit 1; }; set_cvar gxResolution "$1"; }; }
 
@@ -72,9 +99,9 @@ auto_retina() {  # auto_retina <retina-yes/no>
   [ -n "$1" ] || return 1
   RET="$(retina_wanted "$1")"
   [ "$RET" = yes ] && WANT=Y || WANT=N
-  HAVE=$("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*RetinaMode/ {print toupper($NF)}' | tail -1)
+  HAVE="$(retina_have)"
   if [ "${HAVE:-N}" != "$WANT" ]; then
-    "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d "$WANT" /f >/dev/null 2>&1
+    retina_set "$WANT"
     if [ -n "$(conf_get RETINA)" ]; then WHY="set by hand"
     elif [ "$1" = yes ]; then WHY="display is retina"; else WHY="display is non-retina"; fi
     echo "retina mode -> $([ "$WANT" = Y ] && echo on || echo off) ($WHY)"
@@ -99,13 +126,15 @@ auto_resolution() {
 case "$1" in
   __detect)
     detect_display ;;
+  __retina-set)   # for verify --fix: a write that keeps the record above true
+    case "$2" in Y|N) retina_set "$2" ;; *) echo "usage: wow-settings __retina-set Y|N"; exit 1 ;; esac ;;
   auto|"")
     [ "${2:-}" = reset ] && conf_set RETINA
     auto_resolution ;;
   show)
     echo "mode:       $([ "$(get_cvar gxWindow)" = 0 ] && echo fullscreen || { [ "$(get_cvar gxMaximize)" = 1 ] && echo 'windowed (maximized)' || echo windowed; })"
     echo "resolution: $(get_cvar gxResolution)"
-    echo "retina:     $("$LOADER" reg query 'HKCU\Software\Wine\Mac Driver' /v RetinaMode 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*RetinaMode/ {print toupper($NF)}' | tail -1 | grep -q Y && echo on || echo off)"
+    echo "retina:     $(retina_have | grep -q Y && echo on || echo off)"
     ;;
   windowed)   set_cvar gxWindow 1; set_cvar gxMaximize 0; set_res "$2"; echo "windowed${2:+ at $2} — restart the game" ;;
   maximized)  set_cvar gxWindow 1; set_cvar gxMaximize 1; echo "maximized — restart the game" ;;
@@ -118,8 +147,8 @@ case "$1" in
         read -r _PX _PTS RET <<< "$(detect_display)"
         auto_retina "$RET" || { echo "could not detect display"; exit 1; }
         echo "retina mode matched to the display" ;;
-      on)  conf_set RETINA on;  "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d Y /f >/dev/null 2>&1; echo "retina on — restart the game (consider a higher resolution too)" ;;
-      off) conf_set RETINA off; "$LOADER" reg add 'HKCU\Software\Wine\Mac Driver' /v RetinaMode /t REG_SZ /d N /f >/dev/null 2>&1; echo "retina off — restart the game" ;;
+      on)  conf_set RETINA on;  retina_set Y; echo "retina on — restart the game (consider a higher resolution too)" ;;
+      off) conf_set RETINA off; retina_set N; echo "retina off — restart the game" ;;
       *) echo "usage: wow-settings retina on|off|auto"; exit 1 ;;
     esac ;;
   *) grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
