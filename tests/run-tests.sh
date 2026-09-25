@@ -645,6 +645,12 @@ WOW_TEST_RETINA= "$BIN/wow-launch"; sleep 0.3
 assert_nofile "$G/dxvk.conf"
 assert_eq "$(WOW_TEST_RETINA= "$BIN/wow-settings" __retina-have)" "" "no RetinaMode anywhere reads as unset"
 sed -i '' 's/^AUTO_RES=.*/AUTO_RES=1/' "$RES/launcher.conf"
+# the line follows RetinaMode as the auto-match leaves it, not as it was before:
+# wine still has Y, but RETINA=off makes this Play switch it off first
+echo Y > "$RES/prefix/.retina-mode"; echo 'RETINA=off' >> "$RES/launcher.conf"
+"$BIN/wow-launch"; sleep 0.3
+assert_nofile "$G/dxvk.conf"
+sed -i '' '/^RETINA=/d' "$RES/launcher.conf"
 
 # ============================================================ language packs
 section "wow-language (3.3.5a)"
