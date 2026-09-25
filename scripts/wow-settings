@@ -153,6 +153,8 @@ case "$1" in
     detect_display ;;
   __retina-set)   # for verify --fix: a write that keeps the record above true
     case "$2" in Y|N) retina_set "$2" ;; *) echo "usage: wow-settings __retina-set Y|N"; exit 1 ;; esac ;;
+  __retina-have)  # for wow-launch: RetinaMode as wine has it (Y/N, empty when unset)
+    retina_have ;;
   auto|"")
     [ "${2:-}" = reset ] && conf_set RETINA
     auto_resolution ;;

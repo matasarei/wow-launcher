@@ -140,6 +140,29 @@ AUTO=$(grep -sE '^AUTO_RES=' "$RES/launcher.conf" | cut -d= -f2)
 if [ "${AUTO:-1}" = "1" ]; then
   "$RES/bin/wow-settings" auto >> "$LOG.settings" 2>&1 || true
 fi
+# The cursor at the size of everything else. In RetinaMode wine hands the
+# game's cursor bitmap to macOS at half a point per pixel: half the size it
+# should be. Without it macOS doubles the whole window, the cursor included.
+# MTLd3D 0.7.0's cursor.scale = auto doubles by the display's backingScaleFactor
+# whatever RetinaMode is (its d3d9.dll: "auto from display backingScaleFactor"),
+# so with RetinaMode off on a Retina panel the cursor came out doubled twice:
+# there it is told 1 (MTLD3D_CONFIG, merged over its config file); with
+# RetinaMode on, auto is right. D9VK doubles only when dxvk.conf
+# (read from the working directory, the game's) sets enlargeHardwareCursor —
+# a key the WoWSilicon 3.2.2 payload's build reads (as did those before 3.2.0;
+# the 3.2.0/3.2.1 build ignores it).
+# Only that one line is ours: any other line there is kept as it is, and the
+# file goes away when our line was all it held.
+CURSOR_RE='^[[:space:]]*d3d9\.enlargeHardwareCursor[[:space:]]*='
+KEEP="$(grep -svE "$CURSOR_RE" "$GAME/dxvk.conf" || true)"
+RETINA_NOW="$("$RES/bin/wow-settings" __retina-have 2>/dev/null || true)"
+if [ "$RETINA_NOW" = Y ]; then
+  unset MTLD3D_CONFIG
+  { [ -z "$KEEP" ] || printf '%s\n' "$KEEP"; echo 'd3d9.enlargeHardwareCursor = 2'; } > "$GAME/dxvk.conf"
+else
+  export MTLD3D_CONFIG='cursor.scale=1'
+  if [ -n "$KEEP" ]; then printf '%s\n' "$KEEP" > "$GAME/dxvk.conf"; else rm -f "$GAME/dxvk.conf"; fi
+fi
 nohup "$LOADER" "$EXE" > "$LOG" 2>&1 &
 disown
 # Move the game window to the chosen display once it appears (needs Accessibility)

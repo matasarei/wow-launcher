@@ -21,10 +21,10 @@ UNIX  = $(WINE)/lib/wine/x86_64-unix
 DEPS  = build/deps
 
 # Pinned upstream artifacts (update the URL and hash together).
-RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/wine-runtime-r16/WoWSilicon-WineRuntime-r16.tar.xz
-RUNTIME_SHA256 = 5c1d1fac3452a9ddce7673090425add81e3991c0e31122ef89ac0cc2855a1bbc
-PAYLOAD_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/v3.2.1/WoWSilicon-3.2.1.dmg
-PAYLOAD_SHA256 = 35d3b1287d3c7c934ba04e537d9a180693a0401f520130d4336946a5bc004540
+RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/wine-runtime-r17/WoWSilicon-WineRuntime-r17.tar.xz
+RUNTIME_SHA256 = dc67cf0c2dd1e4c1cfaffe924f4737aaa594645b135a7973ac3505c83c70f882
+PAYLOAD_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/v3.2.2/WoWSilicon-3.2.2.dmg
+PAYLOAD_SHA256 = 53771ef7595371cdd31db1a1269df481750c4e33f479ad862bb94376427d894c
 
 # A locally installed WoWSilicon 3.x can serve the payloads without a download.
 WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))

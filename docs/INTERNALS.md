@@ -46,9 +46,11 @@ Contents/Resources/
   `wine-runtime-r<N>.tar.xz` on WoWSilicon's releases. The Makefile downloads it
   sha256-pinned (`RUNTIME_URL`/`RUNTIME_SHA256` — update both together) and untars
   into `Resources/wine/`. `share/wowsilicon/runtime-lock.json` inside records the
-  exact wine commit and component versions. Pinned at **r16** (same wine commit as r6,
+  exact wine commit and component versions. Pinned at **r17** (same wine commit as r6,
   plus WoWSilicon's thirteen patches — r16 added one that keeps the wine user profile
-  inside the prefix instead of linking it to `$HOME/Wine`).
+  inside the prefix instead of linking it to `$HOME/Wine`). r17 is r16 with only the
+  four MTLd3D files put back from v0.10.0 to v0.7.0: upstream reverted 0.10.0 for its
+  regressions (an FPS drop with `gxFixLag 1`, a cursor left hidden after mouselook).
 - **Audio follows the macOS default device** (r15+): `winecoreaudio.drv` re-targets a
   running stream to the system default output every ~250 ms and `dsound` migrates its
   buffers along, so switching to AirPods mid-game just works. The driver reads a
@@ -65,7 +67,7 @@ Contents/Resources/
 - **No signature games**: the runtime's binaries are unsigned, so there is no library
   validation to defeat. The old stack (≤ v2.5.5, CrossOver-based) needed `wineloader2`
   (signature-stripped loader) and a winerosetta `ntdll.so` swap — all obsolete.
-- **Payloads** (`make payloads`): the game-side files come from the WoWSilicon 3.2.1
+- **Payloads** (`make payloads`): the game-side files come from the WoWSilicon 3.2.2
   release DMG (sha256-pinned, mounted read-only, never launched/installed) — or from a
   locally installed WoWSilicon 3.x if one is found (detected by `Patching/x87sidecar`).
   Materialized in `build/deps/Patching/`.
@@ -177,7 +179,8 @@ its `Contents/` (matched both resolved and as given — `/tmp` vs `/private/tmp`
 `.bak` / `Wow.exe.icon-backup` originals are there since 1.0. Every release up to
 2.9 shipped the WoWSilicon 3.0.1 payload. The move to 3.2.1 changed only `d3d9.dll`
 and the wotlk `libSiliconPatch.dll`, and both are copied from the kit again by every
-install and import (verify flags them as repairable when they differ).
+install and import (verify flags them as repairable when they differ). 3.2.2 then
+changed only `d3d9.dll` again (the hardware-cursor scaling patch back), so the same holds.
 `libDllLdr.dll`, which produces the patched Divx DLLs, is byte-identical, so an old
 app's `.patched` references are still what this one would write. But 1.0 and 2.0 carried the
 bundle identifier `local.wow335.singleapp` (and 1.0 unversioned kit references,
@@ -342,6 +345,19 @@ run that leaves the new version at the old path with the game and settings in it
 - **gxMaximize=1 overrides gxResolution** (window always fills the screen); with
   RetinaMode=Y the game renders native pixels. `wow-settings auto` keeps both in
   sync with the display; `hwDetect 0` stops the game from overriding seeded settings.
+- **The cursor and RetinaMode**: under RetinaMode=Y wine hands the game's 32×32 px
+  cursor to macOS at half a point per pixel, so it shows at half size; under N
+  macOS doubles the whole window, cursor included. MTLd3D 0.7.0's
+  `cursor.scale = auto` doubles by the display's backingScaleFactor regardless of
+  RetinaMode — right under Y, doubled twice under N on a Retina panel — so
+  wow-launch exports `MTLD3D_CONFIG=cursor.scale=1` when RetinaMode is not Y
+  (0.10.0's auto followed RetinaMode instead; revisit when MTLd3D moves on).
+  D9VK doubles only when
+  `dxvk.conf` sets `d3d9.enlargeHardwareCursor` (in the WoWSilicon 3.2.2 payload's
+  build; the 3.2.0/3.2.1 builds lost it, older builds read it too). So wow-launch
+  keeps that one line in the game folder's `dxvk.conf` in step with RetinaMode at
+  every Play: `= 2` when it is on, no line when it is off. Any other line in that
+  file is the user's and stays; the file is removed when our line was all it held.
 - **GUI launches have no locale env** — wow-launch exports one explicitly.
 - After Play the manager hands focus to the game window and stays behind it.
   A quit while the game runs — Cmd+Q, the menu, or `CLOSE_ON_PLAY=1` right
