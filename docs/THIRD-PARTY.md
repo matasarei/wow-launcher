@@ -40,12 +40,12 @@ applied to the LGPL wine tree below.
 ## Patch kit (`Resources/patch-kit/`)
 
 Extracted at build time from the
-[WoWSilicon 3.2.1](https://github.com/WoWSilicon/WoWSilicon/releases/tag/v3.2.1) release DMG
+[WoWSilicon 3.2.2](https://github.com/WoWSilicon/WoWSilicon/releases/tag/v3.2.2) release DMG
 (sha256-pinned, mounted read-only, never launched or installed).
 
 | Component | Licence | Source |
 |---|---|---|
-| `d3d9.dll` (D9VK) | Zlib | [Sikarugir-App/d9vk](https://github.com/Sikarugir-App/d9vk), a fork of [doitsujin/dxvk](https://github.com/doitsujin/dxvk) |
+| `d3d9.dll` (D9VK 1.10.3, with the hardware-cursor scaling patch from [tairasu/d9vk](https://github.com/tairasu/d9vk) `7437b616`) | Zlib | [Sikarugir-App/d9vk](https://github.com/Sikarugir-App/d9vk), a fork of [doitsujin/dxvk](https://github.com/doitsujin/dxvk) |
 | `mods/winerosetta.dll` | MIT | [Gcenx/winerosetta](https://github.com/Gcenx/winerosetta) — the Rosetta 2 instruction shim (emulates `ARPL AX,DX`, rewrites `FCOMP ST(0),ST(0)`) |
 | `libDllLdr.dll` | see **Binary-only components** below | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) |
 | `libSiliconPatch/{wotlk,vanilla}/libSiliconPatch.dll` | see **Binary-only components** below | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) |

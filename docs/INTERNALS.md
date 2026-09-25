@@ -67,7 +67,7 @@ Contents/Resources/
 - **No signature games**: the runtime's binaries are unsigned, so there is no library
   validation to defeat. The old stack (≤ v2.5.5, CrossOver-based) needed `wineloader2`
   (signature-stripped loader) and a winerosetta `ntdll.so` swap — all obsolete.
-- **Payloads** (`make payloads`): the game-side files come from the WoWSilicon 3.2.1
+- **Payloads** (`make payloads`): the game-side files come from the WoWSilicon 3.2.2
   release DMG (sha256-pinned, mounted read-only, never launched/installed) — or from a
   locally installed WoWSilicon 3.x if one is found (detected by `Patching/x87sidecar`).
   Materialized in `build/deps/Patching/`.
@@ -179,7 +179,8 @@ its `Contents/` (matched both resolved and as given — `/tmp` vs `/private/tmp`
 `.bak` / `Wow.exe.icon-backup` originals are there since 1.0. Every release up to
 2.9 shipped the WoWSilicon 3.0.1 payload. The move to 3.2.1 changed only `d3d9.dll`
 and the wotlk `libSiliconPatch.dll`, and both are copied from the kit again by every
-install and import (verify flags them as repairable when they differ).
+install and import (verify flags them as repairable when they differ). 3.2.2 then
+changed only `d3d9.dll` again (the hardware-cursor scaling patch back), so the same holds.
 `libDllLdr.dll`, which produces the patched Divx DLLs, is byte-identical, so an old
 app's `.patched` references are still what this one would write. But 1.0 and 2.0 carried the
 bundle identifier `local.wow335.singleapp` (and 1.0 unversioned kit references,
