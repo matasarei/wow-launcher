@@ -345,6 +345,14 @@ run that leaves the new version at the old path with the game and settings in it
 - **gxMaximize=1 overrides gxResolution** (window always fills the screen); with
   RetinaMode=Y the game renders native pixels. `wow-settings auto` keeps both in
   sync with the display; `hwDetect 0` stops the game from overriding seeded settings.
+- **The cursor under RetinaMode=Y**: wine hands the game's 32×32 px cursor to
+  macOS at half a point per pixel, so it shows at half size. MTLd3D doubles it
+  itself (`cursor.scale = auto` in its `mtld3d.conf`); D9VK does only when
+  `dxvk.conf` sets `d3d9.enlargeHardwareCursor` (in the WoWSilicon 3.2.2 payload's
+  build; the 3.2.0/3.2.1 builds lost it, older builds read it too). So wow-launch
+  keeps that one line in the game folder's `dxvk.conf` in step with RetinaMode at
+  every Play: `= 2` when it is on, no line when it is off. Any other line in that
+  file is the user's and stays; the file is removed when our line was all it held.
 - **GUI launches have no locale env** — wow-launch exports one explicitly.
 - After Play the manager hands focus to the game window and stays behind it.
   A quit while the game runs — Cmd+Q, the menu, or `CLOSE_ON_PLAY=1` right

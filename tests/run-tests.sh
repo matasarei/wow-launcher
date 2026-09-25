@@ -621,6 +621,31 @@ assert_eq "$(grep -c 'WINE ARGS: -k' "$WINELOG")" "0" "a running game's wineserv
 assert_eq "$(grep -c 'reg query.*CodePage' "$WINELOG")" "0" "and the codepage still comes from the file"
 rm -f "$RES/prefix/system.reg"
 
+# DXVK cursor scale follows RetinaMode (wine's cursor is half size in retina mode)
+# AUTO_RES=0 so the auto-match cannot rewrite the RetinaMode set here by hand
+sed -i '' 's/^AUTO_RES=.*/AUTO_RES=0/' "$RES/launcher.conf"
+cursor_lines() { grep -c 'enlargeHardwareCursor' "$G/dxvk.conf" 2>/dev/null || true; }
+rm -f "$G/dxvk.conf"; echo Y > "$RES/prefix/.retina-mode"
+"$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$G/dxvk.conf")" "d3d9.enlargeHardwareCursor = 2" "retina on: DXVK cursor doubled"
+"$BIN/wow-launch"; sleep 0.3
+assert_eq "$(cursor_lines)" "1" "a second launch adds no second line"
+printf 'dxgi.maxFrameRate = 60\nd3d9.enlargeHardwareCursor = 4\n' > "$G/dxvk.conf"
+"$BIN/wow-launch"; sleep 0.3
+assert_eq "$(cat "$G/dxvk.conf")" "$(printf 'dxgi.maxFrameRate = 60\nd3d9.enlargeHardwareCursor = 2')" \
+  "a stale value is replaced and the user's line kept"
+echo N > "$RES/prefix/.retina-mode"
+"$BIN/wow-launch"; sleep 0.3
+assert_eq "$(cat "$G/dxvk.conf")" "dxgi.maxFrameRate = 60" "retina off: our line goes, the user's stays"
+echo 'd3d9.enlargeHardwareCursor = 2' > "$G/dxvk.conf"
+"$BIN/wow-launch"; sleep 0.3
+assert_nofile "$G/dxvk.conf"
+rm -f "$RES/prefix/.retina-mode"   # and wine has none either (WOW_TEST_RETINA empty)
+WOW_TEST_RETINA= "$BIN/wow-launch"; sleep 0.3
+assert_nofile "$G/dxvk.conf"
+assert_eq "$(WOW_TEST_RETINA= "$BIN/wow-settings" __retina-have)" "" "no RetinaMode anywhere reads as unset"
+sed -i '' 's/^AUTO_RES=.*/AUTO_RES=1/' "$RES/launcher.conf"
+
 # ============================================================ language packs
 section "wow-language (3.3.5a)"
 OUT="$("$BIN/wow-language" import "$TMP/client-tbc" 2>&1)"
