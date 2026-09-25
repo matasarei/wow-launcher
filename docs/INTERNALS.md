@@ -345,9 +345,14 @@ run that leaves the new version at the old path with the game and settings in it
 - **gxMaximize=1 overrides gxResolution** (window always fills the screen); with
   RetinaMode=Y the game renders native pixels. `wow-settings auto` keeps both in
   sync with the display; `hwDetect 0` stops the game from overriding seeded settings.
-- **The cursor under RetinaMode=Y**: wine hands the game's 32×32 px cursor to
-  macOS at half a point per pixel, so it shows at half size. MTLd3D doubles it
-  itself (`cursor.scale = auto` in its `mtld3d.conf`); D9VK does only when
+- **The cursor and RetinaMode**: under RetinaMode=Y wine hands the game's 32×32 px
+  cursor to macOS at half a point per pixel, so it shows at half size; under N
+  macOS doubles the whole window, cursor included. MTLd3D 0.7.0's
+  `cursor.scale = auto` doubles by the display's backingScaleFactor regardless of
+  RetinaMode — right under Y, doubled twice under N on a Retina panel — so
+  wow-launch exports `MTLD3D_CONFIG=cursor.scale=1` when RetinaMode is not Y
+  (0.10.0's auto followed RetinaMode instead; revisit when MTLd3D moves on).
+  D9VK doubles only when
   `dxvk.conf` sets `d3d9.enlargeHardwareCursor` (in the WoWSilicon 3.2.2 payload's
   build; the 3.2.0/3.2.1 builds lost it, older builds read it too). So wow-launch
   keeps that one line in the game folder's `dxvk.conf` in step with RetinaMode at

@@ -49,7 +49,7 @@ chmod +x "$RES/patch-kit/x87sidecar/x87sidecar" "$RES/patch-kit/rosettax87/"*
 WINELOG="$TMP/wine.log"; : > "$WINELOG"
 cat > "$RES/wine/bin/wine" <<'STUB'
 #!/bin/bash
-echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} VK=${VK_DRIVER_FILES:-unset} PREFIX=${WINEPREFIX:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
+echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} VK=${VK_DRIVER_FILES:-unset} MTL=${MTLD3D_CONFIG:-unset} PREFIX=${WINEPREFIX:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
 case "$*" in
   *"reg query"*RetinaMode*)  [ -n "${WOW_TEST_RETINA-Y}" ] \
                                && printf '    RetinaMode    REG_SZ    %s\r\n' "${WOW_TEST_RETINA-Y}" ;;
@@ -628,6 +628,8 @@ cursor_lines() { grep -c 'enlargeHardwareCursor' "$G/dxvk.conf" 2>/dev/null || t
 rm -f "$G/dxvk.conf"; echo Y > "$RES/prefix/.retina-mode"
 "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(cat "$G/dxvk.conf")" "d3d9.enlargeHardwareCursor = 2" "retina on: DXVK cursor doubled"
+: > "$WINELOG"; MTLD3D_CONFIG=cursor.scale=4 "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "MTL=unset" "retina on: MTLd3D's auto cursor scale, nothing inherited"
 "$BIN/wow-launch"; sleep 0.3
 assert_eq "$(cursor_lines)" "1" "a second launch adds no second line"
 printf 'dxgi.maxFrameRate = 60\nd3d9.enlargeHardwareCursor = 4\n' > "$G/dxvk.conf"
@@ -637,6 +639,8 @@ assert_eq "$(cat "$G/dxvk.conf")" "$(printf 'dxgi.maxFrameRate = 60\nd3d9.enlarg
 echo N > "$RES/prefix/.retina-mode"
 "$BIN/wow-launch"; sleep 0.3
 assert_eq "$(cat "$G/dxvk.conf")" "dxgi.maxFrameRate = 60" "retina off: our line goes, the user's stays"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "MTL=cursor.scale=1" "retina off: MTLd3D told not to double the cursor"
 echo 'd3d9.enlargeHardwareCursor = 2' > "$G/dxvk.conf"
 "$BIN/wow-launch"; sleep 0.3
 assert_nofile "$G/dxvk.conf"
