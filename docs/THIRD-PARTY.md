@@ -7,10 +7,10 @@ is the source pointer that travels with the build — keep it reachable.
 ## Wine runtime (`Resources/wine/`)
 
 Downloaded unmodified at build time from
-[`wine-runtime-r16`](https://github.com/WoWSilicon/WoWSilicon/releases/tag/wine-runtime-r16)
+[`wine-runtime-r17`](https://github.com/WoWSilicon/WoWSilicon/releases/tag/wine-runtime-r17)
 (sha256-pinned in the Makefile). `share/wowsilicon/runtime-lock.json` inside the
 runtime records the exact upstream versions — though not the Vulkan loader and
-KosmicKrisp, which r16 adds outside it; those two rows below come from the
+KosmicKrisp, which r16 added outside it; those two rows below come from the
 libraries themselves. The build carries WoWSilicon's thirteen wine patches
 (device following, spatial audio, x87sidecar attach, winemac input and present
 fixes, the user profile kept inside the prefix); their sources are
@@ -21,7 +21,7 @@ applied to the LGPL wine tree below.
 | Component | Licence | Source |
 |---|---|---|
 | wine 11.13 | LGPL-2.1-or-later | [WineAndAqua/wine](https://github.com/WineAndAqua/wine), branch `wine-11.13-macos`, commit [`37540b5`](https://github.com/WineAndAqua/wine/commit/37540b5d94ac1c86e2599ef55d7f3a15e3237ce8) |
-| MTLd3D v0.10.0 (Metal-native D3D9) | Zlib | [athei/mtld3d](https://github.com/athei/mtld3d) |
+| MTLd3D v0.7.0 (Metal-native D3D9) | Zlib | [athei/mtld3d](https://github.com/athei/mtld3d) |
 | MoltenVK | Apache-2.0 | [KhronosGroup/MoltenVK](https://github.com/KhronosGroup/MoltenVK) |
 | Vulkan loader (`lib/external/libvulkan.1.dylib`, from r16) | Apache-2.0 | [KhronosGroup/Vulkan-Loader](https://github.com/KhronosGroup/Vulkan-Loader) |
 | KosmicKrisp Vulkan driver (`lib/external/libvulkan_kosmickrisp.dylib`, from r16; shipped, not used by this app) | MIT | [Mesa](https://gitlab.freedesktop.org/mesa/mesa), `src/kosmickrisp` |

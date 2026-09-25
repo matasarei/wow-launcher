@@ -46,9 +46,11 @@ Contents/Resources/
   `wine-runtime-r<N>.tar.xz` on WoWSilicon's releases. The Makefile downloads it
   sha256-pinned (`RUNTIME_URL`/`RUNTIME_SHA256` — update both together) and untars
   into `Resources/wine/`. `share/wowsilicon/runtime-lock.json` inside records the
-  exact wine commit and component versions. Pinned at **r16** (same wine commit as r6,
+  exact wine commit and component versions. Pinned at **r17** (same wine commit as r6,
   plus WoWSilicon's thirteen patches — r16 added one that keeps the wine user profile
-  inside the prefix instead of linking it to `$HOME/Wine`).
+  inside the prefix instead of linking it to `$HOME/Wine`). r17 is r16 with only the
+  four MTLd3D files put back from v0.10.0 to v0.7.0: upstream reverted 0.10.0 for its
+  regressions (an FPS drop with `gxFixLag 1`, a cursor left hidden after mouselook).
 - **Audio follows the macOS default device** (r15+): `winecoreaudio.drv` re-targets a
   running stream to the system default output every ~250 ms and `dsound` migrates its
   buffers along, so switching to AirPods mid-game just works. The driver reads a
