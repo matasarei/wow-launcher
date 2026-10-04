@@ -177,6 +177,19 @@ No Xcode, no dependencies.
   ```
   Verify also reports it, and skips the two checks that need wine instead of
   failing them.
+- **Lower FPS than expected, and `last-launch.log` opens with `x87: none`:**
+  neither fast x87 engine (rosettax87, then the sidecar) can patch this Mac's
+  Rosetta runtime. The engines know the runtimes of some macOS releases and
+  not others (15.0.1 is one they do not know). The game then runs on plain
+  Rosetta 2: it works, with fewer FPS in crowded places. The line quotes what
+  each engine answered. The check runs again by itself after a macOS update;
+  to run it now, in Terminal:
+  ```
+  WoW.app/Contents/Resources/bin/wow-check-x87 reset
+  ```
+  `X87=rosettax87` in `Resources/launcher.conf` forces the engine without the
+  check. On such a Mac Play then does nothing, and the log ends with `Fatal:
+  failed to scan rosetta runtime for offsets.` and `ShellExecuteEx failed`.
 - **Something feels wrong with the game?** Open the **Game** tab and click
   **Verify** — it runs version-aware checks over the client files, the Apple Silicon
   patches, and the settings, and offers **Fix Issues** for everything

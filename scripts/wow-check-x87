@@ -1,0 +1,119 @@
+#!/bin/bash
+# Which x87 engine can run the game on this Mac. Both engines patch Apple's
+# Rosetta runtime at offsets they find by scanning it for byte patterns. On a
+# runtime with other patterns (macOS 15.0.1 is one) the scan fails before the
+# loader starts. rosettax87 then prints "Fatal: failed to scan rosetta runtime
+# for offsets." and exits 0, so the game never appears and the exit code says
+# nothing. Until now the fix was renaming games/main/rosettax87 by hand. This
+# script proves an engine before the launcher uses it: the engine runs in
+# front of `wine --version`, and the loader's version line is the proof.
+# Usage:
+#   wow-check-x87 auto          prints ENGINE=rosettax87|sidecar|none and
+#                               REASON=<why>. The answer is kept in launcher.conf
+#                               (X87_CHECKED=) until the Rosetta runtime, the
+#                               loader or an engine binary changes. One probe
+#                               per macOS update; later Plays read the answer.
+#   wow-check-x87 rosettax87    exit 0 when that engine runs the loader here;
+#   wow-check-x87 sidecar       otherwise the reason on stdout and exit 1
+#   wow-check-x87 reset         forget the kept answer
+set -u
+APP="$(cd "$(dirname "$0")/../../.." && pwd)"
+RES="$APP/Contents/Resources"
+CONF="$RES/launcher.conf"
+GAME_NAME="$(grep -sE '^GAME=' "$CONF" | head -1 | cut -d= -f2-)"
+if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME="$RES/games/$GAME_NAME"; else GAME="$RES/game"; fi
+LOADER="$RES/wine/bin/wine"
+ROSETTAX87="$GAME/rosettax87/rosettax87"
+SIDECAR="$RES/patch-kit/x87sidecar/x87sidecar"
+RUNTIME="${WOW_TEST_ROSETTA_RUNTIME:-/usr/libexec/rosetta/runtime}"   # what the engines patch
+TIMEOUT="${WOW_X87_PROBE_TIMEOUT:-15}"   # seconds a probe may run (see with_deadline)
+
+conf_get() { grep -sE "^$1=" "$CONF" | head -1 | cut -d= -f2-; }
+conf_set() {  # conf_set KEY [VALUE]: no value removes the key
+  { grep -svE "^$1=" "$CONF"; [ -n "${2:-}" ] && printf '%s=%s\n' "$1" "$2"; } > "$CONF.tmp" || true
+  mv "$CONF.tmp" "$CONF"
+}
+
+# Size and mtime of every file the answer depends on. A new runtime (macOS
+# update), loader (wine runtime) or engine (kit rebuild) changes it, and the
+# probe runs again.
+fingerprint() {
+  local F S=""
+  for F in "$RUNTIME" "$LOADER" "$ROSETTAX87" "$SIDECAR"; do
+    S="$S$(stat -f '%z.%m' "$F" 2>/dev/null || echo 0),"
+  done
+  printf '%s' "$S"
+}
+
+# Runs a command with the engine variables cleared and a deadline. A value
+# from the user's shell would put a second engine in front of the one under
+# test. rosettax87 execs the loader and patches it from a forked debugger.
+# When the patching fails while a game is already running, the loader stays
+# suspended, and a suspended process handles no alarm and no SIGTERM. SIGKILL
+# from outside ends it (macOS ships no timeout command). The exit status is
+# the command's, 137 after a kill.
+with_deadline() {
+  local PID WATCH RC
+  env -u ROSETTA_X87_PATH -u X87_SIDECAR_PATH "$@" & PID=$!
+  { sleep "$TIMEOUT"; kill -KILL "$PID"; } 2>/dev/null & WATCH=$!
+  wait "$PID"; RC=$?
+  # The watch's shell handles the kill only after its sleep ends: end both.
+  # Its stderr is closed above, or its "Terminated" notice would read as the
+  # engine's output.
+  pkill -P "$WATCH" 2>/dev/null; kill "$WATCH" 2>/dev/null; wait "$WATCH" 2>/dev/null
+  return "$RC"
+}
+
+# The loader answers --version without starting a wineserver, so the probe
+# leaves no process behind. With the engine in front, the version line comes
+# back only when the engine ran the loader. The engine's exit code says
+# nothing (rosettax87 exits 0 after the Fatal line), so the line is the test.
+check_rosettax87() {
+  [ -x "$ROSETTAX87" ] || { echo "rosettax87: not in the game folder ($GAME/rosettax87)"; return 1; }
+  local OUT LAST
+  OUT="$(WINEPREFIX="$RES/prefix" WINEDEBUG=-all HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")" \
+         with_deadline "$ROSETTAX87" "$LOADER" --version 2>&1 || true)"
+  printf '%s\n' "$OUT" | grep -q '^wine-' && return 0
+  LAST="$(printf '%s\n' "$OUT" | grep -v '^$' | tail -1)"
+  echo "rosettax87: cannot run the loader on this Rosetta runtime${LAST:+ ($LAST)}"
+  return 1
+}
+
+# The sidecar checks the runtime itself: --probe exits 0 when every hook it
+# needs is there.
+check_sidecar() {
+  [ -x "$SIDECAR" ] || { echo "sidecar: not in the patch kit ($SIDECAR)"; return 1; }
+  local OUT LAST
+  OUT="$(with_deadline "$SIDECAR" --probe 2>&1)" && return 0
+  LAST="$(printf '%s\n' "$OUT" | grep -m1 'NOT SUPPORTED' || printf '%s\n' "$OUT" | grep -v '^$' | tail -1)"
+  echo "sidecar: --probe failed on this Rosetta runtime${LAST:+ ($LAST)}"
+  return 1
+}
+
+auto() {
+  local FP REC ENGINE REASON WHY1 WHY2
+  FP="$(fingerprint)"
+  REC="$(conf_get X87_CHECKED)"   # <engine>@<fingerprint>
+  case "${REC%%@*}" in rosettax87|sidecar|none) ;; *) REC="" ;; esac
+  if [ -n "$REC" ] && [ "${REC#*@}" = "$FP" ]; then
+    ENGINE="${REC%%@*}"
+    REASON="remembered; wow-check-x87 reset to check again"
+  elif WHY1="$(check_rosettax87)"; then
+    ENGINE=rosettax87; REASON="rosettax87 runs the loader here"
+  elif WHY2="$(check_sidecar)"; then
+    ENGINE=sidecar; REASON="$WHY1; sidecar --probe passes"
+  else
+    ENGINE=none; REASON="$WHY1; $WHY2; the game runs on plain Rosetta 2"
+  fi
+  [ "${REC%%@*}" = "$ENGINE" ] && [ "${REC#*@}" = "$FP" ] || conf_set X87_CHECKED "$ENGINE@$FP"
+  echo "ENGINE=$ENGINE"
+  echo "REASON=$REASON"
+}
+
+case "${1:-}" in
+  auto)       auto ;;
+  rosettax87) check_rosettax87 ;;
+  sidecar)    check_sidecar ;;
+  reset)      conf_set X87_CHECKED ;;
+  *) grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

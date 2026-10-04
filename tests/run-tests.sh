@@ -39,11 +39,26 @@ echo winero  > "$RES/patch-kit/mods/winerosetta.dll"
 echo sil-van > "$RES/patch-kit/libSiliconPatch/vanilla/libSiliconPatch.dll"
 echo sil-lk  > "$RES/patch-kit/libSiliconPatch/wotlk/libSiliconPatch.dll"
 echo vtweaks > "$RES/patch-kit/vanilla-tweaks.exe"
-echo rx87    > "$RES/patch-kit/rosettax87/rosettax87"
+# stub engines, for wow-check-x87: rosettax87 runs the loader, or with
+# WOW_TEST_X87=fail does what the real one does on a Rosetta runtime it
+# cannot patch (the Fatal line, exit 0, no loader); the sidecar's --probe
+# passes only with WOW_TEST_SIDECAR=pass
+cat > "$RES/patch-kit/rosettax87/rosettax87" <<'STUB'
+#!/bin/bash
+[ "${WOW_TEST_X87:-pass}" = fail ] && { echo "Fatal: failed to scan rosetta runtime for offsets."; exit 0; }
+exec "$@"
+STUB
 echo librx87 > "$RES/patch-kit/rosettax87/libRuntimeRosettax87"
 echo rxshim  > "$RES/patch-kit/rosettax87/rosettax87-shim"
-echo sidecar > "$RES/patch-kit/x87sidecar/x87sidecar"
+cat > "$RES/patch-kit/x87sidecar/x87sidecar" <<'STUB'
+#!/bin/bash
+[ "$1" = --probe ] || exit 0
+[ "${WOW_TEST_SIDECAR:-fail}" = pass ] && exit 0
+echo "/usr/libexec/rosetta/runtime: NOT SUPPORTED"; exit 1
+STUB
 chmod +x "$RES/patch-kit/x87sidecar/x87sidecar" "$RES/patch-kit/rosettax87/"*
+# the Rosetta runtime the engines' answer is keyed to: a file of the suite's own
+export WOW_TEST_ROSETTA_RUNTIME="$TMP/rosetta-runtime"; echo runtime > "$WOW_TEST_ROSETTA_RUNTIME"
 
 # stub wine: logs every invocation + interesting env, answers registry queries
 WINELOG="$TMP/wine.log"; : > "$WINELOG"
@@ -51,6 +66,7 @@ cat > "$RES/wine/bin/wine" <<'STUB'
 #!/bin/bash
 echo "WINE ARGS: $* | OVR=${WINEDLLOVERRIDES:-} SIDECAR=${X87_SIDECAR_PATH:-} ROSETTA=${ROSETTA_X87_PATH:-} LOADER=${WINELOADER:-} SPATIAL=${WOWSILICON_SPATIAL_AUDIO_MODE:-unset} NORM=${WOWSILICON_NORMALIZE_AUDIO:-unset} FOLLOW=${WOWSILICON_FOLLOW_SYSTEM_OUTPUT:-unset} ACTL=${WOWSILICON_SPATIAL_AUDIO_CONTROL:-} NCTL=${WOWSILICON_NORMALIZE_AUDIO_CONTROL:-} VK=${VK_DRIVER_FILES:-unset} MTL=${MTLD3D_CONFIG:-unset} PREFIX=${WINEPREFIX:-} HOME=${HOME:-}" >> "$WINE_STUB_LOG"
 case "$*" in
+  --version)                 echo "wine-0.0-stub" ;;   # what wow-check-x87 waits for
   *"reg query"*RetinaMode*)  [ -n "${WOW_TEST_RETINA-Y}" ] \
                                && printf '    RetinaMode    REG_SZ    %s\r\n' "${WOW_TEST_RETINA-Y}" ;;
   *"reg query"*ProxyServer*) printf '    ProxyServer    REG_SZ    127.0.0.1:1\r\n' ;;
@@ -587,6 +603,53 @@ sed -i '' 's/^SPATIAL_AUDIO=.*/SPATIAL_AUDIO=1/; s/^NORMALIZE_AUDIO=.*/NORMALIZE
 assert_contains "$(cat "$WINELOG")" "SPATIAL=fixed" "SPATIAL_AUDIO=1 is on"
 assert_contains "$(cat "$WINELOG")" "NORM=0" "a value other than 1 or absent is off (AUTO_RES idiom)"
 sed -i '' '/^SPATIAL_AUDIO=/d; /^NORMALIZE_AUDIO=/d' "$RES/launcher.conf"
+
+# wow-check-x87 proves the engine on this Mac before wow-launch uses it. A
+# rosettax87 that cannot patch the Rosetta runtime exits 0 before the loader
+# starts, and the game never appears. auto, the default, falls back to the
+# sidecar, then to plain Rosetta 2, and keeps the answer until the runtime or
+# an engine changes. The probe's own wine run lands in the stub log too, with
+# no engine set, so the assertions read the game's line.
+section "launch: x87 engine (auto)"
+LAUNCHLOG="$RES/logs/last-launch.log"
+game_line() { grep -F 'Wow.exe' "$WINELOG"; }
+X87_WAS="$(grep -s '^X87=' "$RES/launcher.conf" || true)"; sed -i '' '/^X87=/d' "$RES/launcher.conf"
+"$BIN/wow-check-x87" reset
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "ROSETTA=$G/rosettax87/rosettax87-shim" "auto: rosettax87 when its probe passes"
+assert_contains "$(grep -s '^X87_CHECKED=' "$RES/launcher.conf")" "X87_CHECKED=rosettax87@" "the answer is remembered in launcher.conf"
+assert_contains "$(head -1 "$LAUNCHLOG")" "x87: rosettax87 (rosettax87 runs the loader here)" "the launch log opens with the engine"
+: > "$WINELOG"; WOW_TEST_X87=fail "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "ROSETTA=$G/rosettax87/rosettax87-shim" "a remembered answer is not checked again"
+assert_contains "$(head -1 "$LAUNCHLOG")" "x87: rosettax87 (remembered;" "and the log says so"
+"$BIN/wow-check-x87" reset
+: > "$WINELOG"; WOW_TEST_X87=fail WOW_TEST_SIDECAR=pass "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "SIDECAR=$RES/patch-kit/x87sidecar/x87sidecar ROSETTA= " "the sidecar replaces a rosettax87 that cannot patch the runtime"
+assert_contains "$(head -1 "$LAUNCHLOG")" "x87: sidecar (rosettax87: cannot run the loader on this Rosetta runtime (Fatal: failed to scan rosetta runtime for offsets.); sidecar --probe passes)" "the log carries the engine's output"
+"$BIN/wow-check-x87" reset
+: > "$WINELOG"; WOW_TEST_X87=fail "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "neither engine: the game runs on plain Rosetta 2"
+assert_contains "$(head -1 "$LAUNCHLOG")" "x87: none (rosettax87: cannot run the loader" "and the log says why"
+assert_contains "$(head -1 "$LAUNCHLOG")" "sidecar: --probe failed on this Rosetta runtime (/usr/libexec/rosetta/runtime: NOT SUPPORTED); the game runs on plain Rosetta 2)" "both reasons"
+assert_contains "$(grep -s '^X87_CHECKED=' "$RES/launcher.conf")" "X87_CHECKED=none@" "none is remembered too"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "and stays none while nothing changed, even with the engine fixed"
+echo "runtime after a macOS update" > "$WOW_TEST_ROSETTA_RUNTIME"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "ROSETTA=$G/rosettax87/rosettax87-shim" "a changed Rosetta runtime is checked again"
+# forced engines are not checked, as every value was before auto; off is none
+printf 'X87=rosettax87\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_X87=fail "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "ROSETTA=$G/rosettax87/rosettax87-shim" "X87=rosettax87 forces it, unchecked"
+assert_contains "$(head -1 "$LAUNCHLOG")" "x87: rosettax87" "the log names a forced engine too"
+sed -i '' 's/^X87=.*/X87=off/' "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "X87=off: no engine"
+assert_eq "$(head -1 "$LAUNCHLOG")" "x87: none" "and no reason, none was checked"
+sed -i '' '/^X87=/d' "$RES/launcher.conf"
+: > "$WINELOG"; ROSETTA_X87_PATH=/stale/from/the/shell "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "ROSETTA=$G/rosettax87/rosettax87-shim" "an engine path left in the user's shell does not win"
+"$BIN/wow-check-x87" reset; [ -z "$X87_WAS" ] || printf '%s\n' "$X87_WAS" >> "$RES/launcher.conf"
 
 # the codepage is read from the prefix's registry file: no wine started just to
 # read it. Wine's own spelling — ControlSet001, "Codepage" — with a neighbouring
