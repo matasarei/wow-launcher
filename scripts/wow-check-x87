@@ -76,6 +76,7 @@ with_deadline() {
       if (time >= $end) { $killed = 1; kill "KILL", $p; last }
       select(undef, undef, undef, 0.1);
     }
+    alarm 0;   # reaped: a late alarm would call this a kill and signal a stale pid
     exit 137 if $killed;
     exit 125 if $r == -1;
     my $s = $?; exit(($s & 127) ? 128 + ($s & 127) : $s >> 8);' "$TIMEOUT" "$@"
