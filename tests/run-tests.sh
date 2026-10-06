@@ -41,11 +41,15 @@ echo sil-lk  > "$RES/patch-kit/libSiliconPatch/wotlk/libSiliconPatch.dll"
 echo vtweaks > "$RES/patch-kit/vanilla-tweaks.exe"
 # stub engines, for wow-check-x87: rosettax87 runs the loader, or with
 # WOW_TEST_X87=fail does what the real one does on a Rosetta runtime it
-# cannot patch (the Fatal line, exit 0, no loader); the sidecar's --probe
-# passes only with WOW_TEST_SIDECAR=pass
+# cannot patch (the Fatal line, exit 0, no loader), or with WOW_TEST_X87=hang
+# stops itself the way the real loader stays suspended (fatalhang: the Fatal
+# line first, then the stop); the sidecar's --probe passes only with
+# WOW_TEST_SIDECAR=pass
 cat > "$RES/patch-kit/rosettax87/rosettax87" <<'STUB'
 #!/bin/bash
 [ "${WOW_TEST_X87:-pass}" = fail ] && { echo "Fatal: failed to scan rosetta runtime for offsets."; exit 0; }
+[ "${WOW_TEST_X87:-pass}" = fatalhang ] && { echo "Fatal: failed to scan rosetta runtime for offsets."; kill -STOP $$; }
+[ "${WOW_TEST_X87:-pass}" = hang ] && kill -STOP $$   # the suspended loader: only SIGKILL ends it
 exec "$@"
 STUB
 echo librx87 > "$RES/patch-kit/rosettax87/libRuntimeRosettax87"
@@ -649,6 +653,18 @@ assert_eq "$(head -1 "$LAUNCHLOG")" "x87: none" "and no reason, none was checked
 sed -i '' '/^X87=/d' "$RES/launcher.conf"
 : > "$WINELOG"; ROSETTA_X87_PATH=/stale/from/the/shell "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(game_line)" "ROSETTA=$G/rosettax87/rosettax87-shim" "an engine path left in the user's shell does not win"
+# a probe the deadline killed proved nothing: the game still starts, nothing is kept
+"$BIN/wow-check-x87" reset
+: > "$WINELOG"; WOW_TEST_X87=hang WOW_X87_PROBE_TIMEOUT=1 "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "Wow.exe" "a probe killed by the deadline does not stop the game"
+assert_eq "$(grep -s '^X87_CHECKED=' "$RES/launcher.conf")" "" "and its answer is not remembered"
+assert_contains "$(head -1 "$LAUNCHLOG")" "rosettax87: the probe ran out of time (1 s)" "the log says why"
+# the engine's Fatal line is a verdict even when the loader it left behind had to be killed
+"$BIN/wow-check-x87" reset
+: > "$WINELOG"; WOW_TEST_X87=fatalhang WOW_X87_PROBE_TIMEOUT=1 "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "a killed probe that printed the Fatal line counts as a failure"
+assert_contains "$(grep -s '^X87_CHECKED=' "$RES/launcher.conf")" "X87_CHECKED=none@" "and is remembered"
+assert_contains "$(head -1 "$LAUNCHLOG")" "(Fatal: failed to scan rosetta runtime for offsets.)" "with the engine's line in the log"
 "$BIN/wow-check-x87" reset; [ -z "$X87_WAS" ] || printf '%s\n' "$X87_WAS" >> "$RES/launcher.conf"
 
 # the codepage is read from the prefix's registry file: no wine started just to
