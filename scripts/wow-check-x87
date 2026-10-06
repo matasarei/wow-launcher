@@ -28,6 +28,7 @@ ROSETTAX87="$GAME/rosettax87/rosettax87"
 SIDECAR="$RES/patch-kit/x87sidecar/x87sidecar"
 RUNTIME="${WOW_TEST_ROSETTA_RUNTIME:-/usr/libexec/rosetta/runtime}"   # what the engines patch
 TIMEOUT="${WOW_X87_PROBE_TIMEOUT:-15}"   # seconds a probe may run (see with_deadline)
+case "$TIMEOUT" in ''|0*|*[!0-9]*) TIMEOUT=15 ;; esac   # perl's alarm reads anything else as 0: no deadline
 
 conf_get() { grep -sE "^$1=" "$CONF" | head -1 | cut -d= -f2-; }
 conf_set() {  # conf_set KEY [VALUE]: no value removes the key
