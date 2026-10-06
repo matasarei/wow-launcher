@@ -641,6 +641,11 @@ assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "and stays none while nothin
 echo "runtime after a macOS update" > "$WOW_TEST_ROSETTA_RUNTIME"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(game_line)" "ROSETTA=$G/rosettax87/rosettax87-shim" "a changed Rosetta runtime is checked again"
+# libRuntimeRosettax87 is part of the answer too: a kit that changes only the lib is checked again
+echo "librx87 v2" > "$G/rosettax87/libRuntimeRosettax87"
+: > "$WINELOG"; WOW_TEST_X87=fail "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "a changed libRuntimeRosettax87 is checked again"
+cp "$RES/patch-kit/rosettax87/libRuntimeRosettax87" "$G/rosettax87/"; "$BIN/wow-check-x87" reset
 # forced engines are not checked, as every value was before auto; off is none
 printf 'X87=rosettax87\n' >> "$RES/launcher.conf"
 : > "$WINELOG"; WOW_TEST_X87=fail "$BIN/wow-launch"; sleep 0.3
