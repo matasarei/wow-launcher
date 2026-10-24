@@ -1473,6 +1473,23 @@ assert_contains "$OUT" "the game from an interrupted update was put back" "an in
 assert_contains "$OUT" "game updated (3.3.5a)" "and the update goes on"
 [ -d "$G/Interface/AddOns/Kept" ] && ok || bad "the recovered game's addons survive"
 assert_nofile "$RES/games-update-old"
+# the second swap rename failing: the old game is moved back, the staging copy
+# removed, and the installed game and settings stay byte for byte
+mkdir -p "$TMP/failmv"
+cat > "$TMP/failmv/mv" <<'MV'
+#!/bin/bash
+case "$1|$2" in */games-update\|*/games/main) echo "mv: refused" >&2; exit 1 ;; esac
+exec /bin/mv "$@"
+MV
+chmod +x "$TMP/failmv/mv"
+cp -R "$TMP/client-wotlk" "$TMP/client-swap"; echo v2 > "$TMP/client-swap/new.dll"
+BEFORE="$(tree_sums "$G"; cat "$RES/launcher.conf")"
+OUT="$(PATH="$TMP/failmv:$PATH" "$BIN/wow-install-client" --update "$TMP/client-swap" 2>&1)"
+assert_contains "$OUT" "the swap failed — the installed game was left as it was" "a failed swap says so"
+assert_eq "$(tree_sums "$G"; cat "$RES/launcher.conf")" "$BEFORE" "and the game is put back unchanged"
+assert_nofile "$RES/games-update"
+assert_nofile "$RES/games-update-old"
+rm -rf "$TMP/failmv" "$TMP/client-swap"
 # 1.12 keeps its server list at the root, not under Data/<locale>/
 rm -rf "$RES/games"/*; reset_conf
 "$BIN/wow-install-client" "$TMP/client-vanilla" >/dev/null 2>&1
