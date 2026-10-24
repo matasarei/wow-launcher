@@ -95,6 +95,12 @@
 "Install Game Client" = "Instalar cliente del juego";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "Elige una carpeta de cliente de WoW: necesita un ejecutable del juego y una carpeta Data";
 "Installing from %@…" = "Instalando desde %@…";
+"Update Game…" = "Actualizar juego…";
+"Copy in the updated files from the client folder — addons, settings, the server list and language packs are kept" = "Copia los archivos actualizados desde la carpeta del cliente: se conservan los AddOns, los ajustes, la lista de servidores y los paquetes de idioma";
+"Update Game" = "Actualizar juego";
+"Choose the updated client folder — your addons, settings and server list are kept" = "Elige la carpeta del cliente actualizada: se conservan tus AddOns, ajustes y lista de servidores";
+"Updating from %@…" = "Actualizando desde %@…";
+"Updated — addons, settings and the server list were kept." = "Actualizado: se conservaron los AddOns, los ajustes y la lista de servidores.";
 "Copying %@ — %@ of %@" = "Copiando %@ — %@ de %@";
 "Copied %@ of %@" = "Copiado %@ de %@";
 "Invalid server address." = "Dirección de servidor no válida.";

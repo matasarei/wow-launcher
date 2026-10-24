@@ -95,6 +95,12 @@
 "Install Game Client" = "安装游戏客户端";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "选择 WoW 客户端文件夹——需要游戏可执行文件和 Data 文件夹";
 "Installing from %@…" = "正在从 %@ 安装…";
+"Update Game…" = "更新游戏…";
+"Copy in the updated files from the client folder — addons, settings, the server list and language packs are kept" = "从客户端文件夹复制更新后的文件——插件、设置、服务器列表和语言包都会保留";
+"Update Game" = "更新游戏";
+"Choose the updated client folder — your addons, settings and server list are kept" = "选择更新后的客户端文件夹——你的插件、设置和服务器列表都会保留";
+"Updating from %@…" = "正在从 %@ 更新…";
+"Updated — addons, settings and the server list were kept." = "已更新——插件、设置和服务器列表均已保留。";
 "Copying %@ — %@ of %@" = "正在复制 %@ — %@ / %@";
 "Copied %@ of %@" = "已复制 %@ / %@";
 "Invalid server address." = "服务器地址无效。";

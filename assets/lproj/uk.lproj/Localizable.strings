@@ -95,6 +95,12 @@
 "Install Game Client" = "Встановлення клієнта гри";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "Оберіть теку клієнта WoW — потрібен виконуваний файл гри й тека Data";
 "Installing from %@…" = "Встановлення з %@…";
+"Update Game…" = "Оновити гру…";
+"Copy in the updated files from the client folder — addons, settings, the server list and language packs are kept" = "Скопіювати оновлені файли з теки клієнта — аддони, налаштування, список серверів і мовні пакети зберігаються";
+"Update Game" = "Оновлення гри";
+"Choose the updated client folder — your addons, settings and server list are kept" = "Оберіть оновлену теку клієнта — ваші аддони, налаштування й список серверів збережуться";
+"Updating from %@…" = "Оновлення з %@…";
+"Updated — addons, settings and the server list were kept." = "Оновлено — аддони, налаштування й список серверів збережено.";
 "Copying %@ — %@ of %@" = "Копіювання %@ — %@ з %@";
 "Copied %@ of %@" = "Скопійовано %@ з %@";
 "Invalid server address." = "Неправильна адреса сервера.";
