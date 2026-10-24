@@ -29,6 +29,7 @@ Contents/Resources/
 | `GAME_FAMILY=wotlk\|tbc\|vanilla\|post-wotlk\|casc\|generic` | which shape of client this is. **Verify trusts this over re-detection**: with `Data/lichking.MPQ` deleted the folder alone reads as TBC, and verify would quietly stop asking for the file that is missing. Absent in wrappers written before 2.5 — derived from `GAME_VERSION` then |
 | `GAME_BUILD=<n>` | build number from the executable's `VS_VERSIONINFO` (`12340`), empty when it has none |
 | `GAME_EXE=<name>` | the entrypoint the installer found. The GUI's run-detection pattern includes it, so a repack that renamed its executable is still recognised as running |
+| `GAME_SOURCE=<path>` | the folder the game was installed or last updated from (physical path), written by `wow-install-client`; **Update Game…** opens its panel beside it. An import (and so the in-app update) carries the old app's — the same game, the same folder; nothing else reads it |
 | `CHAT_CP=1251` | Cyrillic input layer for any client (env locale, system codepage, remapped fonts); auto-added by the installer when a Russian keyboard layout is present, `CHAT_CP=` empty opts out |
 | `GAME_DISPLAY=<name>` | show the game on this display (GUI writes it) |
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |
@@ -210,6 +211,42 @@ patching it live again would patch a patched file; `wow-verify-game --fix`
 then brings kit files, mod set, Divx, icon, resolution and Retina to the
 chosen level from the originals the old app left beside them. The source app
 is only ever read (the suite compares its checksum listing before and after).
+
+## Update the installed game — `wow-install-client --update`
+
+For servers that ship their own client files (a DLL, extra `Data/*.mpq`) and
+update them with their own launcher: that launcher updates the folder the game
+was installed from, never the copy here, and the server may drop the stale
+client with only the generic disconnect (#38). **Update Game…** (Game pane,
+shown with a game installed, disabled while it runs) passes the chosen folder
+to `wow-install-client --update`.
+
+Refused with nothing changed: no game installed, an `.app` source, a different
+`VERSION` than the installed game's profile, a source `LOCALE` other than the
+installed game's active one (switch the language first), or a game from this
+copy running (the `ps` match `wow-launch` uses). A guessed profile
+(`CONFIDENCE=guess` — every unrecognised client is `VERSION=unknown`) must
+also keep the installed game's `EXE`.
+
+The folder is copied (`wow-copy`, so `ditto --clone`: free on one APFS volume)
+to `Resources/games-update`, outside `games/` so nothing lists or launches it.
+Into that copy go, cloned from the installed game: `WTF/`, `Screenshots/`,
+`locales/` (the pack stash), every `realmlist.wtf` (root and
+`Data/<locale>/` — the server list editor's file), and each
+`Interface/AddOns/` folder the update does not ship. One it does ship stays the
+update's, and `addon replaced by the update: <name>` is printed when the
+player's copy differed. `Cache/` and `Logs/` are not carried. Then the swap
+(`games/main` → `games-update-old`, staging → `games/main`, old removed);
+until it, a failure leaves the installed game untouched and an `EXIT` trap
+removes the staging copy. A run killed between the two renames leaves the game
+in `games-update-old` with `games/main` empty; the next `--update` moves it
+back first and says so. After it the normal install continues: the staged
+client files are pristine, so the patch kit applies exactly as on a fresh
+install. Settings follow the import: no cvar seeding, and `RENDERER`, `RETINA`,
+`AUTO_RES=0` and `GAME_DISPLAY` stay. The last line is `game updated (<V>)`,
+on which the GUI runs verify. Known limit: a stashed pack keeps the `Wow.exe`
+from before the update, so a server that changed `Wow.exe` would get the old one
+back on a language switch.
 
 ## Version check and in-app update (2.9) — `wow-update`
 

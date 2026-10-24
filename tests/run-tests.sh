@@ -1328,6 +1328,9 @@ for kv in PATCHES=no-silicon RENDERER=mtld3d CLOSE_ON_PLAY=1 RETINA=off GAME_VER
   assert_contains "$CONF" "$kv" "$kv after the move"
 done
 assert_eq "$(grep -cE '^(DISPLAY_RECT|GAME_DISPLAY)=' "$RES/launcher.conf")" "0" "the old screen setup stays behind"
+# an in-app update is an import too: Update Game must still open on the client folder
+assert_contains "$CONF" "GAME_SOURCE=$(cd "$TMP/client-wotlk" && pwd -P)" "the game's source folder after the move"
+assert_eq "$(grep -c '^GAME_SOURCE=' "$RES/launcher.conf")" "1" "recorded once"
 assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET myCvar "42"' "the player's cvars survive"
 assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxWindow "0"' "and are not re-seeded"
 assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxResolution "1728x1117"' "resolution fits this screen at the kept Retina choice"
@@ -1362,6 +1365,157 @@ OUT="$(WOW_TEST_RETINA=N "$BIN/wow-install-client" "$OLD" 2>&1)"
 assert_contains "$(cat "$WINELOG")" "PatchDivxDecoder" "an unpatched Divx from a previous app is patched live"
 rm -f "$APP/Contents/Info.plist" "$RES/patch-kit/"DivxDecoder.dll.*
 mv "$TMP/kitrefs/"* "$RES/patch-kit/"; rm -rf "$RES/games"/*; reset_conf
+
+# ======================================================= update the installed game
+section "update the installed game (--update)"
+reset_conf; rm -rf "$RES/games"/*
+G="$RES/games/main"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "no game installed to update" "nothing installed: refused"
+assert_nofile "$G"
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+assert_contains "$(cat "$RES/launcher.conf")" "GAME_SOURCE=$(cd "$TMP/client-wotlk" && pwd -P)" \
+  "an install records the folder it came from"
+# the player's own things, and choices an update must not reset
+printf 'RENDERER=mtld3d\nRETINA=off\nGAME_DISPLAY=Side Screen\n' >> "$RES/launcher.conf"
+sed -i '' 's/^AUTO_RES=.*/AUTO_RES=0/' "$RES/launcher.conf"
+sed -i '' 's/^SET gxWindow .*/SET gxWindow "0"/' "$G/WTF/Config.wtf"
+echo 'SET myCvar "42"' >> "$G/WTF/Config.wtf"
+mkdir -p "$G/Interface/AddOns/MyAddon" "$G/Interface/AddOns/ServerAddon" "$G/Screenshots" "$G/locales/deDE/pack"
+echo mine > "$G/Interface/AddOns/MyAddon/MyAddon.toc"
+echo server-v1 > "$G/Interface/AddOns/ServerAddon/ServerAddon.toc"
+echo shot > "$G/Screenshots/WoWScrnShot_1.jpg"
+echo de-exe > "$G/locales/deDE/Wow.exe"
+printf 'set realmlist my.server\r\n# set realmlist logon.example.com\r\n' > "$G/Data/enUS/realmlist.wtf"
+# what the server's own updater did to the source folder (issue #38): a new
+# DLL, a changed archive, a newer copy of an addon it ships
+UPDSRC="$TMP/client-wotlk-updated"; cp -R "$TMP/client-wotlk" "$UPDSRC"
+echo ext-v2 > "$UPDSRC/rebuffed.dll"; echo mpq-v2 > "$UPDSRC/Data/patch-3.MPQ"
+mkdir -p "$UPDSRC/Interface/AddOns/ServerAddon"; echo server-v2 > "$UPDSRC/Interface/AddOns/ServerAddon/ServerAddon.toc"
+
+# refused, or failed: the installed game and the settings stay byte for byte
+BEFORE="$(tree_sums "$G"; cat "$RES/launcher.conf")"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-tbc" 2>&1)"
+assert_contains "$OUT" "this is a 2.4.3 client and the installed game is 3.3.5a" "another version: refused"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-wotlk-ru" 2>&1)"
+assert_contains "$OUT" "the game is set to enUS and this client is ruRU" "another language: refused"
+mkdir -p "$TMP/Some.app"
+OUT="$("$BIN/wow-install-client" --update "$TMP/Some.app" 2>&1)"
+assert_contains "$OUT" "takes the updated client folder, not an app" "an app: refused"
+OUT="$("$BIN/wow-install-client" --update "$G" 2>&1)"
+assert_contains "$OUT" "the source is the installed game itself" "the installed game itself: refused"
+fake_proc "$G/Wow.exe"
+OUT="$("$BIN/wow-install-client" --update "$UPDSRC" 2>&1)"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$OUT" "the game is running — quit it first" "a running game: refused"
+if [ "$(id -u)" != 0 ]; then   # root reads a mode-000 file anyway
+  cp -R "$UPDSRC" "$TMP/client-update-unreadable"
+  chmod 000 "$TMP/client-update-unreadable/Data/common.MPQ"
+  OUT="$("$BIN/wow-install-client" --update "$TMP/client-update-unreadable" 2>&1)"
+  chmod 644 "$TMP/client-update-unreadable/Data/common.MPQ"
+  assert_contains "$OUT" "the copy failed — the installed game was left as it was" "a failed copy says so"
+  assert_eq "$(echo "$OUT" | grep -c 'applying patch kit')" "0" "and nothing gets patched"
+fi
+assert_eq "$(tree_sums "$G"; cat "$RES/launcher.conf")" "$BEFORE" "nothing changed by any of them"
+assert_nofile "$RES/games-update"
+
+OUT="$("$BIN/wow-install-client" --update "$UPDSRC" 2>&1)"
+assert_contains "$OUT" "game updated (3.3.5a)" "update completed"
+assert_eq "$(cat "$G/rebuffed.dll")" "ext-v2" "a new file from the update is in"
+assert_eq "$(cat "$G/Data/patch-3.MPQ")" "mpq-v2" "a changed file from the update is in"
+assert_eq "$(cat "$G/Interface/AddOns/MyAddon/MyAddon.toc")" "mine" "the player's addon is kept"
+assert_eq "$(cat "$G/Interface/AddOns/ServerAddon/ServerAddon.toc")" "server-v2" "an addon the update ships is the update's"
+assert_contains "$OUT" "addon replaced by the update: ServerAddon" "and the replacement is named"
+assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET myCvar "42"' "Config.wtf is the player's"
+assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxWindow "0"' "and is not seeded again"
+assert_file "$G/Screenshots/WoWScrnShot_1.jpg"
+assert_eq "$(cat "$G/locales/deDE/Wow.exe")" "de-exe" "the language-pack stash is kept"
+assert_contains "$(cat "$G/Data/enUS/realmlist.wtf")" "set realmlist my.server" "the server list is kept"
+# patched like a fresh install: the client files came in pristine
+assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "mods applied again"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "patcheddivx" "Divx patched again"
+assert_eq "$(cat "$G/DivxDecoder.dll.bak")" "origdivx" "from the update's own original"
+CONF="$(cat "$RES/launcher.conf")"
+assert_contains "$CONF" "RENDERER=mtld3d" "the renderer is kept"
+assert_contains "$CONF" "RETINA=off" "a Retina choice is kept"
+assert_contains "$CONF" "GAME_DISPLAY=Side Screen" "the chosen display is kept"
+assert_contains "$CONF" "AUTO_RES=0" "resolution managed by hand stays so"
+assert_contains "$CONF" "GAME_SOURCE=$(cd "$UPDSRC" && pwd -P)" "the update's folder is the source now"
+assert_eq "$(grep -c '^GAME_SOURCE=' "$RES/launcher.conf")" "1" "recorded once"
+assert_nofile "$RES/games-update"
+assert_nofile "$RES/games-update-old"
+# the same update again: an addon equal to the update's is not reported
+OUT="$("$BIN/wow-install-client" --update "$UPDSRC" 2>&1)"
+assert_contains "$OUT" "game updated (3.3.5a)" "an update can run again"
+assert_eq "$(echo "$OUT" | grep -c 'addon replaced')" "0" "an unchanged shipped addon is not reported"
+assert_eq "$(cat "$G/Interface/AddOns/MyAddon/MyAddon.toc")" "mine" "the player's addon survives a second update"
+# two clients the launcher does not recognise both profile as VERSION=unknown:
+# the entrypoint has to match as well, or one would "update" into the other
+rm -rf "$RES/games"/*; reset_conf
+mkdir -p "$TMP/client-unk-a/Data"; echo a > "$TMP/client-unk-a/Game.exe"
+"$BIN/wow-install-client" "$TMP/client-unk-a" >/dev/null 2>&1
+mkdir -p "$TMP/client-unk-b/Data"; echo b > "$TMP/client-unk-b/Other.exe"
+BEFORE="$(tree_sums "$G"; cat "$RES/launcher.conf")"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-unk-b" 2>&1)"
+assert_contains "$OUT" "this client starts with Other.exe and the installed game with Game.exe" "another unrecognised client: refused"
+assert_eq "$(tree_sums "$G"; cat "$RES/launcher.conf")" "$BEFORE" "and nothing changed"
+cp -R "$TMP/client-unk-a" "$TMP/client-unk-a2"; echo new > "$TMP/client-unk-a2/new.dat"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-unk-a2" 2>&1)"
+assert_contains "$OUT" "game updated (unknown)" "the same unrecognised client updates"
+rm -rf "$TMP/client-unk-a" "$TMP/client-unk-a2" "$TMP/client-unk-b"
+# killed between the two swap renames: the game sits in games-update-old and
+# games/main is gone — the next update puts it back instead of refusing
+rm -rf "$RES/games"/*; reset_conf
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+mkdir -p "$G/Interface/AddOns/Kept"; mv "$G" "$RES/games-update-old"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "the game from an interrupted update was put back" "an interrupted swap is recovered"
+assert_contains "$OUT" "game updated (3.3.5a)" "and the update goes on"
+[ -d "$G/Interface/AddOns/Kept" ] && ok || bad "the recovered game's addons survive"
+assert_nofile "$RES/games-update-old"
+# the recovery itself failing says where the game is, and leaves it there
+mv "$G" "$RES/games-update-old"
+mkdir -p "$TMP/failmv-back"
+cat > "$TMP/failmv-back/mv" <<'MV'
+#!/bin/bash
+case "$1|$2" in */games-update-old\|*/games/main) echo "mv: refused" >&2; exit 1 ;; esac
+exec /bin/mv "$@"
+MV
+chmod +x "$TMP/failmv-back/mv"
+OUT="$(PATH="$TMP/failmv-back:$PATH" "$BIN/wow-install-client" --update "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "could not be put back from Resources/games-update-old" "a failed recovery says where the game is"
+[ -d "$RES/games-update-old/Interface/AddOns/Kept" ] && ok || bad "and the game stays there"
+rm -rf "$TMP/failmv-back"
+# Install New Game replaces the game, an interrupted update's leftovers included
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+assert_nofile "$RES/games-update-old"
+# the second swap rename failing: the old game is moved back, the staging copy
+# removed, and the installed game and settings stay byte for byte
+mkdir -p "$TMP/failmv"
+cat > "$TMP/failmv/mv" <<'MV'
+#!/bin/bash
+case "$1|$2" in */games-update\|*/games/main) echo "mv: refused" >&2; exit 1 ;; esac
+exec /bin/mv "$@"
+MV
+chmod +x "$TMP/failmv/mv"
+cp -R "$TMP/client-wotlk" "$TMP/client-swap"; echo v2 > "$TMP/client-swap/new.dll"
+BEFORE="$(tree_sums "$G"; cat "$RES/launcher.conf")"
+OUT="$(PATH="$TMP/failmv:$PATH" "$BIN/wow-install-client" --update "$TMP/client-swap" 2>&1)"
+assert_contains "$OUT" "the swap failed — the installed game was left as it was" "a failed swap says so"
+assert_eq "$(tree_sums "$G"; cat "$RES/launcher.conf")" "$BEFORE" "and the game is put back unchanged"
+assert_nofile "$RES/games-update"
+assert_nofile "$RES/games-update-old"
+rm -rf "$TMP/failmv" "$TMP/client-swap"
+# 1.12 keeps its server list at the root, not under Data/<locale>/
+rm -rf "$RES/games"/*; reset_conf
+"$BIN/wow-install-client" "$TMP/client-vanilla" >/dev/null 2>&1
+printf 'set realmlist my.vanilla.server\r\n' > "$G/realmlist.wtf"
+UPDV="$TMP/client-vanilla-updated"; cp -R "$TMP/client-vanilla" "$UPDV"; echo ext-v2 > "$UPDV/extra.dll"
+OUT="$("$BIN/wow-install-client" --update "$UPDV" 2>&1)"
+assert_contains "$OUT" "game updated (1.12)" "a 1.12 update completed"
+assert_eq "$(cat "$G/extra.dll")" "ext-v2" "with the update's new file"
+assert_contains "$(cat "$G/realmlist.wtf")" "set realmlist my.vanilla.server" "the root server list is kept"
+rm -rf "$RES/games"/* "$UPDSRC" "$UPDV" "$TMP/client-update-unreadable" "$TMP/Some.app"; reset_conf
 
 # ============================================================== wow-update check
 section "wow-update check"

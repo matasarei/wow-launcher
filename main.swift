@@ -1041,6 +1041,25 @@ final class Store: ObservableObject {
         }
     }
 
+    // A server's own updater changed the folder the game came from (#38): the
+    // same game, newer files. The script keeps what is the player's and refuses
+    // anything that is not the same game, so no pre-check here.
+    func updateGameFromPanel() {
+        let source = Paths.confValue("GAME_SOURCE")
+        presentOpenPanel({ panel in
+            panel.title = L("Update Game")
+            panel.message = L("Choose the updated client folder — your addons, settings and server list are kept")
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            if !source.isEmpty && FileManager.default.fileExists(atPath: source) {
+                panel.directoryURL = URL(fileURLWithPath: source).deletingLastPathComponent()
+            }
+        }) { panel in
+            guard let url = panel.url else { return }
+            self.startInstall(from: url, update: true)
+        }
+    }
+
     // An older copy of this app as the source: its game is already patched, so
     // wow-install-client copies and verifies it instead. The check here is only
     // for a proper dialog — the script checks again and is the one that decides.
@@ -1118,11 +1137,11 @@ final class Store: ObservableObject {
         return a.runModal() == .alertFirstButtonReturn
     }
 
-    private func startInstall(from url: URL) {
+    private func startInstall(from url: URL, update: Bool = false) {
         installSourceApp = url.pathExtension.lowercased() == "app" ? url.deletingPathExtension().lastPathComponent : nil
         busy = true
-        note = LF("Installing from %@…", url.lastPathComponent)
-        streamTool(Paths.installTool, [url.path]) { [weak self] lines in self?.finishInstall(lines) }
+        note = update ? LF("Updating from %@…", url.lastPathComponent) : LF("Installing from %@…", url.lastPathComponent)
+        streamTool(Paths.installTool, update ? ["--update", url.path] : [url.path]) { [weak self] lines in self?.finishInstall(lines) }
     }
 
     // Streamed rather than run through shell(): a copy from a slow drive, or a
@@ -1181,9 +1200,12 @@ final class Store: ObservableObject {
         refreshStatus()
         refreshRealms()
         refreshAddons()
-        if lines.contains(where: { $0.contains("game installed") }) {
+        let updated = lines.contains(where: { $0.contains("game updated") })
+        if updated || lines.contains(where: { $0.contains("game installed") }) {
             if let old = installSourceApp {
                 note = LF("Imported from %@, which was left as it is — it can be deleted once the game runs.", old)
+            } else if updated {
+                note = L("Updated — addons, settings and the server list were kept.")
             }
             verifyGame()   // confirm the fresh install right away
         }
@@ -1822,6 +1844,13 @@ struct GameView: View {
                         Label("Install New Game…", systemImage: "plus")
                     }
                     .disabled(store.busy)
+                    if !store.games.isEmpty {
+                        Button(action: { store.updateGameFromPanel() }) {
+                            Label("Update Game…", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .disabled(store.busy || store.gameRunning)
+                        .help("Copy in the updated files from the client folder — addons, settings, the server list and language packs are kept")
+                    }
                     Button("Import from Previous App…") { store.installFromAppPanel() }
                         .disabled(store.busy)
                         .help("Take the game from an older copy of this app — already patched, only copied and verified")

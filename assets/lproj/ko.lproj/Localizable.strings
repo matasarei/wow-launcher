@@ -95,6 +95,12 @@
 "Install Game Client" = "게임 클라이언트 설치";
 "Choose a WoW client folder — it needs a game executable and a Data folder" = "WoW 클라이언트 폴더를 선택하세요 — 게임 실행 파일과 Data 폴더가 필요합니다";
 "Installing from %@…" = "%@에서 설치 중…";
+"Update Game…" = "게임 업데이트…";
+"Copy in the updated files from the client folder — addons, settings, the server list and language packs are kept" = "클라이언트 폴더에서 업데이트된 파일을 가져옵니다 — 애드온, 설정, 서버 목록, 언어 팩은 유지됩니다";
+"Update Game" = "게임 업데이트";
+"Choose the updated client folder — your addons, settings and server list are kept" = "업데이트된 클라이언트 폴더를 선택하세요 — 애드온, 설정, 서버 목록은 유지됩니다";
+"Updating from %@…" = "%@에서 업데이트 중…";
+"Updated — addons, settings and the server list were kept." = "업데이트됨 — 애드온, 설정, 서버 목록이 유지되었습니다.";
 "Copying %@ — %@ of %@" = "%@ 복사 중 — %@ / %@";
 "Copied %@ of %@" = "%@ / %@ 복사됨";
 "Invalid server address." = "잘못된 서버 주소입니다.";
