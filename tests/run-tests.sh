@@ -1449,7 +1449,16 @@ OUT="$("$BIN/wow-install-client" --update "$UPDSRC" 2>&1)"
 assert_contains "$OUT" "game updated (3.3.5a)" "an update can run again"
 assert_eq "$(echo "$OUT" | grep -c 'addon replaced')" "0" "an unchanged shipped addon is not reported"
 assert_eq "$(cat "$G/Interface/AddOns/MyAddon/MyAddon.toc")" "mine" "the player's addon survives a second update"
-rm -rf "$RES/games"/* "$UPDSRC" "$TMP/client-update-unreadable" "$TMP/Some.app"; reset_conf
+# 1.12 keeps its server list at the root, not under Data/<locale>/
+rm -rf "$RES/games"/*; reset_conf
+"$BIN/wow-install-client" "$TMP/client-vanilla" >/dev/null 2>&1
+printf 'set realmlist my.vanilla.server\r\n' > "$G/realmlist.wtf"
+UPDV="$TMP/client-vanilla-updated"; cp -R "$TMP/client-vanilla" "$UPDV"; echo ext-v2 > "$UPDV/extra.dll"
+OUT="$("$BIN/wow-install-client" --update "$UPDV" 2>&1)"
+assert_contains "$OUT" "game updated (1.12)" "a 1.12 update completed"
+assert_eq "$(cat "$G/extra.dll")" "ext-v2" "with the update's new file"
+assert_contains "$(cat "$G/realmlist.wtf")" "set realmlist my.vanilla.server" "the root server list is kept"
+rm -rf "$RES/games"/* "$UPDSRC" "$UPDV" "$TMP/client-update-unreadable" "$TMP/Some.app"; reset_conf
 
 # ============================================================== wow-update check
 section "wow-update check"
