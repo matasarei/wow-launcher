@@ -1473,6 +1473,21 @@ assert_contains "$OUT" "the game from an interrupted update was put back" "an in
 assert_contains "$OUT" "game updated (3.3.5a)" "and the update goes on"
 [ -d "$G/Interface/AddOns/Kept" ] && ok || bad "the recovered game's addons survive"
 assert_nofile "$RES/games-update-old"
+# the recovery itself failing says where the game is, and leaves it there
+mv "$G" "$RES/games-update-old"
+mkdir -p "$TMP/failmv-back"
+cat > "$TMP/failmv-back/mv" <<'MV'
+#!/bin/bash
+case "$1|$2" in */games-update-old\|*/games/main) echo "mv: refused" >&2; exit 1 ;; esac
+exec /bin/mv "$@"
+MV
+chmod +x "$TMP/failmv-back/mv"
+OUT="$(PATH="$TMP/failmv-back:$PATH" "$BIN/wow-install-client" --update "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "could not be put back from Resources/games-update-old" "a failed recovery says where the game is"
+[ -d "$RES/games-update-old/Interface/AddOns/Kept" ] && ok || bad "and the game stays there"
+rm -rf "$TMP/failmv-back"
+# put back for the next block, which needs the game in place
+mv "$RES/games-update-old" "$G"
 # the second swap rename failing: the old game is moved back, the staging copy
 # removed, and the installed game and settings stay byte for byte
 mkdir -p "$TMP/failmv"
