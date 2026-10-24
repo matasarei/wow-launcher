@@ -1328,6 +1328,9 @@ for kv in PATCHES=no-silicon RENDERER=mtld3d CLOSE_ON_PLAY=1 RETINA=off GAME_VER
   assert_contains "$CONF" "$kv" "$kv after the move"
 done
 assert_eq "$(grep -cE '^(DISPLAY_RECT|GAME_DISPLAY)=' "$RES/launcher.conf")" "0" "the old screen setup stays behind"
+# an in-app update is an import too: Update Game must still open on the client folder
+assert_contains "$CONF" "GAME_SOURCE=$(cd "$TMP/client-wotlk" && pwd -P)" "the game's source folder after the move"
+assert_eq "$(grep -c '^GAME_SOURCE=' "$RES/launcher.conf")" "1" "recorded once"
 assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET myCvar "42"' "the player's cvars survive"
 assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxWindow "0"' "and are not re-seeded"
 assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxResolution "1728x1117"' "resolution fits this screen at the kept Retina choice"

@@ -29,7 +29,7 @@ Contents/Resources/
 | `GAME_FAMILY=wotlk\|tbc\|vanilla\|post-wotlk\|casc\|generic` | which shape of client this is. **Verify trusts this over re-detection**: with `Data/lichking.MPQ` deleted the folder alone reads as TBC, and verify would quietly stop asking for the file that is missing. Absent in wrappers written before 2.5 — derived from `GAME_VERSION` then |
 | `GAME_BUILD=<n>` | build number from the executable's `VS_VERSIONINFO` (`12340`), empty when it has none |
 | `GAME_EXE=<name>` | the entrypoint the installer found. The GUI's run-detection pattern includes it, so a repack that renamed its executable is still recognised as running |
-| `GAME_SOURCE=<path>` | the folder the game was installed or last updated from (physical path), written by `wow-install-client`; **Update Game…** opens its panel beside it. An import records none (its source is an app), and nothing else reads it |
+| `GAME_SOURCE=<path>` | the folder the game was installed or last updated from (physical path), written by `wow-install-client`; **Update Game…** opens its panel beside it. An import (and so the in-app update) carries the old app's — the same game, the same folder; nothing else reads it |
 | `CHAT_CP=1251` | Cyrillic input layer for any client (env locale, system codepage, remapped fonts); auto-added by the installer when a Russian keyboard layout is present, `CHAT_CP=` empty opts out |
 | `GAME_DISPLAY=<name>` | show the game on this display (GUI writes it) |
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |

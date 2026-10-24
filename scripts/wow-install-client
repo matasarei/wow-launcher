@@ -198,6 +198,7 @@ fi
 if [ "$MIGRATE" = 1 ]; then
   KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA'
   KEYS="$KEYS|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP"   # see wow-update
+  KEYS="$KEYS|GAME_SOURCE"   # the same game, so the same folder it came from
   CARRY="$(grep -sE "^($KEYS)=" "$OLD_RES/launcher.conf" || true)"
   # SILICON= is the pre-2.4 PATCHES: carried only when there is nothing newer
   printf '%s\n' "$CARRY" | grep -qE '^PATCHES=' && CARRY="$(printf '%s\n' "$CARRY" | grep -vE '^SILICON=')"
@@ -375,8 +376,9 @@ fi
 # (the renderer and a hand-made Retina choice stay when they came from a previous
 # app; an update keeps them and the chosen display too — it is the same game).
 # GAME_SOURCE is the folder installed from, where Update Game opens; an import's
-# source is an app, so it records none.
-RESET='GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|GAME_EXE|GAME_SOURCE|AUTO_RES|DISPLAY_RECT'
+# source is an app, so it keeps the one carried from that app's launcher.conf.
+RESET='GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|GAME_EXE|AUTO_RES|DISPLAY_RECT'
+[ "$MIGRATE" = 1 ] || RESET="$RESET|GAME_SOURCE"
 [ "$UPDATE" = 1 ] || RESET="$RESET|GAME_DISPLAY"
 [ "$MIGRATE" = 1 ] || [ "$UPDATE" = 1 ] || RESET="$RESET|RENDERER|RETINA"
 grep -vE "^($RESET)=" "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
