@@ -1463,6 +1463,16 @@ cp -R "$TMP/client-unk-a" "$TMP/client-unk-a2"; echo new > "$TMP/client-unk-a2/n
 OUT="$("$BIN/wow-install-client" --update "$TMP/client-unk-a2" 2>&1)"
 assert_contains "$OUT" "game updated (unknown)" "the same unrecognised client updates"
 rm -rf "$TMP/client-unk-a" "$TMP/client-unk-a2" "$TMP/client-unk-b"
+# killed between the two swap renames: the game sits in games-update-old and
+# games/main is gone — the next update puts it back instead of refusing
+rm -rf "$RES/games"/*; reset_conf
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+mkdir -p "$G/Interface/AddOns/Kept"; mv "$G" "$RES/games-update-old"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "the game from an interrupted update was put back" "an interrupted swap is recovered"
+assert_contains "$OUT" "game updated (3.3.5a)" "and the update goes on"
+[ -d "$G/Interface/AddOns/Kept" ] && ok || bad "the recovered game's addons survive"
+assert_nofile "$RES/games-update-old"
 # 1.12 keeps its server list at the root, not under Data/<locale>/
 rm -rf "$RES/games"/*; reset_conf
 "$BIN/wow-install-client" "$TMP/client-vanilla" >/dev/null 2>&1

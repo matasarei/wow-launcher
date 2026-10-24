@@ -35,6 +35,12 @@ if [ "$UPDATE" = 1 ]; then
   case "$SRC" in
     *.app|*.app/) echo "an update takes the updated client folder, not an app — nothing was changed"; exit 1 ;;
   esac
+  # a run killed between the two swap renames (below) left the game here
+  if [ -z "$(ls "$DEST" 2>/dev/null)" ] && [ -d "$RES/games-update-old" ]; then
+    mkdir -p "$RES/games"; rm -rf "$DEST"
+    mv "$RES/games-update-old" "$DEST"
+    echo "the game from an interrupted update was put back"
+  fi
   [ -n "$(ls "$DEST" 2>/dev/null)" ] || { echo "no game installed to update — use Install New Game; nothing was changed"; exit 1; }
 fi
 # A previous copy of this app (wow-install-client /Applications/Old.app) is the
