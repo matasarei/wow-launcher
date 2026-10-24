@@ -1486,8 +1486,9 @@ OUT="$(PATH="$TMP/failmv-back:$PATH" "$BIN/wow-install-client" --update "$TMP/cl
 assert_contains "$OUT" "could not be put back from Resources/games-update-old" "a failed recovery says where the game is"
 [ -d "$RES/games-update-old/Interface/AddOns/Kept" ] && ok || bad "and the game stays there"
 rm -rf "$TMP/failmv-back"
-# put back for the next block, which needs the game in place
-mv "$RES/games-update-old" "$G"
+# Install New Game replaces the game, an interrupted update's leftovers included
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+assert_nofile "$RES/games-update-old"
 # the second swap rename failing: the old game is moved back, the staging copy
 # removed, and the installed game and settings stay byte for byte
 mkdir -p "$TMP/failmv"

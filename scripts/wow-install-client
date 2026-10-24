@@ -198,6 +198,7 @@ if [ -n "$(ls "$RES/games" 2>/dev/null)" ]; then
   echo "replacing the existing game..."
   rm -rf "$RES/games"/*
 fi
+rm -rf "$RES/games-update" "$RES/games-update-old"   # an interrupted update's leftovers: replaced too
 mkdir -p "$RES/games"
 echo "copying client..."
 # COPY lines are progress for the launcher's install pane (see wow-copy)
