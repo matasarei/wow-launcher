@@ -134,6 +134,11 @@ if [ "$UPDATE" = 1 ]; then
     || { echo "this is a $V client and the installed game is $OLD_V — use Install New Game; nothing was changed"; exit 1; }
   [ "$SRC_LOCALE" = "$OLD_LOCALE" ] \
     || { echo "the game is set to $OLD_LOCALE and this client is $SRC_LOCALE — switch the game language to $SRC_LOCALE first, or use Install New Game; nothing was changed"; exit 1; }
+  # a guessed profile says little (every unrecognised client is VERSION=unknown),
+  # so the entrypoint has to be the installed game's too
+  OLD_EXE="$(printf '%s\n' "$INSTALLED" | grep -E '^EXE=' | cut -d= -f2-)"
+  [ "$CONFIDENCE" != guess ] || [ "$EXE" = "$OLD_EXE" ] \
+    || { echo "this client starts with $EXE and the installed game with $OLD_EXE — use Install New Game; nothing was changed"; exit 1; }
   # the same match wow-launch uses: this copy's game path, as rosettax87 (slashes)
   # and Wine's Wow.exe (Z:\… backslashes) show it
   WIN_GAME="Z:$(printf '%s' "$DEST" | tr '/' '\\')"

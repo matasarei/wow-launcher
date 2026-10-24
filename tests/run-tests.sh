@@ -1449,6 +1449,20 @@ OUT="$("$BIN/wow-install-client" --update "$UPDSRC" 2>&1)"
 assert_contains "$OUT" "game updated (3.3.5a)" "an update can run again"
 assert_eq "$(echo "$OUT" | grep -c 'addon replaced')" "0" "an unchanged shipped addon is not reported"
 assert_eq "$(cat "$G/Interface/AddOns/MyAddon/MyAddon.toc")" "mine" "the player's addon survives a second update"
+# two clients the launcher does not recognise both profile as VERSION=unknown:
+# the entrypoint has to match as well, or one would "update" into the other
+rm -rf "$RES/games"/*; reset_conf
+mkdir -p "$TMP/client-unk-a/Data"; echo a > "$TMP/client-unk-a/Game.exe"
+"$BIN/wow-install-client" "$TMP/client-unk-a" >/dev/null 2>&1
+mkdir -p "$TMP/client-unk-b/Data"; echo b > "$TMP/client-unk-b/Other.exe"
+BEFORE="$(tree_sums "$G"; cat "$RES/launcher.conf")"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-unk-b" 2>&1)"
+assert_contains "$OUT" "this client starts with Other.exe and the installed game with Game.exe" "another unrecognised client: refused"
+assert_eq "$(tree_sums "$G"; cat "$RES/launcher.conf")" "$BEFORE" "and nothing changed"
+cp -R "$TMP/client-unk-a" "$TMP/client-unk-a2"; echo new > "$TMP/client-unk-a2/new.dat"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-unk-a2" 2>&1)"
+assert_contains "$OUT" "game updated (unknown)" "the same unrecognised client updates"
+rm -rf "$TMP/client-unk-a" "$TMP/client-unk-a2" "$TMP/client-unk-b"
 # 1.12 keeps its server list at the root, not under Data/<locale>/
 rm -rf "$RES/games"/*; reset_conf
 "$BIN/wow-install-client" "$TMP/client-vanilla" >/dev/null 2>&1
