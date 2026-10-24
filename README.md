@@ -195,10 +195,10 @@ No Xcode, no dependencies.
   patches, and the settings, and offers **Fix Issues** for everything
   repairable in place.
 - **Verify reports the game data itself is damaged** (or things stay broken
-  after a fix): reinstall — click **Install New Game…** and point it at your
-  client folder again. Installing always replaces the previous game and
-  re-applies every patch from scratch. Your AddOns live inside the game folder,
-  so re-add them after a reinstall.
+  after a fix): click **Update Game…** and point it at your client folder
+  again — every game file is copied in fresh and re-patched, and your addons,
+  settings, server list and language packs are kept. **Install New Game…**
+  replaces everything, addons included.
 - **Disconnected from the server every few minutes, on a server with its own
   custom client and updater:** some private servers ship extra files with
   their client (a DLL, extra `Data/*.mpq` archives) and update them through
