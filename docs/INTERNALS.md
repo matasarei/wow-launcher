@@ -224,7 +224,9 @@ to `wow-install-client --update`.
 Refused with nothing changed: no game installed, an `.app` source, a different
 `VERSION` than the installed game's profile, a source `LOCALE` other than the
 installed game's active one (switch the language first), or a game from this
-copy running (the `ps` match `wow-launch` uses).
+copy running (the `ps` match `wow-launch` uses). A guessed profile
+(`CONFIDENCE=guess` — every unrecognised client is `VERSION=unknown`) must
+also keep the installed game's `EXE`.
 
 The folder is copied (`wow-copy`, so `ditto --clone`: free on one APFS volume)
 to `Resources/games-update`, outside `games/` so nothing lists or launches it.
@@ -236,7 +238,9 @@ update's, and `addon replaced by the update: <name>` is printed when the
 player's copy differed. `Cache/` and `Logs/` are not carried. Then the swap
 (`games/main` → `games-update-old`, staging → `games/main`, old removed);
 until it, a failure leaves the installed game untouched and an `EXIT` trap
-removes the staging copy. After it the normal install continues: the staged
+removes the staging copy. A run killed between the two renames leaves the game
+in `games-update-old` with `games/main` empty; the next `--update` moves it
+back first and says so. After it the normal install continues: the staged
 client files are pristine, so the patch kit applies exactly as on a fresh
 install. Settings follow the import: no cvar seeding, and `RENDERER`, `RETINA`,
 `AUTO_RES=0` and `GAME_DISPLAY` stay. The last line is `game updated (<V>)`,
