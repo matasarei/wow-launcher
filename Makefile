@@ -172,5 +172,8 @@ install:
 
 zip:
 	@echo "==> zipping (for PRIVATE sharing — after a game install this contains the game itself; do not redistribute)"
-	ditto -c -k --keepParent "$(APP)" WoW.zip
+	@# no extended attributes: in a zip they become ._ AppleDouble entries (com.apple.provenance
+	@# on every file), and plain unzip — the release notes' curl install — writes them into the
+	@# bundle, where codesign --verify --deep --strict reports a sealed resource missing or invalid
+	ditto -c -k --norsrc --noextattr --noqtn --noacl --keepParent "$(APP)" WoW.zip
 	@du -h WoW.zip
