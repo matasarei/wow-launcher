@@ -1363,6 +1363,91 @@ assert_contains "$(cat "$WINELOG")" "PatchDivxDecoder" "an unpatched Divx from a
 rm -f "$APP/Contents/Info.plist" "$RES/patch-kit/"DivxDecoder.dll.*
 mv "$TMP/kitrefs/"* "$RES/patch-kit/"; rm -rf "$RES/games"/*; reset_conf
 
+# ======================================================= update the installed game
+section "update the installed game (--update)"
+reset_conf; rm -rf "$RES/games"/*
+G="$RES/games/main"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-wotlk" 2>&1)"
+assert_contains "$OUT" "no game installed to update" "nothing installed: refused"
+assert_nofile "$G"
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
+assert_contains "$(cat "$RES/launcher.conf")" "GAME_SOURCE=$(cd "$TMP/client-wotlk" && pwd -P)" \
+  "an install records the folder it came from"
+# the player's own things, and choices an update must not reset
+printf 'RENDERER=mtld3d\nRETINA=off\nGAME_DISPLAY=Side Screen\n' >> "$RES/launcher.conf"
+sed -i '' 's/^AUTO_RES=.*/AUTO_RES=0/' "$RES/launcher.conf"
+sed -i '' 's/^SET gxWindow .*/SET gxWindow "0"/' "$G/WTF/Config.wtf"
+echo 'SET myCvar "42"' >> "$G/WTF/Config.wtf"
+mkdir -p "$G/Interface/AddOns/MyAddon" "$G/Interface/AddOns/ServerAddon" "$G/Screenshots" "$G/locales/deDE/pack"
+echo mine > "$G/Interface/AddOns/MyAddon/MyAddon.toc"
+echo server-v1 > "$G/Interface/AddOns/ServerAddon/ServerAddon.toc"
+echo shot > "$G/Screenshots/WoWScrnShot_1.jpg"
+echo de-exe > "$G/locales/deDE/Wow.exe"
+printf 'set realmlist my.server\r\n# set realmlist logon.example.com\r\n' > "$G/Data/enUS/realmlist.wtf"
+# what the server's own updater did to the source folder (issue #38): a new
+# DLL, a changed archive, a newer copy of an addon it ships
+UPDSRC="$TMP/client-wotlk-updated"; cp -R "$TMP/client-wotlk" "$UPDSRC"
+echo ext-v2 > "$UPDSRC/rebuffed.dll"; echo mpq-v2 > "$UPDSRC/Data/patch-3.MPQ"
+mkdir -p "$UPDSRC/Interface/AddOns/ServerAddon"; echo server-v2 > "$UPDSRC/Interface/AddOns/ServerAddon/ServerAddon.toc"
+
+# refused, or failed: the installed game and the settings stay byte for byte
+BEFORE="$(tree_sums "$G"; cat "$RES/launcher.conf")"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-tbc" 2>&1)"
+assert_contains "$OUT" "this is a 2.4.3 client and the installed game is 3.3.5a" "another version: refused"
+OUT="$("$BIN/wow-install-client" --update "$TMP/client-wotlk-ru" 2>&1)"
+assert_contains "$OUT" "the game is set to enUS and this client is ruRU" "another language: refused"
+mkdir -p "$TMP/Some.app"
+OUT="$("$BIN/wow-install-client" --update "$TMP/Some.app" 2>&1)"
+assert_contains "$OUT" "takes the updated client folder, not an app" "an app: refused"
+OUT="$("$BIN/wow-install-client" --update "$G" 2>&1)"
+assert_contains "$OUT" "the source is the installed game itself" "the installed game itself: refused"
+fake_proc "$G/Wow.exe"
+OUT="$("$BIN/wow-install-client" --update "$UPDSRC" 2>&1)"
+kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
+assert_contains "$OUT" "the game is running — quit it first" "a running game: refused"
+if [ "$(id -u)" != 0 ]; then   # root reads a mode-000 file anyway
+  cp -R "$UPDSRC" "$TMP/client-update-unreadable"
+  chmod 000 "$TMP/client-update-unreadable/Data/common.MPQ"
+  OUT="$("$BIN/wow-install-client" --update "$TMP/client-update-unreadable" 2>&1)"
+  chmod 644 "$TMP/client-update-unreadable/Data/common.MPQ"
+  assert_contains "$OUT" "the copy failed — the installed game was left as it was" "a failed copy says so"
+  assert_eq "$(echo "$OUT" | grep -c 'applying patch kit')" "0" "and nothing gets patched"
+fi
+assert_eq "$(tree_sums "$G"; cat "$RES/launcher.conf")" "$BEFORE" "nothing changed by any of them"
+assert_nofile "$RES/games-update"
+
+OUT="$("$BIN/wow-install-client" --update "$UPDSRC" 2>&1)"
+assert_contains "$OUT" "game updated (3.3.5a)" "update completed"
+assert_eq "$(cat "$G/rebuffed.dll")" "ext-v2" "a new file from the update is in"
+assert_eq "$(cat "$G/Data/patch-3.MPQ")" "mpq-v2" "a changed file from the update is in"
+assert_eq "$(cat "$G/Interface/AddOns/MyAddon/MyAddon.toc")" "mine" "the player's addon is kept"
+assert_eq "$(cat "$G/Interface/AddOns/ServerAddon/ServerAddon.toc")" "server-v2" "an addon the update ships is the update's"
+assert_contains "$OUT" "addon replaced by the update: ServerAddon" "and the replacement is named"
+assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET myCvar "42"' "Config.wtf is the player's"
+assert_contains "$(cat "$G/WTF/Config.wtf")" 'SET gxWindow "0"' "and is not seeded again"
+assert_file "$G/Screenshots/WoWScrnShot_1.jpg"
+assert_eq "$(cat "$G/locales/deDE/Wow.exe")" "de-exe" "the language-pack stash is kept"
+assert_contains "$(cat "$G/Data/enUS/realmlist.wtf")" "set realmlist my.server" "the server list is kept"
+# patched like a fresh install: the client files came in pristine
+assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "mods applied again"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "patcheddivx" "Divx patched again"
+assert_eq "$(cat "$G/DivxDecoder.dll.bak")" "origdivx" "from the update's own original"
+CONF="$(cat "$RES/launcher.conf")"
+assert_contains "$CONF" "RENDERER=mtld3d" "the renderer is kept"
+assert_contains "$CONF" "RETINA=off" "a Retina choice is kept"
+assert_contains "$CONF" "GAME_DISPLAY=Side Screen" "the chosen display is kept"
+assert_contains "$CONF" "AUTO_RES=0" "resolution managed by hand stays so"
+assert_contains "$CONF" "GAME_SOURCE=$(cd "$UPDSRC" && pwd -P)" "the update's folder is the source now"
+assert_eq "$(grep -c '^GAME_SOURCE=' "$RES/launcher.conf")" "1" "recorded once"
+assert_nofile "$RES/games-update"
+assert_nofile "$RES/games-update-old"
+# the same update again: an addon equal to the update's is not reported
+OUT="$("$BIN/wow-install-client" --update "$UPDSRC" 2>&1)"
+assert_contains "$OUT" "game updated (3.3.5a)" "an update can run again"
+assert_eq "$(echo "$OUT" | grep -c 'addon replaced')" "0" "an unchanged shipped addon is not reported"
+assert_eq "$(cat "$G/Interface/AddOns/MyAddon/MyAddon.toc")" "mine" "the player's addon survives a second update"
+rm -rf "$RES/games"/* "$UPDSRC" "$TMP/client-update-unreadable" "$TMP/Some.app"; reset_conf
+
 # ============================================================== wow-update check
 section "wow-update check"
 # a release, as the GitHub API answers it — served from a file:// URL

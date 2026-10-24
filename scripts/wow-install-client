@@ -2,6 +2,8 @@
 # Install any WoW client into the wrapper and apply the parts of the Apple
 # Silicon patch kit that can actually work on it. Usage:
 #   wow-install-client /path/to/client
+#   wow-install-client --update /path/to/client   the same game, newer files:
+#       the player's addons, settings, server list and language packs are kept
 # The classic three (3.3.5a, 2.4.3, 1.12) get the full treatment; anything else
 # gets whatever wow-client-profile says applies, down to nothing at all.
 set -e
@@ -21,9 +23,20 @@ export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wi
 # source app is the launcher running this — only its game has to be idle.
 UPDATING=0
 [ "$1" = --updating ] && { UPDATING=1; shift; }
+# --update: a server's own updater changed the folder the game was installed
+# from, and the copy here is stale (issue #38). The new files are copied in
+# fresh and patched like any install; what is the player's comes along.
+UPDATE=0
+[ "$1" = --update ] && { UPDATE=1; shift; }
 SRC="$1"
 DEST="$RES/games/main"
-[ -n "$SRC" ] || { echo "usage: wow-install-client [--updating] /path/to/client"; exit 1; }
+[ -n "$SRC" ] || { echo "usage: wow-install-client [--updating|--update] /path/to/client"; exit 1; }
+if [ "$UPDATE" = 1 ]; then
+  case "$SRC" in
+    *.app|*.app/) echo "an update takes the updated client folder, not an app — nothing was changed"; exit 1 ;;
+  esac
+  [ -n "$(ls "$DEST" 2>/dev/null)" ] || { echo "no game installed to update — use Install New Game; nothing was changed"; exit 1; }
+fi
 # A previous copy of this app (wow-install-client /Applications/Old.app) is the
 # best source there is: its game is already patched and its kit holds the
 # references this one would otherwise rebuild. It is checked before anything
@@ -111,9 +124,64 @@ GAMES_REAL="$(cd "$RES" && pwd -P)/games"
 case "$SRC_REAL/" in
   "$GAMES_REAL"/*) echo "the source is the installed game itself — choose the original client folder"; exit 1 ;;
 esac
+# "Update" only ever means the same game with newer files: another version, or
+# a language other than the one the game is set to, is a new install.
+if [ "$UPDATE" = 1 ]; then
+  INSTALLED="$("$BIN/wow-client-profile" "$DEST")"
+  OLD_V="$(printf '%s\n' "$INSTALLED" | grep -E '^VERSION=' | cut -d= -f2-)"
+  OLD_LOCALE="$(printf '%s\n' "$INSTALLED" | grep -E '^LOCALE=' | cut -d= -f2-)"
+  [ "$V" = "$OLD_V" ] \
+    || { echo "this is a $V client and the installed game is $OLD_V — use Install New Game; nothing was changed"; exit 1; }
+  [ "$SRC_LOCALE" = "$OLD_LOCALE" ] \
+    || { echo "the game is set to $OLD_LOCALE and this client is $SRC_LOCALE — switch the game language to $SRC_LOCALE first, or use Install New Game; nothing was changed"; exit 1; }
+  # the same match wow-launch uses: this copy's game path, as rosettax87 (slashes)
+  # and Wine's Wow.exe (Z:\… backslashes) show it
+  WIN_GAME="Z:$(printf '%s' "$DEST" | tr '/' '\\')"
+  PROCS="$(ps -wwaxo command=)"   # listed first: a grep in the same pipeline would match itself
+  if printf '%s\n' "$PROCS" | grep -qF -e "$DEST/" -e "$WIN_GAME\\"; then
+    echo "the game is running — quit it first; nothing was changed"; exit 1
+  fi
+fi
 echo "detected client version: $V"
 [ "$CONFIDENCE" = guess ] \
   && echo "NOTE: this client is not one the launcher recognises — installing it as it is"
+if [ "$UPDATE" = 1 ]; then
+  # Copied beside the game and swapped in only once everything is there: until
+  # the swap a failure leaves the installed game exactly as it was. On one APFS
+  # volume ditto --clone makes the staged copy cost no disk.
+  STAGE="$RES/games-update"; OLD_GAME="$RES/games-update-old"
+  rm -rf "$STAGE" "$OLD_GAME"   # left by an interrupted run
+  trap 'rm -rf "$STAGE"' EXIT
+  echo "copying the updated client..."
+  "$BIN/wow-copy" "$SRC" "$STAGE" \
+    || { echo "the copy failed — the installed game was left as it was"; exit 1; }
+  # What is the player's, copied (not moved) so the old game stays whole:
+  # settings, screenshots, the server list the Game pane edits, language packs.
+  keep() {
+    [ -e "$DEST/$1" ] || return 0
+    rm -rf "${STAGE:?}/$1"; mkdir -p "$(dirname "$STAGE/$1")"
+    ditto --clone "$DEST/$1" "$STAGE/$1"
+  }
+  keep WTF; keep Screenshots; keep locales; keep realmlist.wtf
+  [ -n "$OLD_LOCALE" ] && keep "Data/$OLD_LOCALE/realmlist.wtf"
+  # AddOns the update does not ship come back; one it does ship is the server's
+  # newer copy, and replacing a player's changed one is said out loud.
+  for A in "$DEST/Interface/AddOns"/*/; do
+    [ -d "$A" ] || continue
+    N="$(basename "$A")"
+    if [ ! -e "$STAGE/Interface/AddOns/$N" ]; then
+      mkdir -p "$STAGE/Interface/AddOns"
+      ditto --clone "$A" "$STAGE/Interface/AddOns/$N"
+    elif ! diff -rq "$A" "$STAGE/Interface/AddOns/$N" >/dev/null 2>&1; then
+      echo "addon replaced by the update: $N"
+    fi
+  done
+  mv "$DEST" "$OLD_GAME"
+  mv "$STAGE" "$DEST" || { mv "$OLD_GAME" "$DEST"; echo "the swap failed — the installed game was left as it was"; exit 1; }
+  trap - EXIT
+  rm -rf "$OLD_GAME"
+  echo "updated files copied in, addons and settings kept"
+else
 if [ -n "$(ls "$RES/games" 2>/dev/null)" ]; then
   echo "replacing the existing game..."
   rm -rf "$RES/games"/*
@@ -122,6 +190,7 @@ mkdir -p "$RES/games"
 echo "copying client..."
 # COPY lines are progress for the launcher's install pane (see wow-copy)
 "$BIN/wow-copy" "$SRC" "$DEST"
+fi
 # From a previous app the player's own choices come along — once the copy has
 # made it, so a failed one changes nothing else. The patch level decides what
 # the profile offers, so it is read again after. What the game is
@@ -278,13 +347,13 @@ fi
 # carry Config.wtf from other machines with incompatible window/renderer settings.
 # The gx* names below are the MPQ-era ones; a client that stores its settings
 # some other way is left alone rather than seeded with guesses. From a previous
-# app it is the player's own Config.wtf from this Mac, which is what is moving.
+# app, or kept by an update, it is the player's own Config.wtf from this Mac.
 CFGD="$DEST/WTF/Config.wtf"
 seed() {
   if grep -qiE "^SET $1 " "$CFGD"; then sed -i '' -E "s|^SET $1 .*|SET $1 \"$2\"|" "$CFGD"
   else printf 'SET %s "%s"\n' "$1" "$2" >> "$CFGD"; fi
 }
-if [ "$CAP_CVARS" = 1 ] && [ "$MIGRATE" = 0 ]; then
+if [ "$CAP_CVARS" = 1 ] && [ "$MIGRATE" = 0 ] && [ "$UPDATE" = 0 ]; then
 mkdir -p "$DEST/WTF"; touch "$CFGD"
 seed gxWindow 1              # borderless window
 seed gxMaximize 1            # fill the screen (resolution itself is auto-set at launch)
@@ -303,24 +372,34 @@ if [ "$FAMILY" = wotlk ]; then
 fi
 fi
 # record the game + what it is, and reset display/renderer settings to defaults
-# (the renderer and a hand-made Retina choice stay when they came from a previous app)
-RESET='GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|GAME_EXE|AUTO_RES|GAME_DISPLAY|DISPLAY_RECT'
-[ "$MIGRATE" = 1 ] || RESET="$RESET|RENDERER|RETINA"
+# (the renderer and a hand-made Retina choice stay when they came from a previous
+# app; an update keeps them and the chosen display too — it is the same game).
+# GAME_SOURCE is the folder installed from, where Update Game opens; an import's
+# source is an app, so it records none.
+RESET='GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|GAME_EXE|GAME_SOURCE|AUTO_RES|DISPLAY_RECT'
+[ "$UPDATE" = 1 ] || RESET="$RESET|GAME_DISPLAY"
+[ "$MIGRATE" = 1 ] || [ "$UPDATE" = 1 ] || RESET="$RESET|RENDERER|RETINA"
 grep -vE "^($RESET)=" "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
 # AUTO_RES=0 is the player's choice too (resolution managed by hand) — kept from
 # a previous app, but only where there are gx* cvars to auto-match at all
 AUTO="$CAP_CVARS"
 [ "$MIGRATE" = 1 ] && [ "$CAP_CVARS" = 1 ] \
   && [ "$(grep -sE '^AUTO_RES=' "$OLD_RES/launcher.conf" | cut -d= -f2)" = 0 ] && AUTO=0
+[ "$UPDATE" = 1 ] && [ "$CAP_CVARS" = 1 ] \
+  && [ "$(grep -sE '^AUTO_RES=' "$RES/launcher.conf" | cut -d= -f2)" = 0 ] && AUTO=0
 # GAME_EXE lets the GUI recognise the running game by name — a repack may call
 # its executable anything, and pgrep needs to know what to look for.
 printf 'AUTO_RES=%s\nGAME=main\nGAME_VERSION=%s\nGAME_FAMILY=%s\nGAME_BUILD=%s\nGAME_EXE=%s\n' \
   "$AUTO" "$V" "$FAMILY" "$BUILD" "$EXE" >> "$RES/launcher.conf.tmp"
+[ "$MIGRATE" = 1 ] || printf 'GAME_SOURCE=%s\n' "$SRC_REAL" >> "$RES/launcher.conf.tmp"
 mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
 if [ "$MIGRATE" = 1 ]; then
   # resolution and RetinaMode follow this screen in verify --fix, at the end
   # (`retina auto` here would also forget a Retina choice made by hand)
   echo "game settings kept from $OLD_NAME"
+elif [ "$UPDATE" = 1 ]; then
+  # resolution is matched at launch (AUTO_RES), RetinaMode lives in the prefix
+  echo "game settings kept"
 elif [ "$CAP_CVARS" = 1 ]; then
   # match resolution + retina mode to the current display right away
   "$BIN/wow-settings" auto >/dev/null 2>&1 || true
@@ -368,6 +447,8 @@ fi
 if [ "$MIGRATE" = 1 ]; then
   "$BIN/wow-verify-game" --fix | grep -E '\(fixed\)|^(FAIL|WARN):' || true
   echo "game installed ($V), imported from $OLD_NAME $OLD_VER"
+elif [ "$UPDATE" = 1 ]; then
+  echo "game updated ($V)"
 else
   echo "game installed ($V)"
 fi
