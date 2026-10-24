@@ -199,6 +199,23 @@ No Xcode, no dependencies.
   client folder again. Installing always replaces the previous game and
   re-applies every patch from scratch. Your AddOns live inside the game folder,
   so re-add them after a reinstall.
+- **Disconnected from the server every few minutes, on a server with its own
+  custom client and updater:** some private servers ship extra files with
+  their client (a DLL, extra `Data/*.mpq` archives) and update them through
+  their own launcher. The launcher's game is a **copy** of the folder you
+  installed from, so those updates never reach it, and the server may drop
+  an outdated client with nothing more than "You have been disconnected from
+  the server." Update the original folder with the server's launcher, then
+  click **Install New Game…** and point it at that folder again. Installing
+  replaces the whole game, so first back up `Interface/AddOns` and `WTF`
+  (addons and their settings, UI layout, game options) from the game folder
+  (right-click WoW.app → **Show Package Contents** →
+  `Contents/Resources/games/main`) and put them back afterwards. If you know
+  exactly which files the update changed, copying just those into the same
+  folder works too. If your server's launcher updates often, a launcher that
+  plays the folder in place, such as
+  [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon), avoids the stale
+  copy.
 - **Cyrillic shows as "????" or garbage in an enUS game:** the authentic
   Cyrillic fonts come only from ruRU client files — import a ruRU
   **language pack** in the Game tab (or install a ruRU client) once. Its
