@@ -37,7 +37,7 @@ FEX_RUNTIME_SHA256 = b9d7c9606c526903da017066dc643b656517fef368a3d14f39c1d7a4173
 WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))
 LOCAL_PAY   = $(WOWSILICON)/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching
 
-.PHONY: build wrapper check skeleton runtime runtime-fex payloads patch-kit prefix prefix-fex launcher sign install test check-strings compile lint zip
+.PHONY: build wrapper check skeleton runtime runtime-fex payloads patch-kit prefix prefix-rosetta prefix-fex launcher sign install test check-strings compile lint zip
 
 build: check skeleton runtime $(if $(FEX),runtime-fex) patch-kit prefix $(if $(FEX),prefix-fex) launcher sign
 	@echo ""
@@ -159,9 +159,15 @@ define make_prefix
 	@rm -rf "$(RES)/home"
 endef
 
+# The Rosetta prefix is made by running the x86_64 wine. Without Rosetta 2 a plain
+# build stops; a FEX=1 build goes on without it — that copy plays on FEX
+# (wow-runtime), and running make build FEX=1 again once Rosetta is installed adds it.
 prefix:
-	@# everything below runs wine: creating the prefix, and the registry writes
-	@bash scripts/wow-check-rosetta "$(WINE)/bin/wine" || { echo "ERROR: the prefix is created by running wine, which cannot start without Rosetta 2"; exit 1; }
+	@if bash scripts/wow-check-rosetta "$(WINE)/bin/wine"; then $(MAKE) --no-print-directory prefix-rosetta APP="$(APP)"; \
+	elif [ -n "$(FEX)" ]; then echo "WARNING: Rosetta 2 is missing — the Rosetta prefix is skipped; this copy plays with FEX until Rosetta 2 is installed and make build FEX=1 runs again"; \
+	else echo "ERROR: the prefix is created by running wine, which cannot start without Rosetta 2"; exit 1; fi
+
+prefix-rosetta:
 	$(call make_prefix,$(WINE),$(RES)/prefix)
 
 # the FEX runtime is arm64: no Rosetta needed to create its prefix
