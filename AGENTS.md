@@ -68,7 +68,8 @@ that has run installs accumulates Blizzard-derived files (the game under
 logs. The procedure:
 
 1. Bump the version in `assets/Info.plist`; commit and push everything.
-2. Build clean: `rm -rf ~/Applications/WoW.app && make build`.
+2. Build clean: `rm -rf ~/Applications/WoW.app && make build FEX=1` — releases
+   carry both runtimes from 2.14.
 3. Verify the bundle is pristine:
    - `Resources/games/` is empty;
    - `Resources/launcher.conf` contains only `AUTO_RES=1`;
@@ -79,7 +80,7 @@ logs. The procedure:
    - `Resources/home/` does not exist (wine's HOME: a used wrapper keeps the
      game's Windows user profile there);
    - `Resources/prefix/drive_c/users/` holds only `Public` — no folder named
-     after whoever built it.
+     after whoever built it; the same for `Resources/prefix-fex/drive_c/users/`.
 4. Run the test matrix (below) with a scratch copy, then **rebuild clean
    again** before zipping — testing dirties the wrapper.
 5. Archive and publish (only with the maintainer's explicit go-ahead):
@@ -93,7 +94,7 @@ logs. The procedure:
 
    Don't commit the zip. To keep the maintainer's working wrapper (and its
    installed game) untouched, build the release copy at a separate path:
-   `make build APP=/tmp/release/WoW.app`.
+   `make build FEX=1 APP=/tmp/release/WoW.app`.
 
    Gatekeeper facts (learned the hard way): the bundle **must** carry a valid
    deep ad-hoc seal (`make sign`, the last wrapper step) or downloaded copies
