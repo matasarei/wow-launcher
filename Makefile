@@ -19,20 +19,27 @@ RES   = $(APP)/Contents/Resources
 WINE  = $(RES)/wine
 UNIX  = $(WINE)/lib/wine/x86_64-unix
 DEPS  = build/deps
+# make build FEX=1: also bundle the experimental arm64 + FEX runtime, with its own prefix
+FEX  ?=
+WINE_FEX = $(RES)/wine-fex
 
 # Pinned upstream artifacts (update the URL and hash together).
 RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/wine-runtime-r17/WoWSilicon-WineRuntime-r17.tar.xz
 RUNTIME_SHA256 = dc67cf0c2dd1e4c1cfaffe924f4737aaa594645b135a7973ac3505c83c70f882
 PAYLOAD_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/v3.2.2/WoWSilicon-3.2.2.dmg
 PAYLOAD_SHA256 = 53771ef7595371cdd31db1a1269df481750c4e33f479ad862bb94376427d894c
+# The FEX runtime (r18: arm64 wine 11.13 with FEX as its x86 emulator) exists only inside
+# the 3.3.0 Preview app so far; runtime-fex takes just its Contents/Resources/Wine.
+FEX_RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/Preview3.3.0/WoWSilicon_3.3.0_Preview.zip
+FEX_RUNTIME_SHA256 = b9d7c9606c526903da017066dc643b656517fef368a3d14f39c1d7a417392e8a
 
 # A locally installed WoWSilicon 3.x can serve the payloads without a download.
 WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))
 LOCAL_PAY   = $(WOWSILICON)/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching
 
-.PHONY: build wrapper check skeleton runtime payloads patch-kit prefix launcher sign install test check-strings compile lint zip
+.PHONY: build wrapper check skeleton runtime runtime-fex payloads patch-kit prefix prefix-fex launcher sign install test check-strings compile lint zip
 
-build: check skeleton runtime patch-kit prefix launcher sign
+build: check skeleton runtime $(if $(FEX),runtime-fex) patch-kit prefix $(if $(FEX),prefix-fex) launcher sign
 	@echo ""
 	@echo "==> Done: $(APP)"
 	@echo "    Open it and click Install to add your WoW 3.3.5a client."
@@ -74,6 +81,22 @@ runtime:
 	@echo "==> Dock-name cosmetics (game shows as 'WoW')"
 	@cd "$(UNIX)" && { [ -e "WoW" ] || ln -s wine "WoW"; }
 
+# Experimental, only with FEX=1. The archive is the whole preview app; only its wine
+# runtime is kept — its own launcher, updater and payloads are not this wrapper's.
+runtime-fex:
+	@if [ -x "$(WINE_FEX)/bin/wine" ]; then echo "==> FEX runtime already present, skipping"; else \
+	  echo "==> FEX runtime (experimental: arm64 wine 11.13 + FEX, ~200 MB download)"; \
+	  mkdir -p "$(DEPS)"; \
+	  [ -f "$(DEPS)/wowsilicon-fex.zip" ] || curl -fL --progress-bar -o "$(DEPS)/wowsilicon-fex.zip" "$(FEX_RUNTIME_URL)"; \
+	  echo "$(FEX_RUNTIME_SHA256)  $(DEPS)/wowsilicon-fex.zip" | shasum -a 256 -c - >/dev/null || { echo "ERROR: FEX runtime checksum mismatch — delete $(DEPS)/wowsilicon-fex.zip and retry"; exit 1; }; \
+	  rm -rf "$(DEPS)/fex-unpack" && mkdir -p "$(DEPS)/fex-unpack" && ditto -x -k "$(DEPS)/wowsilicon-fex.zip" "$(DEPS)/fex-unpack"; \
+	  W="$$(find "$(DEPS)/fex-unpack" -maxdepth 4 -type d -path '*/Contents/Resources/Wine' | head -1)"; \
+	  [ -x "$$W/bin/wine" ] || { echo "ERROR: no Contents/Resources/Wine in $(DEPS)/wowsilicon-fex.zip"; exit 1; }; \
+	  ditto "$$W" "$(WINE_FEX)" && rm -rf "$(DEPS)/fex-unpack"; fi
+	@# its loader is wine.app, whose bundle name is what the Dock shows ("World Of Warcraft")
+	@echo "==> Dock-name cosmetics for the FEX runtime (game shows as 'WoW')"
+	@/usr/libexec/PlistBuddy -c 'Set :CFBundleName WoW' "$(WINE_FEX)/lib/wine/aarch64-unix/wine.app/Contents/Info.plist"
+
 # Materialize the open-source patch payloads in $(DEPS)/Patching: from a locally
 # installed WoWSilicon 3.x when present, otherwise from the release DMG.
 payloads:
@@ -105,34 +128,45 @@ patch-kit: payloads
 	@chmod +x "$(RES)/patch-kit/rosettax87/"* "$(RES)/patch-kit/x87sidecar/x87sidecar"
 	@cp assets/wow-icon-*.bsdiff "$(RES)/patch-kit/"
 
-prefix:
-	@# everything below runs wine: creating the prefix, and the registry writes
-	@bash scripts/wow-check-rosetta "$(WINE)/bin/wine" || { echo "ERROR: the prefix is created by running wine, which cannot start without Rosetta 2"; exit 1; }
+# The prefix, for either runtime: $(1) the runtime dir, $(2) the prefix dir. Each runtime
+# has its own: an arm64 wine cannot use a prefix the x86_64 one made (upstream: old bottles
+# must be deleted).
+define make_prefix
 	@# HOME="$(RES)/home" on every wine call: this wine creates $$HOME/Wine (issue #12)
 	@mkdir -p "$(RES)/home"
-	@if [ -d "$(RES)/prefix/drive_c" ]; then echo "==> prefix already present, skipping"; \
+	@if [ -d "$(2)/drive_c" ]; then echo "==> prefix already present, skipping"; \
 	else echo "==> creating wine prefix (takes ~1 min)"; \
-	  HOME="$(RES)/home" WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all WINEDLLOVERRIDES="mshtml=;mscoree=" "$(WINE)/bin/wine" wineboot -u >/dev/null 2>&1; \
-	  WINEPREFIX="$(RES)/prefix" "$(WINE)/bin/wineserver" -w; fi
+	  HOME="$(RES)/home" WINEPREFIX="$(2)" WINEDEBUG=-all WINEDLLOVERRIDES="mshtml=;mscoree=" "$(1)/bin/wine" wineboot -u >/dev/null 2>&1; \
+	  WINEPREFIX="$(2)" "$(1)/bin/wineserver" -w; fi
 	@echo "==> fast-exit network fix"
-	@HOME="$(RES)/home" WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all "$(WINE)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyEnable /t REG_DWORD /d 1 /f >/dev/null 2>&1
-	@HOME="$(RES)/home" WINEPREFIX="$(RES)/prefix" WINEDEBUG=-all "$(WINE)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyServer /t REG_SZ /d 127.0.0.1:1 /f >/dev/null 2>&1
-	@WINEPREFIX="$(RES)/prefix" "$(WINE)/bin/wineserver" -k >/dev/null 2>&1 || true
+	@HOME="$(RES)/home" WINEPREFIX="$(2)" WINEDEBUG=-all "$(1)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyEnable /t REG_DWORD /d 1 /f >/dev/null 2>&1
+	@HOME="$(RES)/home" WINEPREFIX="$(2)" WINEDEBUG=-all "$(1)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyServer /t REG_SZ /d 127.0.0.1:1 /f >/dev/null 2>&1
+	@WINEPREFIX="$(2)" "$(1)/bin/wineserver" -k >/dev/null 2>&1 || true
 	@# absolute symlinks (dosdevices/z: -> /, users/<builduser> -> $$HOME/Wine)
 	@# make codesign reject the bundle and leak build-machine paths; they are
 	@# recreated on the user's machine at first run — z: by wow-launch and the
 	@# installer, the profile link (relative, into home/) by wow-wine-home.
-	@find "$(RES)/prefix" -type l -lname '/*' -delete
+	@find "$(2)" -type l -lname '/*' -delete
 	@# Runtime r16+ keeps the wine user profile inside the prefix: wineboot and the
 	@# reg calls above leave a real drive_c/users/<build user>, carrying the
 	@# builder's login name into every copy. Only a real folder goes — a symlink
 	@# there is a player's profile (wow-wine-home links it into home/ at first run,
 	@# before wine can make one), so a wrapper rebuilt in place keeps its own.
-	@U="$(RES)/prefix/drive_c/users/$${USER:-$$(id -un)}"; \
+	@U="$(2)/drive_c/users/$${USER:-$$(id -un)}"; \
 	  if [ -d "$$U" ] && [ ! -L "$$U" ]; then rm -rf "$$U"; fi
 	@# the build's own wine HOME (see scripts/wow-wine-home): a fresh bundle ships
 	@# without it, and wow-wine-home recreates it at first run
 	@rm -rf "$(RES)/home"
+endef
+
+prefix:
+	@# everything below runs wine: creating the prefix, and the registry writes
+	@bash scripts/wow-check-rosetta "$(WINE)/bin/wine" || { echo "ERROR: the prefix is created by running wine, which cannot start without Rosetta 2"; exit 1; }
+	$(call make_prefix,$(WINE),$(RES)/prefix)
+
+# the FEX runtime is arm64: no Rosetta needed to create its prefix
+prefix-fex:
+	$(call make_prefix,$(WINE_FEX),$(RES)/prefix-fex)
 
 launcher:
 	@echo "==> building the manager GUI"
