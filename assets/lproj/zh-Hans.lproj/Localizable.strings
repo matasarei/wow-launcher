@@ -190,3 +190,4 @@
 "Rosetta 2 is not installed, so the game runs with FEX. Rosetta 2 becomes an option here once it is installed:" = "未安装 Rosetta 2，因此游戏使用 FEX 运行。安装后，Rosetta 2 将在此处成为可选项：";
 "This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "此副本构建时没有 Rosetta 2，因此没有 Rosetta 前缀。要让 Rosetta 2 成为可选项，请在启动器源代码文件夹中再次运行 make build FEX=1。";
 "Or build a copy with FEX, which needs no Rosetta 2" = "或者构建一个带 FEX 的副本，它不需要 Rosetta 2";
+"This copy carries the FEX runtime. If the new version does not, the game moves to Rosetta 2 with your settings; on a Mac without Rosetta 2 the update stops and this copy stays." = "此副本带有 FEX 运行时。如果新版本没有，游戏将保留你的设置改用 Rosetta 2 运行；在没有 Rosetta 2 的 Mac 上，更新会停止并保留此副本。";

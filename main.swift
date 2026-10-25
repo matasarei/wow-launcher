@@ -291,6 +291,10 @@ final class Store: ObservableObject {
         a.informativeText = replaceable
             ? LF("You have %@. The update keeps your game, settings, addons and language packs — it imports them from this copy, then replaces it and restarts.", f["CURRENT"] ?? "")
             : LF("You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page.", f["CURRENT"] ?? "")
+        // releases may not carry FEX: what that means here is said before, not after
+        if replaceable && FileManager.default.isExecutableFile(atPath: Paths.resources + "/wine-fex/bin/wine") {
+            a.informativeText += "\n\n" + L("This copy carries the FEX runtime. If the new version does not, the game moves to Rosetta 2 with your settings; on a Mac without Rosetta 2 the update stops and this copy stays.")
+        }
         if replaceable { a.addButton(withTitle: L("Update")) }
         a.addButton(withTitle: L("Open Release Page"))
         a.addButton(withTitle: L("Skip This Version"))

@@ -201,6 +201,13 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   # a release carries a valid deep ad-hoc seal (make sign); a broken one means a
   # damaged download, not a forgery — nothing here proves who built it
   codesign --verify --deep "$NEW" 2>/dev/null || { rm -rf "$STAGE"; fail "the downloaded app is damaged (its signature does not check out)"; }
+  # A copy with FEX replaced by one without: the game moves to Rosetta 2 — and on
+  # a Mac without Rosetta the new copy could not start it at all, so this one stays.
+  if [ -x "$RES/wine-fex/bin/wine" ] && [ ! -x "$NEW/Contents/Resources/wine-fex/bin/wine" ]; then
+    "$RES/bin/wow-check-rosetta" >/dev/null 2>&1 \
+      || { rm -rf "$STAGE"; fail "$NEW_VER has no FEX runtime and this Mac has no Rosetta 2 — keep this copy, or build one with make FEX=1"; }
+    echo "NOTE: $NEW_VER has no FEX runtime — the game moves to Rosetta 2, settings kept"
+  fi
   echo "downloaded $NEW_VER"
   # The import is run BY the new copy over this one: it carries the game, the
   # kit references and the settings, and only it knows how (wow-install-client).

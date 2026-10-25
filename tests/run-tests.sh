@@ -1844,6 +1844,7 @@ assert_contains "$(grep -A1 -F 'FEX STUB wineserver' "$WINELOG")" "WINE ARGS: -k
 assert_contains "$(grep -A1 -F 'FEX STUB wineserver' "$WINELOG")" "PREFIX=$AAPP/Contents/Resources/prefix-fex " "in its own prefix"
 assert_contains "$(grep -F 'WINE ARGS: -k | ' "$WINELOG" | grep -vF prefix-fex)" "PREFIX=$AAPP/Contents/Resources/prefix " "and the Rosetta one in its"
 assert_contains "$OUT" "downloaded 2.10" "a good release downloads and checks out"
+assert_contains "$OUT" "NOTE: 2.10 has no FEX runtime — the game moves to Rosetta 2" "a FEX copy is told the release drops FEX"
 assert_nofile "$TMP/applytest/.wow-update.leftover"
 assert_contains "$OUT" "no game to import" "an empty wrapper carries only its settings"
 assert_contains "$OUT" "RESTARTING" "and hands over to the swap"
@@ -1861,6 +1862,14 @@ done
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RENDERER=mtld3d" "the settings were carried into it"
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RUNTIME=fex" "the runtime choice too"
 stage_count() { find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' '; }
+# a FEX copy on a Mac without Rosetta: a release without FEX could not play there
+apply_setup
+mk_fex_runtime "$AAPP/Contents/Resources"
+install -m 755 "$TMP/no-rosetta" "$AAPP/Contents/Resources/bin/wow-check-rosetta"
+OUT="$(apply "$Z" "$(digest_of "$Z")")"
+assert_contains "$OUT" "2.10 has no FEX runtime and this Mac has no Rosetta 2 — keep this copy" "no Rosetta: the update stops"
+assert_eq "$(stage_count)" "0" "and leaves nothing behind"
+assert_eq "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$AAPP/Contents/Info.plist")" "2.9" "this copy stays"
 apply_setup
 # and everything that must stop before anything is installed
 assert_contains "$(apply "$Z" sha256:dead)" "does not match its checksum" "a wrong checksum stops it"
@@ -1894,6 +1903,7 @@ fake_proc "$AAPP/Contents/Resources/wine/bin/wineserver"
 OUT="$(apply "$Z" "$(digest_of "$Z")")"
 kill "$RUNNING" 2>/dev/null; wait "$RUNNING" 2>/dev/null
 assert_contains "$OUT" "downloaded 2.10" "a lingering wineserver does not refuse the update"
+assert_eq "$(echo "$OUT" | grep -c 'no FEX runtime')" "0" "a copy without FEX hears nothing about it"
 # ...it is asked to go instead, against the bundle's own prefix and home —
 # without them the kill would reach some other wineserver, or none
 assert_contains "$(cat "$WINELOG")" \
