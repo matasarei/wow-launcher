@@ -665,8 +665,12 @@ final class Store: ObservableObject {
     var fexAvailable: Bool {
         FileManager.default.isExecutableFile(atPath: Paths.resources + "/wine-fex/bin/wine")
             && FileManager.default.fileExists(atPath: Paths.resources + "/prefix-fex/drive_c")
-            && ProcessInfo.processInfo.isOperatingSystemAtLeast(
-                OperatingSystemVersion(majorVersion: 26, minorVersion: 5, patchVersion: 0))
+            && fexMacOS
+    }
+    // the FEX runtime's binaries are built for macOS 26.5 (minos) and load on nothing older
+    var fexMacOS: Bool {
+        ProcessInfo.processInfo.isOperatingSystemAtLeast(
+            OperatingSystemVersion(majorVersion: 26, minorVersion: 5, patchVersion: 0))
     }
     // a copy built without Rosetta 2 (make build FEX=1 on such a Mac) has none
     var hasRosettaPrefix: Bool { FileManager.default.fileExists(atPath: Paths.resources + "/prefix/drive_c") }
@@ -1775,6 +1779,12 @@ struct PlayView: View {
                         .font(.caption.monospaced())
                         .textSelection(.enabled)
                         .foregroundStyle(.secondary)
+                    // a copy without FEX, on a Mac that could run it: the way that needs no Rosetta
+                    if !store.fexAvailable && store.fexMacOS {
+                        Link("Or build a copy with FEX, which needs no Rosetta 2",
+                             destination: URL(string: "https://github.com/matasarei/wow-launcher/blob/main/docs/BUILD-WRAPPER.md#without-rosetta-2-a-copy-with-fex")!)
+                            .font(.caption)
+                    }
                 }
             } else if store.rosettaMissing && store.onFEX {
                 VStack(spacing: 4) {

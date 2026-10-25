@@ -189,3 +189,4 @@
 "Rosetta 2 is not installed — the game runs with FEX" = "Rosetta 2가 설치되어 있지 않음 — 게임이 FEX로 실행됩니다";
 "Rosetta 2 is not installed, so the game runs with FEX. Rosetta 2 becomes an option here once it is installed:" = "Rosetta 2가 설치되어 있지 않아 게임이 FEX로 실행됩니다. Rosetta 2를 설치하면 여기에서 선택할 수 있습니다:";
 "This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "이 사본은 Rosetta 2 없이 빌드되어 Rosetta 프리픽스가 없습니다. Rosetta 2를 선택할 수 있게 하려면 런처 소스 폴더에서 make build FEX=1을 다시 실행하세요.";
+"Or build a copy with FEX, which needs no Rosetta 2" = "또는 Rosetta 2가 필요 없는 FEX 사본을 빌드하세요";

@@ -189,3 +189,4 @@
 "Rosetta 2 is not installed — the game runs with FEX" = "Rosetta 2 ist nicht installiert — das Spiel läuft mit FEX";
 "Rosetta 2 is not installed, so the game runs with FEX. Rosetta 2 becomes an option here once it is installed:" = "Rosetta 2 ist nicht installiert, daher läuft das Spiel mit FEX. Rosetta 2 wird hier wählbar, sobald es installiert ist:";
 "This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "Diese Kopie wurde ohne Rosetta 2 gebaut und hat daher kein Rosetta-Präfix. Damit Rosetta 2 wählbar wird, führe im Quellordner des Launchers erneut make build FEX=1 aus.";
+"Or build a copy with FEX, which needs no Rosetta 2" = "Oder baue eine Kopie mit FEX, die kein Rosetta 2 braucht";
