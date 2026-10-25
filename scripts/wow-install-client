@@ -252,13 +252,16 @@ ditto "$KIT/rosettax87" "$DEST/rosettax87"
 #   winerosetta only that DLL — the Rosetta 2 instruction shim (ARPL,
 #              FCOMP ST(0),ST(0)) that lets server-pushed Warden code run
 #   none       the client is left exactly as it shipped
+#   icon       only the Wow.exe icon: the one level under FEX (wow-client-profile)
 if [ "$PATCHES" = "$REQUESTED" ]; then
   echo "patch level: $PATCHES"
+elif [ "$(prof RUNTIME)" = fex ]; then
+  echo "patch level: $PATCHES (FEX runtime; '$REQUESTED' applies on Rosetta 2)"
 else
   echo "patch level: $PATCHES (asked for '$REQUESTED', which this client cannot take)"
 fi
 MODS=""
-if [ "$CAP_LOADER" = 1 ] && [ "$PATCHES" != none ]; then
+if [ "$CAP_LOADER" = 1 ] && [ "$PATCHES" != none ] && [ "$PATCHES" != icon ]; then
   cp "$KIT/mods/winerosetta.dll" "$DEST/mods/"
   MODS="mods/winerosetta.dll"
 fi
@@ -311,9 +314,10 @@ patch_divx() {  # patch_divx <dll name> <libDllLdr entry>
 already_patched() { [ "$MIGRATE" = 1 ] && [ -f "$DEST/$1.bak" ] && ! cmp -s "$DEST/$1" "$DEST/$1.bak"; }
 already_patched DivxDecoder.dll || patch_divx DivxDecoder.dll PatchDivxDecoder
 already_patched DivxTac.dll     || patch_divx DivxTac.dll     PatchDivxTac
-# At PATCHES=none the client must ship unmodified — but patch first anyway, so the
-# kit references and the .bak exist and switching levels later needs no reinstall.
-if [ "$PATCHES" = none ]; then
+# At PATCHES=none the client must ship unmodified, and at icon its Divx DLLs — but
+# patch first anyway, so the kit references and the .bak exist and switching
+# levels later needs no reinstall.
+if [ "$PATCHES" = none ] || [ "$PATCHES" = icon ]; then
   for DLL in DivxDecoder.dll DivxTac.dll; do
     [ -f "$DEST/$DLL.bak" ] || continue
     cp "$DEST/$DLL.bak" "$DEST/$DLL"; echo "$DLL restored (no patches)"
@@ -327,7 +331,7 @@ if [ "$MIGRATE" = 0 ]; then
 # Diffs are named wow-icon-<input md5>-<output md5>.bsdiff; pick by checksum.
 CUR_MD5="$(md5 -q "$DEST/$EXE")"
 ICON_DONE=0
-case "$PATCHES" in all|no-silicon) ICON_WANTED=1 ;; *) ICON_WANTED=0 ;; esac
+case "$PATCHES" in all|no-silicon|icon) ICON_WANTED=1 ;; *) ICON_WANTED=0 ;; esac
 # the diffs are keyed to Blizzard's Wow.exe; a custom entrypoint has no match
 [ "$EXE" = "Wow.exe" ] || { ICON_DONE=1; echo "icon patch skipped ($EXE is a custom client entrypoint)"; }
 if [ "$ICON_DONE" = 1 ]; then :

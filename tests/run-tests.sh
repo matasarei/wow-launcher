@@ -1104,7 +1104,7 @@ for C in tbc:2.4.3:29 vanilla:1.12:25 wotlk:3.3.5a:43; do
   : > "$WINELOG"; OUT="$("$BIN/wow-install-client" "$TMP/client-$N" 2>&1)"; cp "$WINELOG" "$TMP/fex-install.log"
   assert_contains "$OUT" "game installed ($V)" "$V installs under FEX"
   assert_contains "$OUT" "patch level: none" "$V: with no patches"
-  assert_eq "$(echo "$OUT" | grep -c 'Rosetta')" "0" "$V: install asks for no Rosetta"
+  assert_eq "$(echo "$OUT" | grep -c -e 'ROSETTA' -e 'Rosetta 2 is missing')" "0" "$V: install asks for no Rosetta"
   assert_eq "$(grep -c "PREFIX=$RES/prefix " "$WINELOG")" "0" "$V: no install wine call in the Rosetta prefix"
   assert_contains "$(cat "$RES/launcher.conf")" "RUNTIME=fex" "$V: the install keeps RUNTIME"
   : > "$WINELOG"; OUT="$("$BIN/wow-verify-game" 2>&1)"
@@ -1130,6 +1130,21 @@ mv "$TMP/kit-divx.patched" "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched"
 # the live Divx patch (no kit reference) ran through the FEX loader and wineserver
 assert_contains "$(grep -B1 -F 'rundll32' "$TMP/fex-install.log" | head -1)" "FEX STUB wine" "the live 3.3.5a Divx patch runs through the FEX loader"
 assert_contains "$(grep -F 'FEX STUB wineserver' "$TMP/fex-install.log")" "FEX STUB wineserver" "and waits on the FEX wineserver"
+# a client whose Wow.exe the kit recognises keeps the cosmetic icon under FEX —
+# level "icon", the only one there — and nothing else
+printf 'origexe\n' > "$RES/patch-kit/Wow.exe.orig"; printf 'iconexe\n' > "$RES/patch-kit/Wow.exe.icon-patched"
+rm -rf "$TMP/client-wotlk-icon"; cp -R "$TMP/client-wotlk" "$TMP/client-wotlk-icon"; printf 'origexe\n' > "$TMP/client-wotlk-icon/Wow.exe"
+assert_eq "$(prof "$TMP/client-wotlk-icon" LEVELS)" "icon" "a recognised exe: FEX offers only the icon"
+assert_eq "$(prof "$TMP/client-wotlk-icon" PATCHES)" "icon" "and applies it, whatever PATCHES= asks"
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk-icon" 2>&1)"
+assert_contains "$OUT" "patch level: icon (FEX runtime; 'all' applies on Rosetta 2)" "the install says why"
+assert_eq "$(cat "$G/Wow.exe")" "iconexe" "the icon is patched under FEX"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "origdivx" "the Divx DLL is not"
+assert_nofile "$G/dlls.txt"
+assert_nofile "$G/mods/winerosetta.dll"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "RESULT: OK — all checks passed" "the icon level verifies clean"
+assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "43" "with the usual step count"
 install -m 755 "$ROOT/scripts/wow-check-rosetta" "$BIN/wow-check-rosetta"
 # back on Rosetta (what the Game pane's switch does): verify --fix re-applies the kept level
 grep -v '^RUNTIME=' "$RES/launcher.conf" > "$RES/launcher.conf.tmp"; mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
@@ -1138,7 +1153,10 @@ OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
 assert_contains "$OUT" "RESULT: OK" "--fix takes the client back to the kept level"
 assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "both mods are back"
 assert_eq "$(cat "$G/DivxDecoder.dll")" "patcheddivx" "and the Divx patch"
+assert_eq "$(cat "$G/Wow.exe")" "iconexe" "the icon stays (level all carries it)"
 rm -rf "$RES/wine-fex" "$RES/prefix-fex"; unset WOW_TEST_MACOS
+rm -f "$RES/patch-kit/Wow.exe.orig" "$RES/patch-kit/Wow.exe.icon-patched"
+"$BIN/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1   # the plain 3.3.5a later sections expect
 
 # ================================================================== wow-copy
 section "wow-copy"

@@ -1899,15 +1899,21 @@ struct GameView: View {
                     }
                     .pickerStyle(.menu)
                     .disabled(store.busy || store.verifyRunning || store.gameRunning)
-                    Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX the client runs without the launcher's patches.")
+                    Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX only the game icon is patched.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             Section("Patches") {
-                if store.patchLevels == ["none"] && store.profile["RUNTIME"] == "fex" {
-                    Label("Nothing to choose under FEX — the launcher's patches are built for Rosetta 2, so the client runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2.",
-                          systemImage: "info.circle")
+                if store.profile["RUNTIME"] == "fex" {
+                    // one level under FEX: the icon where the exe is recognised, else none
+                    if store.patchLevels == ["icon"] {
+                        Label("Nothing to choose under FEX — only the game icon is patched. The launcher's other patches are built for Rosetta 2, so the game code runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2.",
+                              systemImage: "info.circle")
+                    } else {
+                        Label("Nothing to choose under FEX — the launcher's patches are built for Rosetta 2, so the client runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2.",
+                              systemImage: "info.circle")
+                    }
                 } else if store.patchLevels == ["none"] {
                     Label("Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped.",
                           systemImage: "info.circle")

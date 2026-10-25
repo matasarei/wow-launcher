@@ -221,17 +221,21 @@ case "$FAMILY" in wotlk|tbc) [ "$EXE" = "Wow.exe" ] && CAP_LANGPACK=1 ;; esac
 CAP_CVARS=0; [ "$DATA" = mpq ] && CAP_CVARS=1
 
 # --- offered patch levels ---------------------------------------------------
-# Under the FEX runtime the client runs as it shipped: the kit's Divx patch and
-# mods are Rosetta-era builds, and with any of them the game stops before its
-# window opens there (upstream's 3.3.0 Preview ships newer ones for FEX).
+# Under the FEX runtime the game code runs as it shipped: the kit's Divx patch
+# and mods are Rosetta-era builds, and with any of them the game stops before its
+# window opens there (upstream's 3.3.0 Preview ships newer ones for FEX). Only the
+# cosmetic Wow.exe icon applies — level "icon", offered under FEX alone, and the
+# only level there is: nothing to choose, whatever PATCHES= asks for Rosetta.
 RUNTIME="$("$RES/bin/wow-runtime" | sed -n 's/^KIND=//p')"
 LEVELS=""
-if [ "$RUNTIME" != fex ]; then
+if [ "$RUNTIME" = fex ]; then
+  if [ "$CAP_ICON" = 1 ]; then LEVELS=icon; else LEVELS=none; fi
+else
   [ -n "$CAP_SILICON" ] && LEVELS="$LEVELS all"
   { [ "$CAP_LOADER" = 1 ] || [ "$CAP_ICON" = 1 ]; } && LEVELS="$LEVELS no-silicon"
   [ "$CAP_LOADER" = 1 ] && LEVELS="$LEVELS winerosetta"
+  LEVELS="$LEVELS none"; LEVELS="${LEVELS# }"
 fi
-LEVELS="$LEVELS none"; LEVELS="${LEVELS# }"
 
 # The user's choice is remembered as-is and clamped down to the best level this
 # client can actually take, so swapping clients back restores the full set.
@@ -244,6 +248,7 @@ for L in all no-silicon winerosetta none; do          # highest first
   [ "$(rank "$L")" -le "$WANT" ] || continue          # never above what was asked
   EFFECTIVE="$L"; break
 done
+[ "$RUNTIME" = fex ] && EFFECTIVE="$LEVELS"
 
 cat <<EOF
 FAMILY=$FAMILY
