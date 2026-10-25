@@ -388,11 +388,10 @@ final class Store: ObservableObject {
             let missing = (try? { try p.run(); p.waitUntilExit(); return p.terminationStatus != 0 }()) ?? false
             // asked here as well: at launch checkRunning may not have answered yet, and
             // the switch must not run verify --fix under a game that is already playing
-            let out = missing ? shell("/usr/bin/pgrep", ["-f", Paths.runPattern]) : ""
-            let running = !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !out.hasPrefix("ERROR")
+            let pids = missing ? Store.pids(shell("/usr/bin/pgrep", ["-f", Paths.runPattern])) : []
             DispatchQueue.main.async {
                 self.rosettaMissing = missing
-                if missing { self.gameRunning = running }
+                if missing { self.watchGame(pids) }
                 self.switchToFEXIfStranded()
             }
         }
@@ -440,9 +439,33 @@ final class Store: ObservableObject {
     func checkRunning() {
         let pattern = Paths.runPattern
         DispatchQueue.global().async {
-            let out = shell("/usr/bin/pgrep", ["-f", pattern])
-            let running = !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !out.hasPrefix("ERROR")
-            DispatchQueue.main.async { self.gameRunning = running }
+            let pids = Store.pids(shell("/usr/bin/pgrep", ["-f", pattern]))
+            DispatchQueue.main.async { self.watchGame(pids) }
+        }
+    }
+
+    static func pids(_ pgrepOut: String) -> [pid_t] {
+        pgrepOut.hasPrefix("ERROR") ? [] : pgrepOut.split(whereSeparator: \.isNewline)
+            .compactMap { pid_t($0.trimmingCharacters(in: .whitespaces)) }
+    }
+
+    // No polling while the game runs: the kernel reports each game process's exit
+    // (a kqueue process source), and only then is pgrep asked again, since Wine's
+    // game can be more than one process and a new one may have started meanwhile.
+    private var exitWatchers: [pid_t: DispatchSourceProcess] = [:]
+
+    private func watchGame(_ pids: [pid_t]) {
+        gameRunning = !pids.isEmpty
+        for (pid, w) in exitWatchers where !pids.contains(pid) {
+            w.cancel(); exitWatchers[pid] = nil
+        }
+        for pid in pids where exitWatchers[pid] == nil {
+            let w = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main)
+            w.setEventHandler { [weak self] in self?.checkRunning() }
+            w.resume()
+            exitWatchers[pid] = w
+            // gone between pgrep and here: a source on a dead pid never fires
+            if kill(pid, 0) != 0 && errno == ESRCH { checkRunning() }
         }
     }
 
@@ -489,6 +512,7 @@ final class Store: ObservableObject {
                     .compactMap { pid_t($0.trimmingCharacters(in: .whitespaces)) })
                 let winPID = Store.visibleWindowOwner(among: pids)
                 DispatchQueue.main.async {
+                    if !pids.isEmpty { self.watchGame(Array(pids)) }
                     if let pid = winPID, let app = NSRunningApplication(processIdentifier: pid) {
                         self.gameApp = app
                         NSApp.yieldActivation(to: app)
@@ -497,6 +521,7 @@ final class Store: ObservableObject {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
                         }
                     } else if Date() >= deadline || !NSApp.isActive {
+                        self.checkRunning()   // stops looking: a game that never showed is not left "running"
                         if self.closeOnPlay { NSApp.terminate(nil) }
                     } else {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { tick() }
@@ -1888,9 +1913,6 @@ struct PlayView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { store.checkRunning() }
-        .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
-            store.checkRunning()
-        }
         // Rosetta gets installed in Terminal, then the user comes back here:
         // re-probe then, so the warning does not outlive the problem.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -2088,6 +2110,7 @@ struct GameView: View {
         .onAppear {
             store.refreshGames()
             store.refreshRealms()
+            store.checkRunning()
         }
     }
 }
