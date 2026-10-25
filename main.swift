@@ -657,8 +657,8 @@ final class Store: ObservableObject {
     // what the next Play runs on: wow-launch forces MTLd3D there
     var onFEX: Bool { runtime == "fex" && fexAvailable }
 
-    // The patch levels follow the runtime (wow-client-profile offers only "none"
-    // under FEX), so the game folder is brought to the new level right away, as
+    // The patch levels follow the runtime (wow-client-profile offers only "icon"
+    // or "none" under FEX), so the game folder is brought to the new level right away, as
     // a patch-level change does. PATCHES= keeps the player's level for Rosetta.
     func setRuntime(_ r: String) {
         runtime = r
