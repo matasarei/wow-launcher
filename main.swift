@@ -456,6 +456,7 @@ final class Store: ObservableObject {
                     self.rosettaMissing = true
                     self.busy = false
                     self.note = L("The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license")
+                    self.switchToFEXIfStranded()   // a probe skipped at launch (busy then) is caught up here
                 }
                 return
             }
