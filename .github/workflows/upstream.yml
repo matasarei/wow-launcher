@@ -2,8 +2,8 @@
 # releases, pinned in the Makefile by URL and sha256 (the FEX runtime only for
 # `make build FEX=1`). If one is retagged, replaced or deleted, `make build`
 # breaks for every new user and nothing here would notice until somebody
-# reported it. This asks, monthly, whether they are
-# still there and still the bytes we pinned.
+# reported it. This asks, monthly, whether they are still there and still the
+# bytes we pinned.
 name: Upstream artifacts
 
 on:
