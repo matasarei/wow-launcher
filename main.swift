@@ -382,8 +382,22 @@ final class Store: ObservableObject {
             let p = Process()
             p.executableURL = URL(fileURLWithPath: Paths.rosettaTool)
             let missing = (try? { try p.run(); p.waitUntilExit(); return p.terminationStatus != 0 }()) ?? false
-            DispatchQueue.main.async { self.rosettaMissing = missing }
+            DispatchQueue.main.async {
+                self.rosettaMissing = missing
+                self.switchToFEXIfStranded()
+            }
         }
+    }
+
+    // No Rosetta 2, but this copy can play on FEX: go with FEX, through the same
+    // path as picking it by hand, so the game folder is brought to the FEX patch
+    // level before the next Play. It stays FEX once Rosetta is back; the picker
+    // unlocks then and switching back is the player's choice.
+    func switchToFEXIfStranded() {
+        guard rosettaMissing, fexAvailable, runtime != "fex",
+              !busy, !verifyRunning, !gameRunning else { return }
+        setRuntime("fex")
+        note = L("Rosetta 2 is not installed, so this copy now plays with FEX. Rosetta 2 becomes available again once it is installed.")
     }
 
     // MARK: status
@@ -442,7 +456,7 @@ final class Store: ObservableObject {
                 return
             }
             DispatchQueue.main.async {
-                self.rosettaMissing = false   // it started, so Rosetta is back
+                if !self.onFEX { self.rosettaMissing = false }   // it started, so Rosetta is back
                 self.gameRunning = true
                 self.busy = false
                 self.focusGame()
@@ -654,8 +668,14 @@ final class Store: ObservableObject {
             && ProcessInfo.processInfo.isOperatingSystemAtLeast(
                 OperatingSystemVersion(majorVersion: 26, minorVersion: 5, patchVersion: 0))
     }
-    // what the next Play runs on: wow-launch forces MTLd3D there
-    var onFEX: Bool { runtime == "fex" && fexAvailable }
+    // a copy built without Rosetta 2 (make build FEX=1 on such a Mac) has none
+    var hasRosettaPrefix: Bool { FileManager.default.fileExists(atPath: Paths.resources + "/prefix/drive_c") }
+    // what the next Play runs on (wow-launch forces MTLd3D there): FEX when picked,
+    // and always in a copy without the Rosetta prefix — wow-runtime's two FEX cases
+    var onFEX: Bool { fexAvailable && (runtime == "fex" || !hasRosettaPrefix) }
+    var rosettaUsable: Bool { !rosettaMissing && hasRosettaPrefix }
+    // the red "cannot start" warnings: only when nothing else can play
+    var rosettaBlocksPlay: Bool { rosettaMissing && !onFEX }
 
     // The patch levels follow the runtime (wow-client-profile offers only "icon"
     // or "none" under FEX), so the game folder is brought to the new level right away, as
@@ -988,7 +1008,8 @@ final class Store: ObservableObject {
         verifyNeedsReinstall = false
         // The script re-probes and prints ROSETTA if it is still missing, so a
         // flag left over from before Rosetta was installed must not survive.
-        rosettaMissing = false
+        // Under FEX it never asks (nor prints the marker): the flag stays the probe's.
+        if !onFEX { rosettaMissing = false }
         verifyRunning = true
         verifySheet = true
         let p = Process()
@@ -1746,10 +1767,19 @@ struct PlayView: View {
                 .frame(width: 110, height: 110)
             Text(store.gameVersion.isEmpty ? "World of Warcraft" : "World of Warcraft \(store.gameVersion)")
                 .font(.title2).bold()
-            if store.rosettaMissing {
+            if store.rosettaBlocksPlay {
                 VStack(spacing: 4) {
                     Label("Rosetta 2 is not installed — the game cannot start", systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
+                    Text(verbatim: "sudo softwareupdate --install-rosetta --agree-to-license")
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .foregroundStyle(.secondary)
+                }
+            } else if store.rosettaMissing && store.onFEX {
+                VStack(spacing: 4) {
+                    Label("Rosetta 2 is not installed — the game runs with FEX", systemImage: "info.circle")
+                        .foregroundStyle(.secondary)
                     Text(verbatim: "sudo softwareupdate --install-rosetta --agree-to-license")
                         .font(.caption.monospaced())
                         .textSelection(.enabled)
@@ -1893,16 +1923,31 @@ struct GameView: View {
             if store.fexAvailable {
                 Section("Runtime") {
                     Picker("Run the game with", selection: Binding(
-                        get: { store.runtime },
+                        get: { store.onFEX ? "fex" : store.runtime },
                         set: { store.setRuntime($0) })) {
                         Text("Rosetta 2 (default)").tag("rosetta")
                         Text("FEX (experimental)").tag("fex")
                     }
                     .pickerStyle(.menu)
-                    .disabled(store.busy || store.verifyRunning || store.gameRunning)
-                    Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX only the game icon is patched.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    // locked on FEX while Rosetta 2 cannot play: nothing else to pick
+                    .disabled(store.busy || store.verifyRunning || store.gameRunning || !store.rosettaUsable)
+                    if store.rosettaMissing {
+                        Text("Rosetta 2 is not installed, so the game runs with FEX. Rosetta 2 becomes an option here once it is installed:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(verbatim: "sudo softwareupdate --install-rosetta --agree-to-license")
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                            .foregroundStyle(.secondary)
+                    } else if !store.hasRosettaPrefix {
+                        Text("This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX only the game icon is patched.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             Section("Patches") {
@@ -2067,7 +2112,7 @@ struct VerifySheet: View {
                     .foregroundStyle(store.verifyResult.hasPrefix("OK") ? Color.green : Color.red)
                     .font(.callout).bold()
             }
-            if store.rosettaMissing {
+            if store.rosettaBlocksPlay {
                 Text("Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked.")
                     .font(.callout)
                     .foregroundStyle(.red)

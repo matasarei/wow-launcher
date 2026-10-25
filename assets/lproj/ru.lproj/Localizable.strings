@@ -185,3 +185,7 @@
 "Updating to %@" = "Обновление до %@";
 "Your game and settings move to the new version. The app closes and opens again by itself when it is done." = "Игра и настройки переедут в новую версию. Приложение закроется и откроется само, когда закончит.";
 "The update was cancelled." = "Обновление отменено.";
+"Rosetta 2 is not installed, so this copy now plays with FEX. Rosetta 2 becomes available again once it is installed." = "Rosetta 2 не установлена, поэтому эта копия теперь запускает игру через FEX. Rosetta 2 снова станет доступна, как только её установят.";
+"Rosetta 2 is not installed — the game runs with FEX" = "Rosetta 2 не установлена — игра работает через FEX";
+"Rosetta 2 is not installed, so the game runs with FEX. Rosetta 2 becomes an option here once it is installed:" = "Rosetta 2 не установлена, поэтому игра работает через FEX. Rosetta 2 появится здесь как вариант, как только её установят:";
+"This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "Эта копия собрана без Rosetta 2, поэтому у неё нет префикса Rosetta. Чтобы Rosetta 2 стала доступна, снова выполните make build FEX=1 в папке с исходниками лаунчера.";
