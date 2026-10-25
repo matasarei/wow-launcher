@@ -151,9 +151,14 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
     -e "$APP/Contents/Resources/games/" -e "$APP_REAL/Contents/Resources/games/" \
     && fail "the game is still running — quit it first"
   # ...and a leftover wineserver is asked to go, so nothing holds the prefix
-  # that is about to move (wow-launch does the same before a game starts)
-  WINEPREFIX="$RES/prefix" HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")" \
-    "$RES/wine/bin/wineserver" -k >/dev/null 2>&1 || true
+  # that is about to move (wow-launch does the same before a game starts).
+  # Both runtimes' (see wow-runtime): either may have played since the last start.
+  local W
+  for W in wine:prefix wine-fex:prefix-fex; do
+    [ -x "$RES/${W%%:*}/bin/wineserver" ] || continue
+    WINEPREFIX="$RES/${W#*:}" HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")" \
+      "$RES/${W%%:*}/bin/wineserver" -k >/dev/null 2>&1 || true
+  done
   # beside the app: the swap is then a rename, and the import clones the game
   # (an earlier update whose Trash move failed leaves its staging dir behind —
   # its copy of the old app is in the Trash-less state the NOTE described, and
@@ -206,7 +211,7 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   else
     # nothing to import, so carry the settings the import would have carried
     # (the same keys as wow-install-client's KEYS, minus the ones it recomputes)
-    local KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP'
+    local KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP|RUNTIME'
     local NEW_CONF="$NEW/Contents/Resources/launcher.conf"
     { grep -svE "^($KEYS)=" "$NEW_CONF"; grep -sE "^($KEYS)=" "$CONF"; } > "$NEW_CONF.tmp" || true
     mv "$NEW_CONF.tmp" "$NEW_CONF"

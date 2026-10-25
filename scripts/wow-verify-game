@@ -20,14 +20,18 @@ if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then G="$RES/games/$GA
 FIX=0; [ "$1" = "--fix" ] && FIX=1
 fail=0; warn=0; canfix=0; reinstall=0; i=0
 CFG="$G/WTF/Config.wtf"
-LOADER="$RES/wine/bin/wine"
-export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
+# the active runtime and its prefix (see wow-runtime): the registry checks read
+# the prefix the game plays in
+RT="$("$BIN/wow-runtime")"; rt() { printf '%s\n' "$RT" | sed -n "s/^$1=//p"; }
+LOADER="$(rt WINE)/bin/wine"
+export WINEPREFIX="$(rt PREFIX)" WINEDEBUG=-all
 export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
 # Without Rosetta every "$LOADER reg query" returns nothing, which reads exactly
 # like a setting that was never written — verify would fail the two checks below
-# and offer a --fix that can never succeed. Ask once, then say so instead.
+# and offer a --fix that can never succeed. Ask once, then say so instead. The
+# FEX runtime is arm64 and needs no Rosetta.
 ROSETTA_OK=1
-if WHY="$("$BIN/wow-check-rosetta")"; then :; else ROSETTA_OK=0; echo "$WHY"; echo "ROSETTA"; fi
+if [ "$(rt KIND)" = rosetta ] && ! WHY="$("$BIN/wow-check-rosetta")"; then ROSETTA_OK=0; echo "$WHY"; echo "ROSETTA"; fi
 
 PROFILE="$("$BIN/wow-client-profile" "$G")"
 prof() { printf '%s\n' "$PROFILE" | grep -E "^$1=" | cut -d= -f2-; }

@@ -707,11 +707,15 @@ section "launch under the FEX runtime"
 # a fresh prefix has no codepage yet, so the launch writes it and waits a second
 # for the wineserver: wait for the game, not a fixed time
 launched() { for _ in $(seq 50); do grep -qF 'Wow.exe' "$WINELOG" && return; sleep 0.1; done; }
-mkdir -p "$RES/wine-fex/bin" "$RES/prefix-fex/drive_c/users" "$RES/prefix-fex/dosdevices"
-for T in wine wineserver; do
-  printf '#!/bin/bash\necho "FEX STUB %s HOSTFEATURES=${FEX_HOSTFEATURES:-unset}" >> "$WINE_STUB_LOG"\nexec "%s" "$@"\n' "$T" "$RES/wine/bin/$T" > "$RES/wine-fex/bin/$T"
-  chmod +x "$RES/wine-fex/bin/$T"
-done
+mk_fex_runtime() {  # mk_fex_runtime [<Resources dir>]: stub FEX runtime + an empty prefix
+  local R="${1:-$RES}" T
+  mkdir -p "$R/wine-fex/bin" "$R/prefix-fex/drive_c/users" "$R/prefix-fex/dosdevices"
+  for T in wine wineserver; do
+    printf '#!/bin/bash\necho "FEX STUB %s HOSTFEATURES=${FEX_HOSTFEATURES:-unset}" >> "$WINE_STUB_LOG"\nexec "%s" "$@"\n' "$T" "$R/wine/bin/$T" > "$R/wine-fex/bin/$T"
+    chmod +x "$R/wine-fex/bin/$T"
+  done
+}
+mk_fex_runtime
 CONF0="$(cat "$RES/launcher.conf")"   # the installed game's conf: restored, not reset (GAME= must stay)
 printf 'RUNTIME=fex\nRENDERER=dxvk\nX87=rosettax87\n' >> "$RES/launcher.conf"
 : > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
@@ -1078,11 +1082,44 @@ assert_contains "$OUT" "game installed" "the client still installs"
 assert_contains "$OUT" "Rosetta 2 is missing" "and says the DLL was not patched"
 mv "$TMP/kit-divx.patched" "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched"   # leave the kit as found
 
+cp "$BIN/wow-check-rosetta" "$TMP/no-rosetta"   # for the FEX section below
 install -m 755 "$ROOT/scripts/wow-check-rosetta" "$BIN/wow-check-rosetta"   # real probe back
 OUT="$("$BIN/wow-verify-game" 2>&1)"
 assert_eq "$(echo "$OUT" | grep -c '^ROSETTA$')" "0" "no marker once the probe passes again"
 # the build calls it before anything is installed, so the loader comes as an argument
 "$BIN/wow-check-rosetta" "$RES/wine/bin/wine" && ok || bad "the probe accepts a loader path"
+
+# ============================================================ FEX: install + verify
+# Install and verify under RUNTIME=fex: the FEX loader and prefix for every wine
+# call, the same totals, and no Rosetta asked for — the probe fails again here,
+# and nothing may notice. The 3.3.5a goes last: it is what later sections expect.
+section "install and verify under the FEX runtime"
+export WOW_TEST_MACOS=27.0.1
+mk_fex_runtime
+install -m 755 "$TMP/no-rosetta" "$BIN/wow-check-rosetta"
+mv "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched" "$TMP/kit-divx.patched"   # the path that needs wine
+for C in tbc:2.4.3:29 vanilla:1.12:25 wotlk:3.3.5a:43; do
+  N="${C%%:*}"; V="${C#*:}"; V="${V%:*}"; TOTAL="${C##*:}"
+  reset_conf; printf 'RUNTIME=fex\n' >> "$RES/launcher.conf"
+  : > "$WINELOG"; OUT="$("$BIN/wow-install-client" "$TMP/client-$N" 2>&1)"; cp "$WINELOG" "$TMP/fex-install.log"
+  assert_contains "$OUT" "game installed ($V)" "$V installs under FEX"
+  assert_eq "$(echo "$OUT" | grep -c 'Rosetta')" "0" "$V: install asks for no Rosetta"
+  assert_eq "$(grep -c "PREFIX=$RES/prefix " "$WINELOG")" "0" "$V: no install wine call in the Rosetta prefix"
+  assert_contains "$(cat "$RES/launcher.conf")" "RUNTIME=fex" "$V: the install keeps RUNTIME"
+  : > "$WINELOG"; OUT="$("$BIN/wow-verify-game" 2>&1)"
+  assert_eq "$(echo "$OUT" | grep -c '^ROSETTA$')" "0" "$V: verify has no Rosetta marker"
+  assert_eq "$(echo "$OUT" | grep -c '^PROGRESS ')" "$TOTAL" "$V: verify step count under FEX"
+  assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" "$TOTAL" "$V: TOTAL under FEX"
+  assert_eq "$(grep -c "PREFIX=$RES/prefix " "$WINELOG")" "0" "$V: no verify wine call in the Rosetta prefix"
+done
+assert_contains "$(grep -F 'reg query' "$WINELOG" | head -1)" "PREFIX=$RES/prefix-fex " "verify reads the FEX prefix's registry"
+mv "$TMP/kit-divx.patched" "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched"
+# the live Divx patch (no kit reference) ran through the FEX loader and wineserver
+assert_contains "$(grep -B1 -F 'rundll32' "$TMP/fex-install.log" | head -1)" "FEX STUB wine" "the live 3.3.5a Divx patch runs through the FEX loader"
+assert_contains "$(grep -F 'FEX STUB wineserver' "$TMP/fex-install.log")" "FEX STUB wineserver" "and waits on the FEX wineserver"
+install -m 755 "$ROOT/scripts/wow-check-rosetta" "$BIN/wow-check-rosetta"
+rm -rf "$RES/wine-fex" "$RES/prefix-fex"; unset WOW_TEST_MACOS
+grep -v '^RUNTIME=' "$RES/launcher.conf" > "$RES/launcher.conf.tmp"; mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
 
 # ================================================================== wow-copy
 section "wow-copy"
@@ -1323,7 +1360,7 @@ reset_conf; rm -rf "$RES/games"/*
 OLD="$TMP/Old Launcher.app"; OLDRES="$OLD/Contents/Resources"
 cp -R "$APP" "$OLD"; mk_plist "$OLD" io.github.matasarei.wow-launcher 2.7
 "$OLD/Contents/Resources/bin/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
-printf 'PATCHES=no-silicon\nRENDERER=mtld3d\nCLOSE_ON_PLAY=1\nRETINA=off\nDISPLAY_RECT=1,2,3,4\nGAME_DISPLAY=Old Screen\n' >> "$OLDRES/launcher.conf"
+printf 'PATCHES=no-silicon\nRENDERER=mtld3d\nCLOSE_ON_PLAY=1\nRETINA=off\nDISPLAY_RECT=1,2,3,4\nGAME_DISPLAY=Old Screen\nRUNTIME=fex\n' >> "$OLDRES/launcher.conf"
 sed -i '' 's/^SET gxWindow .*/SET gxWindow "0"/' "$OLDRES/games/main/WTF/Config.wtf"
 echo 'SET myCvar "42"' >> "$OLDRES/games/main/WTF/Config.wtf"
 mkdir -p "$OLDRES/games/main/locales/deDE/pack"; echo de-exe > "$OLDRES/games/main/locales/deDE/Wow.exe"
@@ -1391,9 +1428,11 @@ assert_contains "$OUT" "importing from Old Launcher 2.10" "the previous app is a
 assert_contains "$OUT" "game installed (3.3.5a), imported from Old Launcher 2.10" "and its game installed"
 assert_eq "$(tree_sums "$OLD")" "$BEFORE_OLD" "the previous app is left byte-for-byte as it was"
 CONF="$(cat "$RES/launcher.conf")"
-for kv in PATCHES=no-silicon RENDERER=mtld3d CLOSE_ON_PLAY=1 RETINA=off GAME_VERSION=3.3.5a GAME_FAMILY=wotlk; do
+for kv in PATCHES=no-silicon RENDERER=mtld3d CLOSE_ON_PLAY=1 RETINA=off GAME_VERSION=3.3.5a GAME_FAMILY=wotlk RUNTIME=fex; do
   assert_contains "$CONF" "$kv" "$kv after the move"
 done
+# the runtime choice comes along, and this copy, built without FEX=1, says why it plays on Rosetta
+assert_eq "$("$BIN/wow-runtime" | sed -n 's/^WHY=//p')" "RUNTIME=fex, but this copy has no FEX runtime (built without FEX=1)" "a carried RUNTIME=fex falls back with its reason"
 assert_eq "$(grep -cE '^(DISPLAY_RECT|GAME_DISPLAY)=' "$RES/launcher.conf")" "0" "the old screen setup stays behind"
 # an in-app update is an import too: Update Game must still open on the client folder
 assert_contains "$CONF" "GAME_SOURCE=$(cd "$TMP/client-wotlk" && pwd -P)" "the game's source folder after the move"
@@ -1734,9 +1773,13 @@ apply() {  # apply <zip> <digest> — against the disposable copy
 apply_setup
 Z="$TMP/rel/WoW-v2.10.zip"
 mk_release_zip "$Z" 2.10
-printf 'RENDERER=mtld3d\n' >> "$AAPP/Contents/Resources/launcher.conf"
+printf 'RENDERER=mtld3d\nRUNTIME=fex\n' >> "$AAPP/Contents/Resources/launcher.conf"
 mkdir -p "$TMP/applytest/.wow-update.leftover/new"   # an earlier update that could not tidy up
-OUT="$(apply "$Z" "$(digest_of "$Z")")"
+mk_fex_runtime "$AAPP/Contents/Resources"   # a FEX=1 copy: both runtimes' wineservers are stopped
+: > "$WINELOG"; OUT="$(apply "$Z" "$(digest_of "$Z")")"
+assert_contains "$(grep -A1 -F 'FEX STUB wineserver' "$WINELOG")" "WINE ARGS: -k | " "the FEX wineserver is stopped before the swap"
+assert_contains "$(grep -A1 -F 'FEX STUB wineserver' "$WINELOG")" "PREFIX=$AAPP/Contents/Resources/prefix-fex " "in its own prefix"
+assert_contains "$(grep -F 'WINE ARGS: -k | ' "$WINELOG" | grep -vF prefix-fex)" "PREFIX=$AAPP/Contents/Resources/prefix " "and the Rosetta one in its"
 assert_contains "$OUT" "downloaded 2.10" "a good release downloads and checks out"
 assert_nofile "$TMP/applytest/.wow-update.leftover"
 assert_contains "$OUT" "no game to import" "an empty wrapper carries only its settings"
@@ -1753,6 +1796,7 @@ done
 # by LaunchServices when a GUI app downloads, and ditto does not carry one from
 # a zip, so this suite cannot reproduce the case it guards against)
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RENDERER=mtld3d" "the settings were carried into it"
+assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RUNTIME=fex" "the runtime choice too"
 stage_count() { find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' '; }
 apply_setup
 # and everything that must stop before anything is installed

@@ -11,14 +11,17 @@ APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 KIT="$RES/patch-kit"
 BIN="$RES/bin"
-LOADER="$RES/wine/bin/wine"
+# the active runtime and its prefix (see wow-runtime); the FEX one needs no Rosetta
+RT="$("$BIN/wow-runtime")"; rt() { printf '%s\n' "$RT" | sed -n "s/^$1=//p"; }
+WINEDIR="$(rt WINE)"; PFX="$(rt PREFIX)"
+LOADER="$WINEDIR/bin/wine"
 ROSETTA_OK=1
-if WHY="$("$BIN/wow-check-rosetta")"; then :; else ROSETTA_OK=0; echo "$WHY"; fi
-export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
+if [ "$(rt KIND)" = rosetta ] && ! WHY="$("$BIN/wow-check-rosetta")"; then ROSETTA_OK=0; echo "$WHY"; fi
+export WINEPREFIX="$PFX" WINEDEBUG=-all
 USER_HOME="$HOME"   # the real one, for the keyboard-layout check below
 export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
 # the Z: drive link is stripped at build time (absolute symlinks break codesign)
-[ -e "$RES/prefix/dosdevices/z:" ] || ln -sf / "$RES/prefix/dosdevices/z:" 2>/dev/null
+[ -e "$PFX/dosdevices/z:" ] || ln -sf / "$PFX/dosdevices/z:" 2>/dev/null
 # --updating: the import is an update installing itself (see wow-update), so the
 # source app is the launcher running this — only its game has to be idle.
 UPDATING=0
@@ -212,6 +215,7 @@ if [ "$MIGRATE" = 1 ]; then
   KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA'
   KEYS="$KEYS|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP"   # see wow-update
   KEYS="$KEYS|GAME_SOURCE"   # the same game, so the same folder it came from
+  KEYS="$KEYS|RUNTIME"   # a copy built without FEX=1 plays on Rosetta and says why (wow-runtime)
   CARRY="$(grep -sE "^($KEYS)=" "$OLD_RES/launcher.conf" || true)"
   # SILICON= is the pre-2.4 PATCHES: carried only when there is nothing newer
   printf '%s\n' "$CARRY" | grep -qE '^PATCHES=' && CARRY="$(printf '%s\n' "$CARRY" | grep -vE '^SILICON=')"
@@ -289,7 +293,7 @@ patch_divx() {  # patch_divx <dll name> <libDllLdr entry>
   else
     echo "patching $DLL via wine..."
     ( cd "$DEST" && "$LOADER" 'C:\windows\syswow64\rundll32.exe' "libDllLdr.dll,$ENTRY" "$(cd "$DEST" && "$LOADER" winepath -w . 2>/dev/null | tr -d '\r' || true)" >/dev/null 2>&1 )
-    "$RES/wine/bin/wineserver" -w 2>/dev/null || true
+    "$WINEDIR/bin/wineserver" -w 2>/dev/null || true
     if [ -f "$DEST/$DLL.bak" ] && ! cmp -s "$DEST/$DLL" "$DEST/$DLL.bak"; then
       echo "$DLL patched"
       # stash references so future installs/verifies are instant
