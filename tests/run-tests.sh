@@ -1103,6 +1103,7 @@ for C in tbc:2.4.3:29 vanilla:1.12:25 wotlk:3.3.5a:43; do
   reset_conf; printf 'RUNTIME=fex\n' >> "$RES/launcher.conf"
   : > "$WINELOG"; OUT="$("$BIN/wow-install-client" "$TMP/client-$N" 2>&1)"; cp "$WINELOG" "$TMP/fex-install.log"
   assert_contains "$OUT" "game installed ($V)" "$V installs under FEX"
+  assert_contains "$OUT" "patch level: none" "$V: with no patches"
   assert_eq "$(echo "$OUT" | grep -c 'Rosetta')" "0" "$V: install asks for no Rosetta"
   assert_eq "$(grep -c "PREFIX=$RES/prefix " "$WINELOG")" "0" "$V: no install wine call in the Rosetta prefix"
   assert_contains "$(cat "$RES/launcher.conf")" "RUNTIME=fex" "$V: the install keeps RUNTIME"
@@ -1113,13 +1114,31 @@ for C in tbc:2.4.3:29 vanilla:1.12:25 wotlk:3.3.5a:43; do
   assert_eq "$(grep -c "PREFIX=$RES/prefix " "$WINELOG")" "0" "$V: no verify wine call in the Rosetta prefix"
 done
 assert_contains "$(grep -F 'reg query' "$WINELOG" | head -1)" "PREFIX=$RES/prefix-fex " "verify reads the FEX prefix's registry"
+# no patches under FEX: the kit's are Rosetta-era builds, and with any of them
+# the game stops before its window opens there. The player's level is kept.
+G="$RES/games/main"
+assert_eq "$(prof "$G" LEVELS)" "none" "FEX offers only 'no patches'"
+assert_eq "$(prof "$G" PATCHES)" "none" "and applies none"
+assert_eq "$(prof "$G" PATCHES_REQUESTED)" "all" "the player's level is kept for Rosetta"
+assert_eq "$(prof "$G" RUNTIME)" "fex" "and the profile says why"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "origdivx" "the 3.3.5a is left as it shipped"
+assert_nofile "$G/dlls.txt"
+assert_nofile "$G/mods/winerosetta.dll"
+assert_nofile "$G/mods/libSiliconPatch.dll"
+assert_contains "$OUT" "RESULT: OK — all checks passed" "and verifies clean that way"
 mv "$TMP/kit-divx.patched" "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched"
 # the live Divx patch (no kit reference) ran through the FEX loader and wineserver
 assert_contains "$(grep -B1 -F 'rundll32' "$TMP/fex-install.log" | head -1)" "FEX STUB wine" "the live 3.3.5a Divx patch runs through the FEX loader"
 assert_contains "$(grep -F 'FEX STUB wineserver' "$TMP/fex-install.log")" "FEX STUB wineserver" "and waits on the FEX wineserver"
 install -m 755 "$ROOT/scripts/wow-check-rosetta" "$BIN/wow-check-rosetta"
-rm -rf "$RES/wine-fex" "$RES/prefix-fex"; unset WOW_TEST_MACOS
+# back on Rosetta (what the Game pane's switch does): verify --fix re-applies the kept level
 grep -v '^RUNTIME=' "$RES/launcher.conf" > "$RES/launcher.conf.tmp"; mv "$RES/launcher.conf.tmp" "$RES/launcher.conf"
+assert_eq "$(prof "$G" LEVELS)" "all no-silicon winerosetta none" "Rosetta offers every level again"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_contains "$OUT" "RESULT: OK" "--fix takes the client back to the kept level"
+assert_eq "$(cat "$G/dlls.txt")" "$(printf 'mods/winerosetta.dll\nmods/libSiliconPatch.dll')" "both mods are back"
+assert_eq "$(cat "$G/DivxDecoder.dll")" "patcheddivx" "and the Divx patch"
+rm -rf "$RES/wine-fex" "$RES/prefix-fex"; unset WOW_TEST_MACOS
 
 # ================================================================== wow-copy
 section "wow-copy"

@@ -221,10 +221,16 @@ case "$FAMILY" in wotlk|tbc) [ "$EXE" = "Wow.exe" ] && CAP_LANGPACK=1 ;; esac
 CAP_CVARS=0; [ "$DATA" = mpq ] && CAP_CVARS=1
 
 # --- offered patch levels ---------------------------------------------------
+# Under the FEX runtime the client runs as it shipped: the kit's Divx patch and
+# mods are Rosetta-era builds, and with any of them the game stops before its
+# window opens there (upstream's 3.3.0 Preview ships newer ones for FEX).
+RUNTIME="$("$RES/bin/wow-runtime" | sed -n 's/^KIND=//p')"
 LEVELS=""
-[ -n "$CAP_SILICON" ] && LEVELS="$LEVELS all"
-{ [ "$CAP_LOADER" = 1 ] || [ "$CAP_ICON" = 1 ]; } && LEVELS="$LEVELS no-silicon"
-[ "$CAP_LOADER" = 1 ] && LEVELS="$LEVELS winerosetta"
+if [ "$RUNTIME" != fex ]; then
+  [ -n "$CAP_SILICON" ] && LEVELS="$LEVELS all"
+  { [ "$CAP_LOADER" = 1 ] || [ "$CAP_ICON" = 1 ]; } && LEVELS="$LEVELS no-silicon"
+  [ "$CAP_LOADER" = 1 ] && LEVELS="$LEVELS winerosetta"
+fi
 LEVELS="$LEVELS none"; LEVELS="${LEVELS# }"
 
 # The user's choice is remembered as-is and clamped down to the best level this
@@ -256,6 +262,7 @@ CAP_TWEAKS=$CAP_TWEAKS
 CAP_LANGPACK=$CAP_LANGPACK
 CAP_CVARS=$CAP_CVARS
 LEVELS=$LEVELS
+RUNTIME=$RUNTIME
 PATCHES_REQUESTED=$REQUESTED
 PATCHES=$EFFECTIVE
 EOF

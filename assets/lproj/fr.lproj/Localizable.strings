@@ -76,7 +76,8 @@
 "Run the game with" = "Lancer le jeu avec";
 "Rosetta 2 (default)" = "Rosetta 2 (par défaut)";
 "FEX (experimental)" = "FEX (expérimental)";
-"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental." = "Prend effet au prochain démarrage du jeu. Rosetta 2 est le traducteur d'Apple et le choix éprouvé par défaut ; FEX est un émulateur x86 open source intégré à un Wine arm64, avec ses propres réglages Windows. Expérimental.";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX the client runs without the launcher's patches." = "Prend effet au prochain démarrage du jeu. Rosetta 2 est le traducteur d'Apple et le choix éprouvé par défaut ; FEX est un émulateur x86 open source intégré à un Wine arm64, avec ses propres réglages Windows. Expérimental : sous FEX, le client tourne sans les correctifs du lanceur.";
+"Nothing to choose under FEX — the launcher's patches are built for Rosetta 2, so the client runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2." = "Rien à choisir sous FEX — les correctifs du lanceur sont conçus pour Rosetta 2, le client tourne donc tel qu'il a été livré. Votre niveau de correctifs revient lorsque vous repassez à Rosetta 2.";
 "Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "Sous FEX, le moteur de rendu est MTLd3D pour l'instant : DXVK ne fonctionne pas encore dans cet environnement.";
 "Runtime set to %@ — takes effect at the next game start." = "Environnement d'exécution réglé sur %@ — prend effet au prochain démarrage du jeu.";
 "Audio" = "Audio";

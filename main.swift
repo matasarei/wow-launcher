@@ -657,10 +657,16 @@ final class Store: ObservableObject {
     // what the next Play runs on: wow-launch forces MTLd3D there
     var onFEX: Bool { runtime == "fex" && fexAvailable }
 
+    // The patch levels follow the runtime (wow-client-profile offers only "none"
+    // under FEX), so the game folder is brought to the new level right away, as
+    // a patch-level change does. PATCHES= keeps the player's level for Rosetta.
     func setRuntime(_ r: String) {
         runtime = r
         confSet("RUNTIME", r)
         note = LF("Runtime set to %@ — takes effect at the next game start.", r == "fex" ? "FEX" : "Rosetta 2")
+        if games.isEmpty { return }
+        verifyGame(fix: true)
+        loadProfile()
     }
 
     func setRenderer(_ r: String) {
@@ -703,7 +709,7 @@ final class Store: ObservableObject {
 
     // Why the list is shorter than the usual four, in this client's own terms.
     var patchLimitNote: String {
-        guard !games.isEmpty, patchLevels.count < 4 else { return "" }
+        guard !games.isEmpty, patchLevels.count < 4, profile["RUNTIME"] != "fex" else { return "" }
         if profile["ARCH"] == "x64" {
             return L("This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game.")
         }
@@ -1882,8 +1888,27 @@ struct GameView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            // only in a copy that carries the FEX runtime, on a Mac that can run it
+            if store.fexAvailable {
+                Section("Runtime") {
+                    Picker("Run the game with", selection: Binding(
+                        get: { store.runtime },
+                        set: { store.setRuntime($0) })) {
+                        Text("Rosetta 2 (default)").tag("rosetta")
+                        Text("FEX (experimental)").tag("fex")
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(store.busy || store.verifyRunning || store.gameRunning)
+                    Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX the client runs without the launcher's patches.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Section("Patches") {
-                if store.patchLevels == ["none"] {
+                if store.patchLevels == ["none"] && store.profile["RUNTIME"] == "fex" {
+                    Label("Nothing to choose under FEX — the launcher's patches are built for Rosetta 2, so the client runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2.",
+                          systemImage: "info.circle")
+                } else if store.patchLevels == ["none"] {
                     Label("Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped.",
                           systemImage: "info.circle")
                 } else {
@@ -2159,9 +2184,6 @@ struct DisplayView: View {
     var rendererBinding: Binding<String> {
         Binding(get: { store.onFEX ? "mtld3d" : store.renderer }, set: { store.setRenderer($0) })
     }
-    var runtimeBinding: Binding<String> {
-        Binding(get: { store.runtime }, set: { store.setRuntime($0) })
-    }
 
     // Standard sizes that fit on the chosen display (window size is in points).
     var fittingSizes: [String] {
@@ -2223,20 +2245,6 @@ struct DisplayView: View {
                         if store.busy { ProgressView().controlSize(.small) }
                         Text(verbatim: store.loadingStatus ? "…" : store.resolution)
                     }
-                }
-            }
-            // only in a copy that carries the FEX runtime, on a Mac that can run it
-            if store.fexAvailable {
-                Section("Runtime") {
-                    Picker("Run the game with", selection: runtimeBinding) {
-                        Text("Rosetta 2 (default)").tag("rosetta")
-                        Text("FEX (experimental)").tag("fex")
-                    }
-                    .pickerStyle(.menu)
-                    .disabled(store.gameRunning)
-                    Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
             Section("Renderer") {
