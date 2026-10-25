@@ -155,11 +155,6 @@ prefix the x86_64 one made. Neither target runs without `FEX=1`, so a plain
     `wow-check-rosetta` answer as a Mac without it, for an x86_64 loader. It is inherited
     by `make` and by the GUI's subprocesses:
     `WOW_TEST_NO_ROSETTA=1 "$HOME/Applications/WoW.app/Contents/MacOS/WoW Launcher"`.
-- **Pre-release versions.** A test build can carry a suffix, `<next>-<name>` (`2.14-fex-beta` was the first):
-  `wow-update`'s `ver_ge` and the import's 2.1 floor read the numbers before the `-`, and a
-  suffix sorts just below the same plain version (2.13 < 2.14-fex-beta < 2.14). GitHub's
-  `releases/latest` never returns a pre-release, so nobody is updated to one; its players
-  are offered the next stable release.
 - **Limits.** Experimental: tested on a 3.3.5a client against a local server. No
   DXVK, no libSiliconPatch, none of the Warden helpers winerosetta provides on
   Rosetta. Upstream's newer libDllLdr and libSiliconPatch under FEX would be a

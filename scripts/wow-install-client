@@ -66,7 +66,7 @@ case "$SRC" in
       local.wow335.singleapp) echo "$OLD_NAME ${OLD_VER:-(no version)} is too old to import from — WoW Launcher 2.1 or later is needed"; exit 1 ;;
       *) echo "not a WoW Launcher app: $OLD_NAME"; exit 1 ;;
     esac
-    # the leading digits of each part: a pre-release (2.14-fex-beta) is still 2.14
+    # the leading digits of each part: a suffixed version (2.15-beta) is still 2.15
     MAJ="${OLD_VER%%.*}"; MIN="${OLD_VER#"$MAJ"}"; MIN="${MIN#.}"; MIN="${MIN%%.*}"; MIN="${MIN%%[!0-9]*}"
     case "$MAJ" in ''|*[!0-9]*) MAJ=0 ;; esac
     case "$MIN" in ''|*[!0-9]*) MIN=0 ;; esac
