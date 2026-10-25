@@ -141,7 +141,38 @@ define make_prefix
 	@echo "==> fast-exit network fix"
 	@HOME="$(RES)/home" WINEPREFIX="$(2)" WINEDEBUG=-all "$(1)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyEnable /t REG_DWORD /d 1 /f >/dev/null 2>&1
 	@HOME="$(RES)/home" WINEPREFIX="$(2)" WINEDEBUG=-all "$(1)/bin/wine" reg add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings' /v ProxyServer /t REG_SZ /d 127.0.0.1:1 /f >/dev/null 2>&1
+	@# wineboot writes the profile paths out in full, C:\users\<build user>\…, and the
+	@# registry ships in every copy: a player's TEMP then points at a folder that never
+	@# exists on their Mac. The user's TEMP/TMP go, so the system's %SystemRoot%\temp
+	@# applies (a per-user %USERPROFILE%\… would stay unexpanded: this wine reads
+	@# HKCU\Environment before it defines USERPROFILE); the folder caches go, and wine
+	@# rebuilds them for the real user; the profile entry names no one (wine takes
+	@# USERPROFILE from the login, not from it). Mac fonts wine lists under
+	@# Software\Wine\Fonts are the player's own, added when they play.
+	@echo "==> profile paths without the builder's name"
+	@for v in TEMP TMP; do HOME="$(RES)/home" WINEPREFIX="$(2)" WINEDEBUG=-all "$(1)/bin/wine" reg delete 'HKCU\Environment' /v $$v /f >/dev/null 2>&1 || true; done
+	@HOME="$(RES)/home" WINEPREFIX="$(2)" WINEDEBUG=-all "$(1)/bin/wine" reg add 'HKLM\Software\Microsoft\Windows NT\CurrentVersion\ProfileList\S-1-5-21-0-0-0-1000' /v ProfileImagePath /t REG_EXPAND_SZ /d '%SystemDrive%\users\%USERNAME%' /f >/dev/null 2>&1
+	@for k in 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders' \
+	          'HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders' \
+	          'HKLM\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders' \
+	          'HKU\.Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders' \
+	          'HKCU\Volatile Environment'; do \
+	  HOME="$(RES)/home" WINEPREFIX="$(2)" WINEDEBUG=-all "$(1)/bin/wine" reg delete "$$k" /f >/dev/null 2>&1 || true; done
 	@WINEPREFIX="$(2)" "$(1)/bin/wineserver" -k >/dev/null 2>&1 || true
+	@# The FEX wine (the Rosetta one has no FreeType) also lists the Mac fonts it finds
+	@# at boot under three Fonts keys, the builder's ~/Library/Fonts among them, each
+	@# by its path. Wine adds the player's own at every start, so the builder's lines
+	@# go; wineserver has saved and stopped, so the files can be edited as text.
+	@U="$${USER:-$$(id -un)}"; for f in "$(2)"/*.reg; do \
+	  D="\\\\Users\\\\$$U\\\\Library\\\\Fonts\\\\" awk 'index($$0, ENVIRON["D"]) == 0' "$$f" > "$$f.tmp" && mv "$$f.tmp" "$$f"; done
+	@# Paths into the bundle itself are no one's (wine's own fonts are listed by where the
+	@# app is: built under a home folder, that path has the login in it). A copy that has
+	@# had a game is its player's: their own name there is theirs to keep.
+	@U="$${USER:-$$(id -un)}"; \
+	  L="$$(grep -hF -e "users\\\\$$U\\\\" -e "users\\\\$$U\"" -e "Users\\\\$$U\\\\" "$(2)"/*.reg | grep -vF "\\\\$(notdir $(APP))\\\\Contents\\\\")"; \
+	  if [ -n "$$L" ]; then printf '%s\n' "$$L" | head -3; \
+	    if [ -n "$$(ls -A "$(RES)/games" 2>/dev/null)" ]; then echo "WARNING: the registry names $$U (lines above; a played copy, not for release)"; \
+	    else echo "ERROR: the registry still names the build user $$U (lines above)"; exit 1; fi; fi
 	@# absolute symlinks (dosdevices/z: -> /, users/<builduser> -> $$HOME/Wine)
 	@# make codesign reject the bundle and leak build-machine paths; they are
 	@# recreated on the user's machine at first run — z: by wow-launch and the
