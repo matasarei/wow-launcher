@@ -338,6 +338,8 @@ for V in 26.5 26.5.1 26.10 27.0.1 28; do
   assert_eq "$(MAC=$V rtv KIND)" "fex" "macOS $V: FEX"
 done
 assert_eq "$(rtv WINE)|$(rtv PREFIX)" "$RES/wine-fex|$RES/prefix-fex" "the FEX runtime and its own prefix"
+WOW_TEST_MACOS=26.5 "$ROOT/scripts/wow-runtime" --macos-ok && ok || bad "--macos-ok: 26.5 can run FEX"
+WOW_TEST_MACOS=26.4 "$ROOT/scripts/wow-runtime" --macos-ok && bad "--macos-ok: 26.4 cannot run FEX" || ok
 # a copy built without Rosetta 2 has no Rosetta prefix: FEX plays, whatever RUNTIME= says
 mv "$RES/prefix/drive_c" "$TMP/rosetta-drive_c"
 for W in "" rosetta bogus; do

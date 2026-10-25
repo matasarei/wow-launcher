@@ -10,6 +10,7 @@
 # One exception: a copy built without Rosetta 2 (make build FEX=1 on such a Mac)
 # has no Rosetta prefix, and wine would make a bare one without the fast-exit fix,
 # so there FEX plays whatever RUNTIME= says, as long as it can.
+# wow-runtime --macos-ok: exit 0 when this macOS can run FEX at all (for the build)
 # Usage: wow-runtime — prints, one per line:
 #   KIND=rosetta|fex   WINE=<runtime dir>   PREFIX=<prefix dir>   WHY=<reason>
 #   FEX_OK=1|0         whether this copy could play on FEX here, whatever KIND says
@@ -25,6 +26,7 @@ macos_ok() {
   MINOR="${REST%%.*}"
   [ "$MAJOR" -gt 26 ] 2>/dev/null || { [ "$MAJOR" -eq 26 ] && [ "${MINOR:-0}" -ge 5 ]; } 2>/dev/null
 }
+[ "${1:-}" = --macos-ok ] && { macos_ok; exit; }
 fex() { printf 'KIND=fex\nWINE=%s\nPREFIX=%s\nWHY=%s\nFEX_OK=1\n' "$RES/wine-fex" "$RES/prefix-fex" "$1"; exit 0; }
 fex_ok() { [ -x "$RES/wine-fex/bin/wine" ] && [ -d "$RES/prefix-fex/drive_c" ] && macos_ok; }
 FEX_OK=0; fex_ok && FEX_OK=1

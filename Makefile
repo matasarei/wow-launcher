@@ -165,7 +165,9 @@ endef
 prefix:
 	@if bash scripts/wow-check-rosetta "$(WINE)/bin/wine"; then $(MAKE) --no-print-directory prefix-rosetta APP="$(APP)"; \
 	elif [ -n "$(FEX)" ]; then echo "WARNING: Rosetta 2 is missing — the Rosetta prefix is skipped; this copy plays with FEX until Rosetta 2 is installed and make build FEX=1 runs again"; \
-	else echo "ERROR: the prefix is created by running wine, which cannot start without Rosetta 2"; exit 1; fi
+	else echo "ERROR: the prefix is created by running wine, which cannot start without Rosetta 2"; \
+	  if bash scripts/wow-runtime --macos-ok; then echo "This Mac can run the experimental FEX runtime instead: make FEX=1 (no Rosetta 2 needed)"; fi; \
+	  exit 1; fi
 
 prefix-rosetta:
 	$(call make_prefix,$(WINE),$(RES)/prefix)
