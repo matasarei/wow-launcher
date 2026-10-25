@@ -386,8 +386,13 @@ final class Store: ObservableObject {
             let p = Process()
             p.executableURL = URL(fileURLWithPath: Paths.rosettaTool)
             let missing = (try? { try p.run(); p.waitUntilExit(); return p.terminationStatus != 0 }()) ?? false
+            // asked here as well: at launch checkRunning may not have answered yet, and
+            // the switch must not run verify --fix under a game that is already playing
+            let out = missing ? shell("/usr/bin/pgrep", ["-f", Paths.runPattern]) : ""
+            let running = !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !out.hasPrefix("ERROR")
             DispatchQueue.main.async {
                 self.rosettaMissing = missing
+                if missing { self.gameRunning = running }
                 self.switchToFEXIfStranded()
             }
         }
