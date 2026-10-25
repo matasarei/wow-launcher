@@ -1455,6 +1455,9 @@ mk_plist "$TMP/Empty.app" io.github.matasarei.wow-launcher 2.8
 mkdir -p "$TMP/Empty.app/Contents/Resources/games"
 OUT="$("$BIN/wow-install-client" "$TMP/Empty.app" 2>&1)"
 assert_contains "$OUT" "Empty has no game installed" "an app without a game is refused"
+mk_plist "$TMP/Empty.app" io.github.matasarei.wow-launcher 2.14-fex-beta
+OUT="$("$BIN/wow-install-client" "$TMP/Empty.app" 2>&1)"
+assert_contains "$OUT" "Empty has no game installed" "a pre-release (2.14-fex-beta) passes the version floor"
 fake_proc "$OLD/Contents/MacOS/WoW Launcher"
 OUT="$("$BIN/wow-install-client" "$OLD" 2>&1)"
 # --updating: an update imports from the launcher that runs it, so that
@@ -1721,6 +1724,22 @@ assert_contains "$(cat "$RES/launcher.conf")" "UPDATE_CHECKED=" "a completed che
 reset_conf; assert_contains "$(check same.json)" "RESULT: CURRENT" "the same version is not an update"
 reset_conf; assert_contains "$(check older.json)" "RESULT: CURRENT" "an older release is not an update"
 reset_conf; assert_contains "$(check noasset.json)" "RESULT: CURRENT" "a release without a WoW-v*.zip is not offered"
+# a pre-release version (2.14-fex-beta) sits just below the same plain version
+mk_release "$TMP/rel/v2.13.json" v2.13
+mk_release "$TMP/rel/v2.14.json" v2.14
+mk_release "$TMP/rel/beta.json"  v2.14-fex-beta
+mk_release "$TMP/rel/beta2.json" v2.14-fex-beta.2
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.14-fex-beta
+reset_conf; assert_contains "$(check v2.14.json)" "RESULT: UPDATE" "2.14 is offered to a 2.14-fex-beta copy"
+reset_conf; assert_contains "$(check v2.13.json)" "RESULT: CURRENT" "2.13 is not offered to it (no downgrade)"
+reset_conf; assert_contains "$(check beta.json)" "RESULT: CURRENT" "nor its own version"
+reset_conf; assert_contains "$(check beta2.json)" "RESULT: UPDATE" "a later beta (fex-beta.2) is newer"
+reset_conf; assert_contains "$(check beta.json)" "LATEST=2.14-fex-beta" "the suffix survives the tag"
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.13
+reset_conf; assert_contains "$(check beta.json)" "RESULT: UPDATE" "a 2.13 copy reads 2.14-fex-beta as newer"
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.14
+reset_conf; assert_contains "$(check beta.json)" "RESULT: CURRENT" "a 2.14 copy does not read it as newer"
+mk_plist "$APP" io.github.matasarei.wow-launcher 2.9
 # a release older than the floor cannot install itself, whatever this app is
 mk_plist "$APP" io.github.matasarei.wow-launcher 2.1
 reset_conf; assert_contains "$(check older.json)" "RESULT: CURRENT" "a pre-2.9 release is never offered"

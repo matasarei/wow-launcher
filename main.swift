@@ -1149,7 +1149,8 @@ final class Store: ObservableObject {
         let id = info["CFBundleIdentifier"] as? String ?? ""
         let version = info["CFBundleShortVersionString"] as? String ?? ""
         // 1.0 and 2.0 carried local.wow335.singleapp; 2.1 is the first with this one
-        let n = version.split(separator: ".").map { Int($0) ?? 0 }
+        // the leading digits of each part: a pre-release (2.14-fex-beta) is still 2.14
+        let n = version.split(separator: ".").map { Int($0.prefix { $0.isNumber }) ?? 0 }
         let tooOld = id == "local.wow335.singleapp"
             || (n.first ?? 0, n.count > 1 ? n[1] : 0) < (2, 1)
         if id != "io.github.matasarei.wow-launcher" && id != "local.wow335.singleapp" {
