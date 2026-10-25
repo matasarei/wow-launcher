@@ -1,7 +1,8 @@
-# The wrapper is assembled from two artifacts hosted on someone else's GitHub
-# releases, pinned in the Makefile by URL and sha256. If either is retagged,
-# replaced or deleted, `make build` breaks for every new user and nothing here
-# would notice until somebody reported it. This asks, monthly, whether they are
+# The wrapper is assembled from artifacts hosted on someone else's GitHub
+# releases, pinned in the Makefile by URL and sha256 (the FEX runtime only for
+# `make build FEX=1`). If one is retagged, replaced or deleted, `make build`
+# breaks for every new user and nothing here would notice until somebody
+# reported it. This asks, monthly, whether they are
 # still there and still the bytes we pinned.
 name: Upstream artifacts
 
@@ -17,16 +18,16 @@ jobs:
   pins:
     name: Pinned downloads still resolve
     runs-on: ubuntu-latest    # no macOS tooling needed: curl and shasum only
-    timeout-minutes: 5
+    timeout-minutes: 10       # the FEX zip is ~200 MB
     steps:
       - uses: actions/checkout@v4
 
       - name: The URLs still resolve
         run: |
           fail=0
-          for key in RUNTIME_URL PAYLOAD_URL; do
+          for key in RUNTIME_URL FEX_RUNTIME_URL PAYLOAD_URL; do
             url=$(sed -nE "s/^$key[[:space:]]*=[[:space:]]*(.*)$/\1/p" Makefile)
-            printf '%-12s %s\n' "$key" "$url"
+            printf '%-16s %s\n' "$key" "$url"
             curl -fsIL --retry 3 -o /dev/null "$url" \
               && echo "  ok: reachable" \
               || { echo "::error::$key no longer resolves: $url"; fail=1; }
@@ -47,3 +48,18 @@ jobs:
           }
           # The payload DMG is ~150 MB and only a file source; its checksum is
           # verified at build time, so reachability above is enough for it here.
+
+      - name: The FEX runtime is still the bytes we pinned
+        run: |
+          # A "Preview" release is the likeliest to be replaced; a mismatch
+          # breaks every `make build FEX=1`.
+          url=$(sed -nE 's/^FEX_RUNTIME_URL[[:space:]]*=[[:space:]]*(.*)$/\1/p' Makefile)
+          want=$(sed -nE 's/^FEX_RUNTIME_SHA256[[:space:]]*=[[:space:]]*(.*)$/\1/p' Makefile)
+          curl -fsL --retry 3 -o fex-runtime.zip "$url"
+          got=$(shasum -a 256 fex-runtime.zip | cut -d' ' -f1)
+          echo "want $want"
+          echo "got  $got"
+          [ "$want" = "$got" ] || {
+            echo "::error::FEX_RUNTIME_SHA256 no longer matches — the pinned preview was replaced"
+            exit 1
+          }
