@@ -79,6 +79,13 @@ it left off.
 The build is idempotent — re-running skips what's already done. `make launcher`
 rebuilds just the GUI/scripts into an existing wrapper.
 
+**Experimental: `make FEX=1`** also bundles a second runtime — WoWSilicon's arm64
+wine with the FEX emulator (from the WoWSilicon 3.3.0 Preview, ~200 MB download,
+sha256-verified, ~540 MB in the app) and its own wine prefix. Such a copy shows a
+**Runtime** picker in the Game pane (Rosetta 2 stays the default); FEX needs
+macOS 26.5 or later, runs the game with MTLd3D, and applies only the icon patch. Details:
+[INTERNALS.md → FEX runtime](INTERNALS.md#fex-runtime-experimental-make-build-fex1).
+
 ## First run
 
 1. Open `WoW.app`. A locally built app opens directly. A *downloaded* copy is

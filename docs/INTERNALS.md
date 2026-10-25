@@ -11,6 +11,7 @@ Contents/Resources/
   bin/                             runtime scripts (installed by build.sh from scripts/wow-*)
   wine/                            wine runtime (WineAndAqua wine 11.13 + mtld3d, see below)
   prefix/                          wine prefix (fresh wineboot + fast-exit fix)
+  wine-fex/, prefix-fex/           only in a `make build FEX=1` copy: the arm64 wine with FEX and its own prefix (see "FEX runtime")
   patch-kit/                       payloads applied to every installed client
   games/main/                      THE game (single-game model; install = replace)
   launcher.conf                    key=value settings (see below)
@@ -36,7 +37,8 @@ Contents/Resources/
 | `RENDERER=dxvk\|mtld3d` | graphics backend (Display pane): dxvk = game-dir DXVK d3d9 (`d3d9=n,b`); mtld3d = the runtime's builtin Metal-native d3d9, HDR-capable (`d3d9=b`) |
 | `SPATIAL_AUDIO=1\|0` | Apple spatial audio for headphones (Audio pane) — **on by default** (absent = on, like `AUTO_RES`): `wow-launch` exports `WOWSILICON_SPATIAL_AUDIO_MODE=fixed`, `0` → `off`; takes effect at the next game start |
 | `NORMALIZE_AUDIO=1\|0` | volume normalizer — quiet up, loud down (Audio pane) — **on by default**: exports `WOWSILICON_NORMALIZE_AUDIO=1`, `0` → `0`; next game start |
-| `PATCHES=all\|no-silicon\|winerosetta\|none` | how much of the patch stack is applied to the client — **`all` by default** (Game pane → Patches picker). This records what the **user asked for**; `wow-client-profile` clamps it down to the best level the installed client can actually take and every tool uses the clamped value, so swapping to a client that cannot take libSiliconPatch and back again restores the full set. The picker only offers the levels in the profile's `LEVELS`. `all`: every patch, libSiliconPatch included. `no-silicon`: everything but libSiliconPatch — its ~400 hooks are hardcoded addresses with no build check, so on a modified client they corrupt memory instead of failing, and Sirus-style clients report the patched bytes to the server (WoWSilicon issue #15). `winerosetta`: only the Divx mod loader + `mods/winerosetta.dll`. That DLL's `DllMain` installs a vectored exception handler which fills two Rosetta 2 instruction gaps — it emulates `ARPL AX,DX` and rewrites `FCOMP ST(0),ST(0)` in place; neither encoding appears in the client itself, so what needs them is server-pushed Warden code. (It also exports `Direct3DCreate9` and can proxy to `d9vk.dll` / `<known folder>\d3d9.dll`; that path is dormant here, since DXVK's own `d3d9.dll` sits in the game dir and the exe imports it directly.) `none`: the client is left exactly as it shipped (Warden servers will most likely disconnect). Levels apply via `wow-verify-game --fix`, which converges the mod set, the Divx DLL and the `Wow.exe` icon patch in both directions. The pre-2.4 `SILICON=` toggle still migrates (`1`→`all`, `0`→`no-silicon`) |
+| `PATCHES=all\|no-silicon\|winerosetta\|none` | how much of the patch stack is applied to the client — **`all` by default** (Game pane → Patches picker). This records what the **user asked for**; `wow-client-profile` clamps it down to the best level the installed client can actually take and every tool uses the clamped value, so swapping to a client that cannot take libSiliconPatch and back again restores the full set. The picker only offers the levels in the profile's `LEVELS`. `all`: every patch, libSiliconPatch included. `no-silicon`: everything but libSiliconPatch — its ~400 hooks are hardcoded addresses with no build check, so on a modified client they corrupt memory instead of failing, and Sirus-style clients report the patched bytes to the server (WoWSilicon issue #15). `winerosetta`: only the Divx mod loader + `mods/winerosetta.dll`. That DLL's `DllMain` installs a vectored exception handler which fills two Rosetta 2 instruction gaps — it emulates `ARPL AX,DX` and rewrites `FCOMP ST(0),ST(0)` in place; neither encoding appears in the client itself, so what needs them is server-pushed Warden code. (It also exports `Direct3DCreate9` and can proxy to `d9vk.dll` / `<known folder>\d3d9.dll`; that path is dormant here, since DXVK's own `d3d9.dll` sits in the game dir and the exe imports it directly.) `none`: the client is left exactly as it shipped (Warden servers will most likely disconnect). Levels apply via `wow-verify-game --fix`, which converges the mod set, the Divx DLL and the `Wow.exe` icon patch in both directions. The pre-2.4 `SILICON=` toggle still migrates (`1`→`all`, `0`→`no-silicon`). Under `RUNTIME=fex` the key is kept but not applied: the effective level is `icon` (or `none`), see "FEX runtime" |
+| `RUNTIME=rosetta\|fex` | which wine runs the game (Game pane → Runtime, shown only in a copy built with `FEX=1`) — **`rosetta` by default** (absent = rosetta). `fex` takes effect only when the bundle has `wine-fex/` and `prefix-fex/` and the Mac runs macOS 26.5 or later; otherwise every tool runs Rosetta and `wow-runtime` says which condition failed. Switching re-runs verify with `--fix`, which converges the client to the runtime's patch level. The import carries it; a copy without FEX reads it as Rosetta (the in-app update installs a release, built without FEX) |
 | `CLOSE_ON_PLAY=1\|0` | quit the launcher once the game is in front (Play pane checkbox) — **off by default** (absent = stay open); while the game runs the launcher only leaves the screen, because the game's Local Network access is the launcher's (Assorted gotchas) |
 | `X87=auto\|rosettax87\|sidecar\|off` | x87 engine (conf-only, no UI). **`auto` by default** (absent = auto): `wow-check-x87` proves rosettax87 (game dir, via `ROSETTA_X87_PATH`) on this Mac's Rosetta runtime, then the sidecar (patch-kit/x87sidecar via `X87_SIDECAR_PATH`, cooperative attach, no debugger). When neither passes the game runs on plain Rosetta 2. Both engines patch the runtime at offsets they find by scanning it for byte patterns. A runtime with other patterns (macOS 15.0.1 has one) stops them before the loader starts, rosettax87 with exit 0, and the game never appeared. `rosettax87` and `sidecar` force that engine without the check, as every value did before `auto` existed. `off` forces none. The first line of `last-launch.log` names the engine used and why |
 | `X87_CHECKED=<engine>@<fingerprint>` | `auto`'s kept answer, written by `wow-check-x87`: the engine, keyed to size and mtime of the Rosetta runtime, the loader and both engine binaries. The probe runs once per macOS update, wine runtime or kit rebuild; every other Play reads this line. A probe takes under a second when the loader exits. A rosettax87 that fails to patch can leave the loader suspended instead (seen with a game of this copy running, and at times without one); then the probe takes the full 15 s deadline and SIGKILL ends the loader. The engine's own `Fatal:` line is a verdict either way and is kept. A kill with no such line proved nothing: its answer serves that Play (`not remembered` in the log line), nothing is written, and the next Play checks again. `wow-check-x87 reset` drops the line. The import does not carry it (`KEYS` in `wow-install-client`): a new copy proves its own engines |
@@ -90,6 +92,49 @@ Contents/Resources/
   (created by `make runtime`) before exec'ing the real rosettax87 → the game
   process is named "WoW". Known limitation: in `X87=sidecar` mode the loader is
   exec'd directly, so the Dock shows "wine" there.
+
+## FEX runtime (experimental, `make build FEX=1`)
+
+A second way to run the game: WoWSilicon's arm64 wine (runtime **r18**, wine 11.13 +
+mtld3d v0.13.0) with [FEX](https://github.com/FEX-Emu/FEX) emulating the x86 client
+inside it, instead of the x86_64 wine under Rosetta 2. r18 exists only inside the
+WoWSilicon **3.3.0 Preview** app zip, so `make runtime-fex` downloads that zip
+(`FEX_RUNTIME_URL`/`FEX_RUNTIME_SHA256`, ~200 MB), takes the wine out of it
+(~540 MB unpacked) into `Resources/wine-fex/`, and sets the arm64 loader app's
+`CFBundleName` to `WoW` for the Dock. `make prefix-fex` makes its own prefix with the
+same recipe as `prefix` (`make_prefix` in the Makefile): an arm64 wine cannot use the
+prefix the x86_64 one made. Neither target runs without `FEX=1`, so a plain
+`make build` — and every release — is unchanged.
+
+- **One switch, one place.** `wow-runtime` prints `KIND`/`WINE`/`PREFIX`/`WHY`, and
+  every script that starts wine — `wow-launch`, `wow-settings`, `wow-wine-home`,
+  `wow-install-client`, `wow-verify-game` — reads it. `wow-update` stops both
+  wineservers before it swaps the app. `wow-check-x87` is the exception: it proves
+  Rosetta engines, so it keeps the Rosetta loader and simply never runs under FEX.
+  The GUI's `fexAvailable` mirrors the bundle half of the check (runtime + prefix +
+  macOS 26.5) to decide whether to show the picker at all.
+- **What FEX skips.** The Rosetta 2 check (an arm64 wine doesn't need it), the x87
+  engines (`x87: none (FEX emulates x87 itself)` is the log's first line), the
+  `WoW`-symlink/shim Dock trick, and DXVK: the renderer is forced to MTLd3D
+  (`renderer: mtld3d (FEX: MTLd3D only for now)` on the log's second line, the
+  Display pane's picker disabled with a caption) — r18 ships no MoltenVK, and the
+  kit's `d3d9.dll` is the d9vk build. `FEX_HOSTFEATURES=disableafp` is exported, as
+  upstream's launcher does.
+- **Patches: the icon only.** In the real game the client starts under FEX only
+  without the launcher's patches — even `no-silicon` stops it right after the mods
+  load. They are built for Rosetta 2: `winerosetta.dll` fills Rosetta instruction
+  gaps (upstream ships none under FEX), the 3.3.0 Preview carries a newer libDllLdr
+  (its notes: DivxDecoder needs re-patching with the updated loader) and a newer,
+  opt-in libSiliconPatch. So under FEX `wow-client-profile` offers one hidden level,
+  **`icon`** — the `Wow.exe` icon bsdiff and nothing else; the Divx DLL is restored
+  to the original, no `dlls.txt`, no mods — or `none` when the icon has no diff for
+  this exe. The Patches section shows a note instead of the picker. The level the
+  user picked stays in `PATCHES=` and comes back on Rosetta, where verify `--fix`
+  puts the mods and the patched Divx DLL back. Verify totals are the same on both.
+- **Limits.** Experimental: tested on a 3.3.5a client against a local server. No
+  DXVK, no libSiliconPatch, none of the Warden helpers winerosetta provides on
+  Rosetta. Upstream's newer libDllLdr and libSiliconPatch under FEX would be a
+  separate change.
 
 ## Patch kit anatomy
 
@@ -473,7 +518,10 @@ launcher knows the client's name at best, never its expected contents.
 with the loader or the icon; `all` only with a libSiliconPatch build. So a 12340
 client sees all four (unchanged from 2.4), a Cataclysm client three, and a
 64-bit client one — for it, nothing in the kit can be loaded at all and the app
-says so before the copy starts.
+says so before the copy starts. Under `RUNTIME=fex` the profile also prints
+`RUNTIME=fex`, and `LEVELS` is a single level: `icon` when the icon applies,
+otherwise `none`. `PATCHES_REQUESTED` stays what the user chose; `PATCHES` is that
+one level.
 
 - **Client entrypoint**: `Wow.exe` normally; if a client ships only `run.exe`
   (Sirus-style custom builds) that becomes the entrypoint for launch and verify,
