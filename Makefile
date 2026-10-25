@@ -166,6 +166,7 @@ prefix:
 
 # the FEX runtime is arm64: no Rosetta needed to create its prefix
 prefix-fex:
+	@[ -x "$(WINE_FEX)/bin/wine" ] || { echo "ERROR: no FEX runtime in $(APP) — make runtime-fex first (make build FEX=1 does both)"; exit 1; }
 	$(call make_prefix,$(WINE_FEX),$(RES)/prefix-fex)
 
 launcher:
