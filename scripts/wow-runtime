@@ -1,0 +1,32 @@
+#!/bin/bash
+# Which wine runtime runs the game: the x86_64 one under Rosetta 2 (Resources/wine,
+# the default) or the experimental arm64 one with FEX as its x86 emulator
+# (Resources/wine-fex, only in a `make build FEX=1` wrapper). Each has its own
+# prefix: an arm64 wine cannot use the one the x86_64 wine made. Every script that
+# starts wine asks here, so the choice lives in one place.
+# FEX only when all of these hold, otherwise Rosetta with the one that failed:
+# launcher.conf RUNTIME=fex, the FEX runtime and its prefix in this bundle, and
+# macOS 26.5 or later (what the runtime requires upstream).
+# Usage: wow-runtime — prints, one per line:
+#   KIND=rosetta|fex   WINE=<runtime dir>   PREFIX=<prefix dir>   WHY=<reason>
+RES="$(cd "$(dirname "$0")/.." && pwd)"
+WANT="$(grep -sE '^RUNTIME=' "$RES/launcher.conf" | head -1 | cut -d= -f2)"
+MACOS="${WOW_TEST_MACOS:-$(sw_vers -productVersion 2>/dev/null)}"
+rosetta() { printf 'KIND=rosetta\nWINE=%s\nPREFIX=%s\nWHY=%s\n' "$RES/wine" "$RES/prefix" "$1"; exit 0; }
+# 26.5 or later, compared as numbers ("26.10" is newer than "26.5")
+macos_ok() {
+  case "$MACOS" in [0-9]*) ;; *) return 1 ;; esac
+  local MAJOR="${MACOS%%.*}" REST="${MACOS#*.}" MINOR
+  [ "$REST" = "$MACOS" ] && REST=0
+  MINOR="${REST%%.*}"
+  [ "$MAJOR" -gt 26 ] 2>/dev/null || { [ "$MAJOR" -eq 26 ] && [ "${MINOR:-0}" -ge 5 ]; } 2>/dev/null
+}
+case "$WANT" in
+  fex) ;;
+  ""|rosetta) rosetta "the default" ;;
+  *) rosetta "RUNTIME=$WANT is not a runtime (rosetta or fex)" ;;
+esac
+[ -x "$RES/wine-fex/bin/wine" ] || rosetta "RUNTIME=fex, but this copy has no FEX runtime (built without FEX=1)"
+[ -d "$RES/prefix-fex/drive_c" ] || rosetta "RUNTIME=fex, but this copy has no FEX prefix"
+macos_ok || rosetta "RUNTIME=fex needs macOS 26.5 or later (this Mac: ${MACOS:-unknown})"
+printf 'KIND=fex\nWINE=%s\nPREFIX=%s\nWHY=%s\n' "$RES/wine-fex" "$RES/prefix-fex" "RUNTIME=fex"

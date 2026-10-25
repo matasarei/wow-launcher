@@ -310,6 +310,33 @@ mv "$RES/patch-kit/wow-icon-$IN_MD5-deadbeef.bsdiff" "$RES/patch-kit/wow-icon-ca
 assert_eq "$(prof "$TMP/client-icon" CAP_ICON)"     "1"       "an already-patched exe still counts"
 rm -f "$RES/patch-kit/wow-icon-"*.bsdiff
 
+# ============================================================ runtime choice
+section "wow-runtime (Rosetta 2 or the experimental FEX runtime)"
+rtv() { WOW_TEST_MACOS="${MAC:-27.0.1}" "$BIN/wow-runtime" | sed -n "s/^$1=//p"; }
+reset_conf
+assert_eq "$(rtv KIND)" "rosetta" "no RUNTIME= key: Rosetta"
+assert_eq "$(rtv WHY)" "the default" "and says so"
+assert_eq "$(rtv WINE)|$(rtv PREFIX)" "$RES/wine|$RES/prefix" "the x86_64 runtime and its prefix"
+printf 'RUNTIME=rosetta\n' >> "$RES/launcher.conf"
+assert_eq "$(rtv KIND)" "rosetta" "RUNTIME=rosetta"
+reset_conf; printf 'RUNTIME=bogus\n' >> "$RES/launcher.conf"
+assert_contains "$(rtv WHY)" "RUNTIME=bogus is not a runtime" "an unknown value falls back to Rosetta, said"
+reset_conf; printf 'RUNTIME=fex\n' >> "$RES/launcher.conf"
+assert_eq "$(rtv KIND)" "rosetta" "RUNTIME=fex in a copy built without it: Rosetta"
+assert_contains "$(rtv WHY)" "no FEX runtime (built without FEX=1)" "and why"
+mkdir -p "$RES/wine-fex/bin"; printf '#!/bin/bash\n' > "$RES/wine-fex/bin/wine"; chmod +x "$RES/wine-fex/bin/wine"
+assert_contains "$(rtv WHY)" "no FEX prefix" "the runtime without its prefix: Rosetta"
+mkdir -p "$RES/prefix-fex/drive_c"
+assert_eq "$(MAC=26.4 rtv KIND)" "rosetta" "macOS 26.4: Rosetta"
+assert_contains "$(MAC=26.4 rtv WHY)" "needs macOS 26.5 or later (this Mac: 26.4)" "and why"
+assert_eq "$(MAC=26 rtv KIND)" "rosetta" "macOS 26 (26.0): Rosetta"
+assert_eq "$(MAC=garbage rtv KIND)" "rosetta" "an unreadable macOS version: Rosetta"
+for V in 26.5 26.5.1 26.10 27.0.1 28; do
+  assert_eq "$(MAC=$V rtv KIND)" "fex" "macOS $V: FEX"
+done
+assert_eq "$(rtv WINE)|$(rtv PREFIX)" "$RES/wine-fex|$RES/prefix-fex" "the FEX runtime and its own prefix"
+rm -rf "$RES/wine-fex" "$RES/prefix-fex"; reset_conf
+
 # ============================================================ version detection
 section "wow-game-version"
 assert_eq "$("$BIN/wow-game-version" "$TMP/client-wotlk")"   "3.3.5a" "wotlk fingerprint"
