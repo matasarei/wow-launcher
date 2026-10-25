@@ -72,6 +72,13 @@
 "DXVK (default)" = "DXVK(기본값)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "다음 게임 시작 시 적용됩니다. DXVK는 Vulkan을 통해 Direct3D 9를 변환하는 검증된 기본값이며, MTLd3D는 Metal로 직접 렌더링하고 HDR을 출력할 수 있습니다.";
+"Runtime" = "런타임";
+"Run the game with" = "게임 실행 방식";
+"Rosetta 2 (default)" = "Rosetta 2(기본값)";
+"FEX (experimental)" = "FEX(실험적)";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental." = "다음 게임 시작 시 적용됩니다. Rosetta 2는 Apple의 변환기이며 검증된 기본값입니다. FEX는 arm64 Wine에 내장된 오픈 소스 x86 에뮬레이터로, 별도의 Windows 설정을 사용합니다. 실험적 기능입니다.";
+"Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "FEX에서는 당분간 렌더러가 MTLd3D로 고정됩니다. DXVK는 아직 이 런타임에서 실행되지 않습니다.";
+"Runtime set to %@ — takes effect at the next game start." = "런타임이 %@(으)로 설정되었습니다. 다음 게임 시작 시 적용됩니다.";
 "Audio" = "오디오";
 "Output" = "출력";
 "Spatial audio (headphones)" = "공간 음향 (헤드폰)";

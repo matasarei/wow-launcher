@@ -72,6 +72,13 @@
 "DXVK (default)" = "DXVK (по умолчанию)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Вступает в силу при следующем запуске игры. DXVK транслирует Direct3D 9 через Vulkan — проверенный вариант по умолчанию; MTLd3D рендерит напрямую через Metal и поддерживает HDR.";
+"Runtime" = "Среда выполнения";
+"Run the game with" = "Запускать игру через";
+"Rosetta 2 (default)" = "Rosetta 2 (по умолчанию)";
+"FEX (experimental)" = "FEX (экспериментально)";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental." = "Вступает в силу при следующем запуске игры. Rosetta 2 — транслятор Apple и проверенный вариант по умолчанию; FEX — открытый эмулятор x86 внутри arm64-сборки Wine, со своими настройками Windows. Экспериментально.";
+"Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "Под FEX пока работает только MTLd3D: DXVK в этой среде ещё не запускается.";
+"Runtime set to %@ — takes effect at the next game start." = "Среда выполнения: %@ — вступит в силу при следующем запуске игры.";
 "Audio" = "Звук";
 "Output" = "Вывод";
 "Spatial audio (headphones)" = "Пространственный звук (наушники)";

@@ -131,6 +131,7 @@ struct DisplayOption: Identifiable, Hashable {
 final class Store: ObservableObject {
     @Published var mode = "maximized"
     @Published var renderer = "dxvk"
+    @Published var runtime = "rosetta"    // RUNTIME=rosetta|fex (wow-runtime decides what actually runs)
     @Published var spatialAudio = true     // SPATIAL_AUDIO=0 → WOWSILICON_SPATIAL_AUDIO_MODE=off (else fixed)
     @Published var normalizeAudio = true   // NORMALIZE_AUDIO=0 → WOWSILICON_NORMALIZE_AUDIO=0 (else 1)
     @Published var closeOnPlay = false     // CLOSE_ON_PLAY=1 → quit after handing focus to the game
@@ -191,6 +192,7 @@ final class Store: ObservableObject {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         let r = confGet("RENDERER")
         renderer = r.isEmpty ? "dxvk" : r
+        runtime = confGet("RUNTIME") == "fex" ? "fex" : "rosetta"
         // on unless launcher.conf says 0 — absent = on, the AUTO_RES idiom wow-launch mirrors
         let sp = confGet("SPATIAL_AUDIO"), nm = confGet("NORMALIZE_AUDIO")
         spatialAudio = sp.isEmpty || sp == "1"
@@ -642,6 +644,23 @@ final class Store: ObservableObject {
             _ = shell(Paths.settings, ["windowed", target])
             DispatchQueue.main.async { self.busy = false; self.refreshStatus() }
         }
+    }
+
+    // The FEX runtime is in the bundle only in a `make build FEX=1` copy, and needs
+    // macOS 26.5 — the conditions wow-runtime checks before it plays on FEX.
+    var fexAvailable: Bool {
+        FileManager.default.isExecutableFile(atPath: Paths.resources + "/wine-fex/bin/wine")
+            && FileManager.default.fileExists(atPath: Paths.resources + "/prefix-fex/drive_c")
+            && ProcessInfo.processInfo.isOperatingSystemAtLeast(
+                OperatingSystemVersion(majorVersion: 26, minorVersion: 5, patchVersion: 0))
+    }
+    // what the next Play runs on: wow-launch forces MTLd3D there
+    var onFEX: Bool { runtime == "fex" && fexAvailable }
+
+    func setRuntime(_ r: String) {
+        runtime = r
+        confSet("RUNTIME", r)
+        note = LF("Runtime set to %@ — takes effect at the next game start.", r == "fex" ? "FEX" : "Rosetta 2")
     }
 
     func setRenderer(_ r: String) {
@@ -2138,7 +2157,10 @@ struct DisplayView: View {
         Binding(get: { store.windowPoints }, set: { store.setWindowSize($0) })
     }
     var rendererBinding: Binding<String> {
-        Binding(get: { store.renderer }, set: { store.setRenderer($0) })
+        Binding(get: { store.onFEX ? "mtld3d" : store.renderer }, set: { store.setRenderer($0) })
+    }
+    var runtimeBinding: Binding<String> {
+        Binding(get: { store.runtime }, set: { store.setRuntime($0) })
     }
 
     // Standard sizes that fit on the chosen display (window size is in points).
@@ -2203,15 +2225,36 @@ struct DisplayView: View {
                     }
                 }
             }
+            // only in a copy that carries the FEX runtime, on a Mac that can run it
+            if store.fexAvailable {
+                Section("Runtime") {
+                    Picker("Run the game with", selection: runtimeBinding) {
+                        Text("Rosetta 2 (default)").tag("rosetta")
+                        Text("FEX (experimental)").tag("fex")
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(store.gameRunning)
+                    Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Section("Renderer") {
                 Picker("Graphics backend", selection: rendererBinding) {
                     Text("DXVK (default)").tag("dxvk")
                     Text("MTLd3D (Metal, HDR)").tag("mtld3d")
                 }
                 .pickerStyle(.menu)
-                Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .disabled(store.onFEX)
+                Group {
+                    if store.onFEX {
+                        Text("Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet.")
+                    } else {
+                        Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             if !store.note.isEmpty {
                 Section {
