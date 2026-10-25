@@ -75,10 +75,7 @@
 "Runtime" = "Среда выполнения";
 "Run the game with" = "Запускать игру через";
 "Rosetta 2 (default)" = "Rosetta 2 (по умолчанию)";
-"FEX (experimental)" = "FEX (экспериментально)";
-"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX only the game icon is patched." = "Вступает в силу при следующем запуске игры. Rosetta 2 — транслятор Apple и проверенный вариант по умолчанию; FEX — открытый эмулятор x86 внутри arm64-сборки Wine, со своими настройками Windows. Экспериментально: под FEX патчится только значок игры.";
-"Nothing to choose under FEX — only the game icon is patched. The launcher's other patches are built for Rosetta 2, so the game code runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2." = "Под FEX выбирать нечего — патчится только значок игры. Остальные патчи лаунчера сделаны для Rosetta 2, поэтому код игры работает в исходном виде. Ваш уровень патчей вернётся при переключении на Rosetta 2.";
-"Nothing to choose under FEX — the launcher's patches are built for Rosetta 2, so the client runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2." = "Под FEX выбирать нечего — патчи лаунчера сделаны для Rosetta 2, поэтому клиент запускается в исходном виде. Ваш уровень патчей вернётся при переключении на Rosetta 2.";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched." = "Вступает в силу при следующем запуске игры. Rosetta 2 — транслятор Apple и проверенный вариант по умолчанию; FEX — открытый эмулятор x86 внутри arm64-сборки Wine, со своими настройками Windows. Rosetta 2 ему не нужна; под FEX рендерер — MTLd3D, и патчится только значок игры.";
 "Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "Под FEX пока работает только MTLd3D: DXVK в этой среде ещё не запускается.";
 "Runtime set to %@ — takes effect at the next game start." = "Среда выполнения: %@ — вступит в силу при следующем запуске игры.";
 "Audio" = "Звук";
@@ -118,7 +115,7 @@
 "Failed to install %@: %@" = "Не удалось установить %@: %@";
 "Verification stopped." = "Проверка остановлена.";
 "Could not start verification: %@" = "Не удалось запустить проверку: %@";
-"Patches" = "Патчи";
+"Patches (Rosetta)" = "Патчи (Rosetta)";
 "Applied to the client" = "Применяется к клиенту";
 "All patches (recommended)" = "Все патчи (рекомендуется)";
 "All except libSiliconPatch" = "Все, кроме libSiliconPatch";

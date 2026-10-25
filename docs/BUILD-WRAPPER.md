@@ -81,7 +81,7 @@ rebuilds just the GUI/scripts into an existing wrapper.
 
 ### Without Rosetta 2: a copy with FEX
 
-**Experimental: `make FEX=1`** also bundles a second runtime — WoWSilicon's arm64
+**`make FEX=1`** also bundles a second runtime — WoWSilicon's arm64
 wine with the FEX emulator (from the WoWSilicon 3.3.0 Preview, ~200 MB download,
 sha256-verified, ~540 MB in the app) and its own wine prefix. Such a copy shows a
 **Runtime** picker in the Game pane (Rosetta 2 stays the default); FEX needs
@@ -93,7 +93,7 @@ Rosetta part with a warning, and the app runs the game with FEX, its Runtime pic
 locked until Rosetta 2 is installed (then `make FEX=1` again adds the Rosetta part).
 A plain `make` on such a Mac stops, and on macOS 26.5 or later says to use
 `make FEX=1`. Details:
-[INTERNALS.md → FEX runtime](INTERNALS.md#fex-runtime-experimental-make-build-fex1).
+[INTERNALS.md → FEX runtime](INTERNALS.md#fex-runtime-make-build-fex1).
 
 ## First run
 

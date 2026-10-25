@@ -57,7 +57,7 @@ model qualifies (they all run macOS 15+). Uses **Rosetta 2** under the hood — 
 offers to install it on first launch if it isn't already
 (`softwareupdate --install-rosetta` does the same from Terminal). A major macOS
 upgrade can remove it again; the launcher then says so and repeats that command.
-On macOS 26.5 or later a copy with the experimental FEX runtime (every release from
+On macOS 26.5 or later a copy with the FEX runtime (every release from
 2.14) also plays without Rosetta 2.
 
 The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
@@ -108,7 +108,7 @@ matching, the Cyrillic input layer, the fast-exit fix, and a proper "WoW" Dock i
 Double-click **WoW.app** — a native manager window opens:
 
 - **Play** — one big button. Shows current mode/resolution/retina state, a one-click "re-detect display" refresh, a live *running* indicator with force-stop, and an **Install** button instead when no game is present.
-- **Game** — install a client (pick any client folder — what it is gets detected, it's copied in, and it gets the Apple Silicon patches that apply to it, then it's verified), or **update from a previous version**: *Import from Previous App…* takes the game — already patched, with your settings, addons and language packs — from the older WoW Launcher app still in your Applications (2.1 or later, any name) and only copies and verifies it; the old app is left untouched, so delete it once the new one plays. When a server's own updater has changed the client folder, **Update Game…** copies the new files in and re-applies the patches, keeping your addons, settings, server list and language packs. Also: choose how much of the patch stack to apply (**Patches**: the menu lists only the levels this client can take), and — only in a copy with FEX (every release from 2.14, or `make FEX=1`) — which runtime runs the game (**Runtime**: Rosetta 2 by default, or the experimental FEX, macOS 26.5+, MTLd3D only, icon patch only), **Verify** integrity (client-aware checks: files, patches, settings — 43 of them for 3.3.5a) with one-click **Fix Issues** repair, or a reinstall suggestion if game data is damaged beyond repair. Below: the **language packs** (3.3.5a/2.4.3) — import a pack from a client in another language and switch the game language from a dropdown (the pack's data and matching executable are swapped, the cache cleared); and the **server list** editor (realmlist.wtf) — radio-select the active server, add or remove entries.
+- **Game** — install a client (pick any client folder — what it is gets detected, it's copied in, and it gets the Apple Silicon patches that apply to it, then it's verified), or **update from a previous version**: *Import from Previous App…* takes the game — already patched, with your settings, addons and language packs — from the older WoW Launcher app still in your Applications (2.1 or later, any name) and only copies and verifies it; the old app is left untouched, so delete it once the new one plays. When a server's own updater has changed the client folder, **Update Game…** copies the new files in and re-applies the patches, keeping your addons, settings, server list and language packs. Also: choose how much of the patch stack to apply (**Patches (Rosetta)**: the menu lists only the levels this client can take; hidden under FEX, which patches only the icon), and — only in a copy with FEX (every release from 2.14, or `make FEX=1`) — which runtime runs the game (**Runtime**: Rosetta 2 by default, or FEX, macOS 26.5+, no Rosetta 2 needed, MTLd3D only, icon patch only), **Verify** integrity (client-aware checks: files, patches, settings — 43 of them for 3.3.5a) with one-click **Fix Issues** repair, or a reinstall suggestion if game data is damaged beyond repair. Below: the **language packs** (3.3.5a/2.4.3) — import a pack from a client in another language and switch the game language from a dropdown (the pack's data and matching executable are swapped, the cache cleared); and the **server list** editor (realmlist.wtf) — radio-select the active server, add or remove entries.
 - **AddOns** — list installed addons (with versions from their .toc), install from ZIP or folder, remove to Trash, reveal in Finder. Blizzard built-ins are hidden.
 - **Display** — window mode (maximized / windowed / fullscreen) with standard window sizes, automatic resolution & Retina matching at every launch, a renderer choice (**DXVK** by default or the Metal-native **MTLd3D** with HDR output), or pick a specific display: the game window is moved there automatically after launch (needs a one-time Accessibility permission).
 - **About** — version, **Check for Updates** with an automatic weekly check, links (repository, build story, third-party components), license and trademark info. When a newer version is out you get the choice to update, open the release page or skip that version; updating downloads it, moves your game and settings into it (the import, in reverse), replaces this copy and restarts — the old one goes to the Trash.
@@ -139,7 +139,7 @@ verifies their checksums, and assembles everything:
    ```
 
 New to the command line? [docs/BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md) walks
-through every step, Terminal included. `make FEX=1` also bundles the experimental
+through every step, Terminal included. `make FEX=1` also bundles the
 FEX runtime (an extra ~200 MB download).
 
 Contributors: [docs/INTERNALS.md](docs/INTERNALS.md) documents the wrapper
@@ -180,7 +180,7 @@ No Xcode, no dependencies.
   ```
   Verify also reports it, and skips the two checks that need wine instead of
   failing them. On macOS 26.5 or later there is a way without Rosetta: a copy
-  with the experimental FEX runtime (every release from 2.14, or `make FEX=1`,
+  with the FEX runtime (every release from 2.14, or `make FEX=1`,
   [BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md#without-rosetta-2-a-copy-with-fex))
   plays without it, and switches to FEX by itself when Rosetta is missing.
 - **Lower FPS than expected, and `last-launch.log` opens with `x87: none`:**

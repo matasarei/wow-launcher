@@ -4,7 +4,7 @@ APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
 if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME="$RES/games/$GAME_NAME"; else GAME="$RES/game"; fi
-# Which runtime and prefix: the x86_64 wine under Rosetta 2, or the experimental
+# Which runtime and prefix: the x86_64 wine under Rosetta 2, or the
 # arm64 one with FEX (launcher.conf RUNTIME=fex in a FEX=1 build; see wow-runtime).
 RT="$("$RES/bin/wow-runtime")"; rt() { printf '%s\n' "$RT" | sed -n "s/^$1=//p"; }
 RUNTIME="$(rt KIND)"; WINEDIR="$(rt WINE)"; PFX="$(rt PREFIX)"

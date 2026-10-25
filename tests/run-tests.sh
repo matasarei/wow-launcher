@@ -311,7 +311,7 @@ assert_eq "$(prof "$TMP/client-icon" CAP_ICON)"     "1"       "an already-patche
 rm -f "$RES/patch-kit/wow-icon-"*.bsdiff
 
 # ============================================================ runtime choice
-section "wow-runtime (Rosetta 2 or the experimental FEX runtime)"
+section "wow-runtime (Rosetta 2 or the FEX runtime)"
 rtv() { WOW_TEST_MACOS="${MAC:-27.0.1}" "$BIN/wow-runtime" | sed -n "s/^$1=//p"; }
 reset_conf
 assert_eq "$(rtv KIND)" "rosetta" "no RUNTIME= key: Rosetta"
@@ -717,7 +717,7 @@ assert_contains "$(grep -s '^X87_CHECKED=' "$RES/launcher.conf")" "X87_CHECKED=n
 assert_contains "$(head -1 "$LAUNCHLOG")" "(Fatal: failed to scan rosetta runtime for offsets.)" "with the engine's line in the log"
 "$BIN/wow-check-x87" reset; [ -z "$X87_WAS" ] || printf '%s\n' "$X87_WAS" >> "$RES/launcher.conf"
 
-# The experimental FEX runtime (RUNTIME=fex in a FEX=1 build): its own loader
+# The FEX runtime (RUNTIME=fex in a FEX=1 build): its own loader
 # and prefix, no Rosetta check, no x87 engine, MTLd3D whatever RENDERER says.
 # Its stubs mark the log, then hand over to the Rosetta stub, whose line carries
 # the environment the game got.

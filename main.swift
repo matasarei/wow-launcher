@@ -1947,7 +1947,7 @@ struct GameView: View {
                         get: { store.onFEX ? "fex" : store.runtime },
                         set: { store.setRuntime($0) })) {
                         Text("Rosetta 2 (default)").tag("rosetta")
-                        Text("FEX (experimental)").tag("fex")
+                        Text("FEX").tag("fex")
                     }
                     .pickerStyle(.menu)
                     // locked on FEX while Rosetta 2 cannot play: nothing else to pick
@@ -1965,43 +1965,39 @@ struct GameView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX only the game icon is patched.")
+                        Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
-            Section("Patches") {
-                if store.profile["RUNTIME"] == "fex" {
-                    // one level under FEX: the icon where the exe is recognised, else none
-                    if store.patchLevels == ["icon"] {
-                        Label("Nothing to choose under FEX — only the game icon is patched. The launcher's other patches are built for Rosetta 2, so the game code runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2.",
+            // the patches are built for Rosetta 2: under FEX there is nothing to pick (only
+            // the icon is patched, the Runtime caption says so), and the level the player
+            // chose comes back with Rosetta
+            if store.profile["RUNTIME"] != "fex" {
+                Section("Patches (Rosetta)") {
+                    if store.patchLevels == ["none"] {
+                        Label("Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped.",
                               systemImage: "info.circle")
                     } else {
-                        Label("Nothing to choose under FEX — the launcher's patches are built for Rosetta 2, so the client runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2.",
-                              systemImage: "info.circle")
-                    }
-                } else if store.patchLevels == ["none"] {
-                    Label("Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped.",
-                          systemImage: "info.circle")
-                } else {
-                    Picker("Applied to the client", selection: Binding(
-                        get: { store.patches },
-                        set: { store.setPatches($0) })) {
-                        ForEach(store.patchLevels, id: \.self) { level in
-                            Text(store.patchLevelLabel(level)).tag(level)
+                        Picker("Applied to the client", selection: Binding(
+                            get: { store.patches },
+                            set: { store.setPatches($0) })) {
+                            ForEach(store.patchLevels, id: \.self) { level in
+                                Text(store.patchLevelLabel(level)).tag(level)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .disabled(store.busy || store.verifyRunning)
+                        Text(store.patchesDescription + " " + L("Applies at the next game start."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .pickerStyle(.menu)
-                    .disabled(store.busy || store.verifyRunning)
-                    Text(store.patchesDescription + " " + L("Applies at the next game start."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if !store.patchLimitNote.isEmpty {
-                    Text(store.patchLimitNote)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    if !store.patchLimitNote.isEmpty {
+                        Text(store.patchLimitNote)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             if store.supportsLanguagePacks {

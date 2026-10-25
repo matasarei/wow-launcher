@@ -93,7 +93,7 @@ Contents/Resources/
   process is named "WoW". Known limitation: in `X87=sidecar` mode the loader is
   exec'd directly, so the Dock shows "wine" there.
 
-## FEX runtime (experimental, `make build FEX=1`)
+## FEX runtime (`make build FEX=1`)
 
 A second way to run the game: WoWSilicon's arm64 wine (runtime **r18**, wine 11.13 +
 mtld3d v0.13.0) with [FEX](https://github.com/FEX-Emu/FEX) emulating the x86 client
@@ -128,8 +128,9 @@ prefix the x86_64 one made. Neither target runs without `FEX=1`, so a plain
   opt-in libSiliconPatch. So under FEX `wow-client-profile` offers one hidden level,
   **`icon`** — the `Wow.exe` icon bsdiff and nothing else; the Divx DLL is restored
   to the original, no `dlls.txt`, no mods — or `none` when the icon has no diff for
-  this exe. The Patches section shows a note instead of the picker. The level the
-  user picked stays in `PATCHES=` and comes back on Rosetta, where verify `--fix`
+  this exe. The Game pane hides its Patches section, titled "Patches (Rosetta)"
+  since it applies there only. The level the user picked stays in `PATCHES=` and
+  comes back on Rosetta, where verify `--fix`
   puts the mods and the patched Divx DLL back. Verify totals are the same on both.
 - **Without Rosetta 2.** Where FEX can run (a `FEX=1` copy, macOS 26.5+), a missing
   Rosetta is not a dead end:
@@ -155,7 +156,7 @@ prefix the x86_64 one made. Neither target runs without `FEX=1`, so a plain
     `wow-check-rosetta` answer as a Mac without it, for an x86_64 loader. It is inherited
     by `make` and by the GUI's subprocesses:
     `WOW_TEST_NO_ROSETTA=1 "$HOME/Applications/WoW.app/Contents/MacOS/WoW Launcher"`.
-- **Limits.** Experimental: tested on a 3.3.5a client against a local server. No
+- **Limits.** Tested on a 3.3.5a client against a local server. No
   DXVK, no libSiliconPatch, none of the Warden helpers winerosetta provides on
   Rosetta. Upstream's newer libDllLdr and libSiliconPatch under FEX would be a
   separate change.

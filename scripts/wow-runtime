@@ -1,6 +1,6 @@
 #!/bin/bash
 # Which wine runtime runs the game: the x86_64 one under Rosetta 2 (Resources/wine,
-# the default) or the experimental arm64 one with FEX as its x86 emulator
+# the default) or the arm64 one with FEX as its x86 emulator
 # (Resources/wine-fex, only in a `make build FEX=1` wrapper). Each has its own
 # prefix: an arm64 wine cannot use the one the x86_64 wine made. Every script that
 # starts wine asks here, so the choice lives in one place.

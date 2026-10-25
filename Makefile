@@ -19,7 +19,7 @@ RES   = $(APP)/Contents/Resources
 WINE  = $(RES)/wine
 UNIX  = $(WINE)/lib/wine/x86_64-unix
 DEPS  = build/deps
-# make build FEX=1: also bundle the experimental arm64 + FEX runtime, with its own prefix
+# make build FEX=1: also bundle the arm64 + FEX runtime, with its own prefix
 FEX  ?=
 WINE_FEX = $(RES)/wine-fex
 
@@ -81,11 +81,11 @@ runtime:
 	@echo "==> Dock-name cosmetics (game shows as 'WoW')"
 	@cd "$(UNIX)" && { [ -e "WoW" ] || ln -s wine "WoW"; }
 
-# Experimental, only with FEX=1. The archive is the whole preview app; only its wine
+# Only with FEX=1. The archive is the whole preview app; only its wine
 # runtime is kept — its own launcher, updater and payloads are not this wrapper's.
 runtime-fex:
 	@if [ -x "$(WINE_FEX)/bin/wine" ]; then echo "==> FEX runtime already present, skipping"; else \
-	  echo "==> FEX runtime (experimental: arm64 wine 11.13 + FEX, ~200 MB download)"; \
+	  echo "==> FEX runtime (arm64 wine 11.13 + FEX, ~200 MB download)"; \
 	  mkdir -p "$(DEPS)"; \
 	  [ -f "$(DEPS)/wowsilicon-fex.zip" ] || curl -fL --progress-bar -o "$(DEPS)/wowsilicon-fex.zip" "$(FEX_RUNTIME_URL)"; \
 	  echo "$(FEX_RUNTIME_SHA256)  $(DEPS)/wowsilicon-fex.zip" | shasum -a 256 -c - >/dev/null || { echo "ERROR: FEX runtime checksum mismatch — delete $(DEPS)/wowsilicon-fex.zip and retry"; exit 1; }; \
@@ -166,7 +166,7 @@ prefix:
 	@if bash scripts/wow-check-rosetta "$(WINE)/bin/wine"; then $(MAKE) --no-print-directory prefix-rosetta APP="$(APP)"; \
 	elif [ -n "$(FEX)" ]; then echo "WARNING: Rosetta 2 is missing — the Rosetta prefix is skipped; this copy plays with FEX until Rosetta 2 is installed and make build FEX=1 runs again"; \
 	else echo "ERROR: the prefix is created by running wine, which cannot start without Rosetta 2"; \
-	  if bash scripts/wow-runtime --macos-ok; then echo "This Mac can run the experimental FEX runtime instead: make FEX=1 (no Rosetta 2 needed)"; fi; \
+	  if bash scripts/wow-runtime --macos-ok; then echo "This Mac can run the FEX runtime instead: make FEX=1 (no Rosetta 2 needed)"; fi; \
 	  exit 1; fi
 
 prefix-rosetta:

@@ -75,10 +75,7 @@
 "Runtime" = "Runtime";
 "Run the game with" = "Run the game with";
 "Rosetta 2 (default)" = "Rosetta 2 (default)";
-"FEX (experimental)" = "FEX (experimental)";
-"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX only the game icon is patched." = "Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. Experimental: under FEX only the game icon is patched.";
-"Nothing to choose under FEX — only the game icon is patched. The launcher's other patches are built for Rosetta 2, so the game code runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2." = "Nothing to choose under FEX — only the game icon is patched. The launcher's other patches are built for Rosetta 2, so the game code runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2.";
-"Nothing to choose under FEX — the launcher's patches are built for Rosetta 2, so the client runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2." = "Nothing to choose under FEX — the launcher's patches are built for Rosetta 2, so the client runs exactly as it shipped. Your patch level comes back when you switch to Rosetta 2.";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched." = "Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched.";
 "Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet.";
 "Runtime set to %@ — takes effect at the next game start." = "Runtime set to %@ — takes effect at the next game start.";
 "Audio" = "Audio";
@@ -118,7 +115,7 @@
 "Failed to install %@: %@" = "Failed to install %@: %@";
 "Verification stopped." = "Verification stopped.";
 "Could not start verification: %@" = "Could not start verification: %@";
-"Patches" = "Patches";
+"Patches (Rosetta)" = "Patches (Rosetta)";
 "Applied to the client" = "Applied to the client";
 "All patches (recommended)" = "All patches (recommended)";
 "All except libSiliconPatch" = "All except libSiliconPatch";
