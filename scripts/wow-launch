@@ -4,15 +4,20 @@ APP="$(cd "$(dirname "$0")/../../.." && pwd)"
 RES="$APP/Contents/Resources"
 GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
 if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME="$RES/games/$GAME_NAME"; else GAME="$RES/game"; fi
-LOADER="$RES/wine/bin/wine"
+# Which runtime and prefix: the x86_64 wine under Rosetta 2, or the experimental
+# arm64 one with FEX (launcher.conf RUNTIME=fex in a FEX=1 build; see wow-runtime).
+RT="$("$RES/bin/wow-runtime")"; rt() { printf '%s\n' "$RT" | sed -n "s/^$1=//p"; }
+RUNTIME="$(rt KIND)"; WINEDIR="$(rt WINE)"; PFX="$(rt PREFIX)"
+LOADER="$WINEDIR/bin/wine"
 LOG="$RES/logs/last-launch.log"
 # Without Rosetta the x86_64 loader cannot exec at all: nohup would write "Bad
-# CPU type in executable" into the log and the game would never appear.
-if ! WHY="$("$RES/bin/wow-check-rosetta")"; then
+# CPU type in executable" into the log and the game would never appear. The FEX
+# runtime is arm64 and needs no Rosetta.
+if [ "$RUNTIME" = rosetta ] && ! WHY="$("$RES/bin/wow-check-rosetta")"; then
   { echo "$WHY"; echo "ERROR: the game cannot start without Rosetta 2"; } | tee "$LOG"
   exit 1
 fi
-export WINEPREFIX="$RES/prefix"
+export WINEPREFIX="$PFX"
 export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
 # Wine creates the game's sockets inside wineserver, and macOS credits network
 # traffic to the app that started *that* process. A wineserver left over from
@@ -26,10 +31,10 @@ export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wi
 WIN_GAME="Z:$(printf '%s' "$GAME" | tr '/' '\\')"
 PROCS="$(ps -wwaxo command=)"   # listed first: a grep in the same pipeline would match itself
 if ! printf '%s\n' "$PROCS" | grep -qF -e "$GAME/" -e "$WIN_GAME\\"; then
-  "$RES/wine/bin/wineserver" -k >/dev/null 2>&1 || true
+  "$WINEDIR/bin/wineserver" -k >/dev/null 2>&1 || true
 fi
 # the Z: drive link is stripped at build time (absolute symlinks break codesign)
-[ -e "$RES/prefix/dosdevices/z:" ] || ln -sf / "$RES/prefix/dosdevices/z:" 2>/dev/null
+[ -e "$PFX/dosdevices/z:" ] || ln -sf / "$PFX/dosdevices/z:" 2>/dev/null
 # x87 engine (launcher.conf X87=). auto, the default: wow-check-x87 proves
 # rosettax87 on this Mac's Rosetta runtime, then the sidecar (the newer
 # cooperative variant, no debugger attach), and the game runs on plain
@@ -38,9 +43,12 @@ fi
 # sidecar force that engine without the check, as every value did before
 # auto; off forces none. The shim reroutes the loader exec through the 'WoW'
 # symlink so the game's Dock entry shows "WoW" instead of "wine".
+# FEX emulates x87 itself: no engine, no check, and nothing for the shim to do.
 X87="$(grep -sE '^X87=' "$RES/launcher.conf" | cut -d= -f2)"
 X87_WHY=""
+[ "$RUNTIME" = fex ] && X87=fex
 case "${X87:-auto}" in
+  fex)     X87_ENGINE=none; X87_WHY="FEX emulates x87 itself" ;;
   auto)
     X87_REPORT="$("$RES/bin/wow-check-x87" auto 2>/dev/null || true)"
     X87_ENGINE="$(printf '%s\n' "$X87_REPORT" | sed -n 's/^ENGINE=//p')"
@@ -63,7 +71,12 @@ fi
 # Renderer (launcher.conf RENDERER=): dxvk (default) loads the game-dir DXVK
 # d3d9.dll; mtld3d uses the runtime's builtin d3d9, which IS the MTLd3D
 # Metal-native backend (HDR-capable).
+# Under FEX only MTLd3D for now: the runtime's builtin d3d9 needs nothing in the
+# game folder, while DXVK there would need the KosmicKrisp build of d3d9.dll (r18
+# has no MoltenVK).
 RENDERER="$(grep -sE '^RENDERER=' "$RES/launcher.conf" | cut -d= -f2)"
+RENDERER_WHY=""
+if [ "$RUNTIME" = fex ] && [ "$RENDERER" != "mtld3d" ]; then RENDERER=mtld3d; RENDERER_WHY=" (FEX: MTLd3D only for now)"; fi
 if [ "$RENDERER" = "mtld3d" ]; then
   export WINEDLLOVERRIDES="d3d9=b"
 else
@@ -75,10 +88,12 @@ else
   # from the loader's documented search order, not reproduced). Named
   # explicitly, as upstream does; an older runtime (MoltenVK itself as the
   # library) has no manifest, and then nothing is set.
-  ICD="$RES/wine/lib/vulkan/icd.d/MoltenVK_icd.json"
+  ICD="$WINEDIR/lib/vulkan/icd.d/MoltenVK_icd.json"
   if [ -f "$ICD" ]; then export VK_DRIVER_FILES="$ICD"; else unset VK_DRIVER_FILES; fi
 fi
 export MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS=1
+# what upstream's own launcher sets for this runtime (wowsilicon-launch, 3.3.0 Preview)
+if [ "$RUNTIME" = fex ]; then export FEX_HOSTFEATURES=disableafp; else unset FEX_HOSTFEATURES; fi
 export DXVK_ASYNC=1
 export WINE_LARGE_ADDRESS_AWARE=1
 export MTL_HUD_ENABLED=0
@@ -133,14 +148,14 @@ CUR_ACP="$(P='[system\\controlset001\\control\\nls\\codepage]' awk '
   BEGIN { p = ENVIRON["P"] }
   /^\[/ { in_key = (index(tolower($0), p) == 1); next }
   in_key && /^"ACP"="/ { v = $0; sub(/^"ACP"="/, "", v); sub(/".*/, "", v); print v; exit }
-' "$RES/prefix/system.reg" 2>/dev/null)"
+' "$PFX/system.reg" 2>/dev/null)"
 [ -n "$CUR_ACP" ] || CUR_ACP="$("$LOADER" reg query "$NLSKEY" /v ACP 2>/dev/null | tr -d '\r' | awk '/^[[:space:]]*ACP/ {print $NF}' | tail -1)"
 if [ "$CUR_ACP" != "$ACP" ]; then
   "$LOADER" reg add "$NLSKEY" /v ACP   /t REG_SZ /d "$ACP"   /f >/dev/null 2>&1
   "$LOADER" reg add "$NLSKEY" /v OEMCP /t REG_SZ /d "$OEMCP" /f >/dev/null 2>&1
   "$LOADER" reg add "$NLSKEY" /v MACCP /t REG_SZ /d "$MACCP" /f >/dev/null 2>&1
   # the system codepage is baked in per wineserver session — force a fresh one
-  "$RES/wine/bin/wineserver" -k >/dev/null 2>&1 || true
+  "$WINEDIR/bin/wineserver" -k >/dev/null 2>&1 || true
   sleep 1
 fi
 cd "$GAME" || exit 1
@@ -184,6 +199,7 @@ fi
 # The engine is the log's first line. A report of a game that never appeared
 # then names the engine used, and why.
 echo "x87: $X87_ENGINE${X87_WHY:+ ($X87_WHY)}" > "$LOG"
+echo "runtime: $RUNTIME ($(rt WHY)), renderer: ${RENDERER:-dxvk}$RENDERER_WHY" >> "$LOG"
 nohup "$LOADER" "$EXE" >> "$LOG" 2>&1 &
 disown
 # Move the game window to the chosen display once it appears (needs Accessibility)

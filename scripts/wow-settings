@@ -17,8 +17,10 @@ RES="$APP/Contents/Resources"
 GAME_NAME="$(grep -sE '^GAME=' "$RES/launcher.conf" | head -1 | cut -d= -f2-)"
 if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME_DIR="$RES/games/$GAME_NAME"; else GAME_DIR="$RES/game"; fi
 CFG="$GAME_DIR/WTF/Config.wtf"
-LOADER="$RES/wine/bin/wine"
-export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
+# the active runtime and its prefix (wow-runtime): RetinaMode lives in that prefix
+RT="$("$RES/bin/wow-runtime")"; PFX="$(printf '%s\n' "$RT" | sed -n 's/^PREFIX=//p')"
+LOADER="$(printf '%s\n' "$RT" | sed -n 's/^WINE=//p')/bin/wine"
+export WINEPREFIX="$PFX" WINEDEBUG=-all
 export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
 unset ROSETTA_X87_PATH
 
@@ -48,8 +50,8 @@ retina_wanted() {  # retina_wanted <display retina-yes/no> → yes/no
 # not newer than that record, the record is what wine holds. Nothing else
 # writes RetinaMode (verify --fix goes through __retina-set below). Neither
 # file there: ask wine, as before.
-USER_REG="$RES/prefix/user.reg"
-RETINA_REC="$RES/prefix/.retina-mode"
+USER_REG="$PFX/user.reg"
+RETINA_REC="$PFX/.retina-mode"
 retina_have() {  # prints RetinaMode as wine has it (Y/N, upper case), empty when unset
   if [ -f "$RETINA_REC" ] && ! [ "$USER_REG" -nt "$RETINA_REC" ]; then
     tr '[:lower:]' '[:upper:]' < "$RETINA_REC"

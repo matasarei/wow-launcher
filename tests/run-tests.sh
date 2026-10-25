@@ -699,6 +699,46 @@ assert_contains "$(grep -s '^X87_CHECKED=' "$RES/launcher.conf")" "X87_CHECKED=n
 assert_contains "$(head -1 "$LAUNCHLOG")" "(Fatal: failed to scan rosetta runtime for offsets.)" "with the engine's line in the log"
 "$BIN/wow-check-x87" reset; [ -z "$X87_WAS" ] || printf '%s\n' "$X87_WAS" >> "$RES/launcher.conf"
 
+# The experimental FEX runtime (RUNTIME=fex in a FEX=1 build): its own loader
+# and prefix, no Rosetta check, no x87 engine, MTLd3D whatever RENDERER says.
+# Its stubs mark the log, then hand over to the Rosetta stub, whose line carries
+# the environment the game got.
+section "launch under the FEX runtime"
+# a fresh prefix has no codepage yet, so the launch writes it and waits a second
+# for the wineserver: wait for the game, not a fixed time
+launched() { for _ in $(seq 50); do grep -qF 'Wow.exe' "$WINELOG" && return; sleep 0.1; done; }
+mkdir -p "$RES/wine-fex/bin" "$RES/prefix-fex/drive_c/users" "$RES/prefix-fex/dosdevices"
+for T in wine wineserver; do
+  printf '#!/bin/bash\necho "FEX STUB %s HOSTFEATURES=${FEX_HOSTFEATURES:-unset}" >> "$WINE_STUB_LOG"\nexec "%s" "$@"\n' "$T" "$RES/wine/bin/$T" > "$RES/wine-fex/bin/$T"
+  chmod +x "$RES/wine-fex/bin/$T"
+done
+CONF0="$(cat "$RES/launcher.conf")"   # the installed game's conf: restored, not reset (GAME= must stay)
+printf 'RUNTIME=fex\nRENDERER=dxvk\nX87=rosettax87\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "PREFIX=$RES/prefix-fex " "the game runs in the FEX prefix"
+assert_contains "$(grep -B1 -F 'Wow.exe' "$WINELOG" | head -1)" "FEX STUB wine HOSTFEATURES=disableafp" "through the FEX loader, with upstream's host features"
+assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "no x87 engine, even with X87=rosettax87"
+assert_contains "$(game_line)" "OVR=d3d9=b" "MTLd3D, even with RENDERER=dxvk"
+assert_eq "$(head -1 "$LAUNCHLOG")" "x87: none (FEX emulates x87 itself)" "the log's first line still names the x87 engine"
+assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: mtld3d (FEX: MTLd3D only for now)" "the second names the runtime and renderer"
+[ -L "$RES/prefix-fex/dosdevices/z:" ] && ok || bad "z: drive link made in the FEX prefix"
+assert_contains "$(readlink "$RES/prefix-fex/drive_c/users/${USER:-$(id -un)}")" "../../../home/Wine" "the Windows profile is linked into the FEX prefix"
+# a Mac too old for the runtime: Rosetta, as if nothing were set, and the log says why
+: > "$WINELOG"; WOW_TEST_MACOS=26.4 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "PREFIX=$RES/prefix " "macOS 26.4: the Rosetta prefix"
+assert_eq "$(grep -c 'FEX STUB' "$WINELOG")" "0" "and not the FEX loader"
+assert_contains "$(game_line)" "OVR=d3d9=n,b" "with the renderer the conf asks for"
+assert_contains "$(sed -n 2p "$LAUNCHLOG")" "runtime: rosetta (RUNTIME=fex needs macOS 26.5 or later (this Mac: 26.4))" "the log says why"
+printf '%s\n' "$CONF0" > "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(sed -n 2p "$LAUNCHLOG")" "runtime: rosetta (the default), renderer: " "no key: the default runtime line"
+# the display settings go to the active prefix: RetinaMode is a per-prefix registry value
+printf 'RUNTIME=fex\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 WOW_TEST_RETINA=Y "$BIN/wow-settings" retina off >/dev/null
+assert_contains "$(grep 'RetinaMode /t REG_SZ /d N' "$WINELOG")" "PREFIX=$RES/prefix-fex " "RetinaMode is written into the FEX prefix"
+[ -f "$RES/prefix-fex/.retina-mode" ] && ok || bad "and its record kept beside that prefix"
+rm -rf "$RES/wine-fex" "$RES/prefix-fex"; printf '%s\n' "$CONF0" > "$RES/launcher.conf"
+
 # the codepage is read from the prefix's registry file: no wine started just to
 # read it. Wine's own spelling — ControlSet001, "Codepage" — with a neighbouring
 # key whose ACP must not be picked up.
