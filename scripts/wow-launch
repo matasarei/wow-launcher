@@ -199,6 +199,13 @@ else
   export MTLD3D_CONFIG='cursor.scale=1'
   if [ -n "$KEEP" ]; then printf '%s\n' "$KEEP" > "$GAME/dxvk.conf"; else rm -f "$GAME/dxvk.conf"; fi
 fi
+# macOS has no HDR cursor: over HDR content the hardware cursor stays at SDR
+# brightness and reads dim. FEX's MTLd3D (0.13.0) can draw the game's cursor in
+# a tone-mapped overlay instead, sized by cursor.scale like the hardware one;
+# auto does so only while the HDR present path is active, since the overlay sends
+# the game window through the compositor. The Rosetta runtime's 0.7.0 has no
+# such key.
+if [ "$RUNTIME" = fex ]; then export MTLD3D_CONFIG="${MTLD3D_CONFIG:+$MTLD3D_CONFIG;}cursor.software=auto"; fi
 # The engine is the log's first line. A report of a game that never appeared
 # then names the engine used, and why.
 echo "x87: $X87_ENGINE${X87_WHY:+ ($X87_WHY)}" > "$LOG"

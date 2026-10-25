@@ -741,6 +741,7 @@ assert_contains "$(game_line)" "PREFIX=$RES/prefix-fex " "the game runs in the F
 assert_contains "$(grep -B1 -F 'Wow.exe' "$WINELOG" | head -1)" "FEX STUB wine HOSTFEATURES=disableafp" "through the FEX loader, with upstream's host features"
 assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "no x87 engine, even with X87=rosettax87"
 assert_contains "$(game_line)" "OVR=d3d9=b" "MTLd3D, even with RENDERER=dxvk"
+assert_contains "$(game_line)" "cursor.software=auto " "MTLd3D's overlay cursor while HDR is on"
 assert_eq "$(head -1 "$LAUNCHLOG")" "x87: none (FEX emulates x87 itself)" "the log's first line still names the x87 engine"
 assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: mtld3d (FEX: MTLd3D only for now)" "the second names the runtime and renderer"
 [ -L "$RES/prefix-fex/dosdevices/z:" ] && ok || bad "z: drive link made in the FEX prefix"
@@ -750,6 +751,7 @@ assert_contains "$(readlink "$RES/prefix-fex/drive_c/users/${USER:-$(id -un)}")"
 assert_contains "$(game_line)" "PREFIX=$RES/prefix " "macOS 26.4: the Rosetta prefix"
 assert_eq "$(grep -c 'FEX STUB' "$WINELOG")" "0" "and not the FEX loader"
 assert_contains "$(game_line)" "OVR=d3d9=n,b" "with the renderer the conf asks for"
+case "$(game_line)" in *cursor.software*) bad "no overlay cursor on Rosetta (its MTLd3D has none)" ;; *) ok ;; esac
 assert_contains "$(sed -n 2p "$LAUNCHLOG")" "runtime: rosetta (RUNTIME=fex needs macOS 26.5 or later (this Mac: 26.4))" "the log says why"
 printf '%s\n' "$CONF0" > "$RES/launcher.conf"
 : > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
