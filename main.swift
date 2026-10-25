@@ -1147,8 +1147,9 @@ final class Store: ObservableObject {
 
     // Copying a client takes minutes and as much disk as the folder holds, so a
     // client the launcher can do nothing for is confirmed before, not after.
+    // Under FEX "none" is the runtime's choice, not the client's (wow-client-profile).
     private func confirmNothingApplies(_ p: [String: String]) -> Bool {
-        guard (p["LEVELS"] ?? "") == "none" else { return true }
+        guard (p["LEVELS"] ?? "") == "none", p["RUNTIME"] != "fex" else { return true }
         let a = NSAlert()
         a.alertStyle = .warning
         a.messageText = L("None of the launcher's patches apply to this client")
