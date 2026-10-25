@@ -329,6 +329,9 @@ assert_contains "$(rtv WHY)" "no FEX prefix" "the runtime without its prefix: Ro
 mkdir -p "$RES/prefix-fex/drive_c"
 assert_eq "$(MAC=26.4 rtv KIND)" "rosetta" "macOS 26.4: Rosetta"
 assert_contains "$(MAC=26.4 rtv WHY)" "needs macOS 26.5 or later (this Mac: 26.4)" "and why"
+assert_eq "$(MAC=26.4 rtv FEX_OK)|$(rtv FEX_OK)" "0|1" "FEX_OK: 0 on macOS 26.4, 1 on 27"
+reset_conf; assert_eq "$(rtv KIND)|$(rtv FEX_OK)" "rosetta|1" "FEX_OK=1 while Rosetta plays"
+printf 'RUNTIME=fex\n' >> "$RES/launcher.conf"
 assert_eq "$(MAC=26 rtv KIND)" "rosetta" "macOS 26 (26.0): Rosetta"
 assert_eq "$(MAC=garbage rtv KIND)" "rosetta" "an unreadable macOS version: Rosetta"
 for V in 26.5 26.5.1 26.10 27.0.1 28; do
@@ -1077,6 +1080,7 @@ chmod +x "$BIN/wow-check-rosetta"
 
 : > "$WINELOG"; OUT="$("$BIN/wow-launch" 2>&1)"; sleep 0.3
 assert_contains "$OUT" "cannot start without Rosetta 2" "launch refuses"
+assert_eq "$(echo "$OUT" | grep -c 'play with FEX')" "0" "no FEX hint in a copy without FEX"
 assert_contains "$(cat "$RES/logs/last-launch.log")" "ROSETTA: not installed" "the reason lands in the log"
 assert_eq "$(cat "$WINELOG")" "" "wine is never invoked"
 
@@ -1110,6 +1114,13 @@ section "install and verify under the FEX runtime"
 export WOW_TEST_MACOS=27.0.1
 mk_fex_runtime
 install -m 755 "$TMP/no-rosetta" "$BIN/wow-check-rosetta"
+assert_eq "$("$BIN/wow-runtime" | sed -n 's/^FEX_OK=//p')" "1" "wow-runtime: FEX_OK=1 in a copy that can play on FEX"
+CONF0="$(cat "$RES/launcher.conf")"; printf 'RUNTIME=rosetta\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; OUT="$("$BIN/wow-launch" 2>&1)" && bad "launch without Rosetta, RUNTIME=rosetta: exit 1" || ok
+assert_contains "$OUT" "cannot start without Rosetta 2" "RUNTIME=rosetta without Rosetta: today's error"
+assert_contains "$OUT" "this copy can play with FEX: open the launcher, or set RUNTIME=fex" "and the FEX hint"
+assert_eq "$(cat "$WINELOG")" "" "and wine is never invoked"
+printf '%s\n' "$CONF0" > "$RES/launcher.conf"
 mv "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched" "$TMP/kit-divx.patched"   # the path that needs wine
 for C in tbc:2.4.3:29 vanilla:1.12:25 wotlk:3.3.5a:43; do
   N="${C%%:*}"; V="${C#*:}"; V="${V%:*}"; TOTAL="${C##*:}"

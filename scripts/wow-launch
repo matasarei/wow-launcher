@@ -12,9 +12,12 @@ LOADER="$WINEDIR/bin/wine"
 LOG="$RES/logs/last-launch.log"
 # Without Rosetta the x86_64 loader cannot exec at all: nohup would write "Bad
 # CPU type in executable" into the log and the game would never appear. The FEX
-# runtime is arm64 and needs no Rosetta.
+# runtime is arm64 and needs no Rosetta: a copy that has it says so. The switch
+# itself is the launcher's, which brings the game folder to the FEX patch level.
 if [ "$RUNTIME" = rosetta ] && ! WHY="$("$RES/bin/wow-check-rosetta")"; then
-  { echo "$WHY"; echo "ERROR: the game cannot start without Rosetta 2"; } | tee "$LOG"
+  { echo "$WHY"; echo "ERROR: the game cannot start without Rosetta 2"
+    [ "$(rt FEX_OK)" = 1 ] && echo "this copy can play with FEX: open the launcher, or set RUNTIME=fex in launcher.conf"
+  } | tee "$LOG"
   exit 1
 fi
 export WINEPREFIX="$PFX"

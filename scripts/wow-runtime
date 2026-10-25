@@ -12,10 +12,11 @@
 # so there FEX plays whatever RUNTIME= says, as long as it can.
 # Usage: wow-runtime — prints, one per line:
 #   KIND=rosetta|fex   WINE=<runtime dir>   PREFIX=<prefix dir>   WHY=<reason>
+#   FEX_OK=1|0         whether this copy could play on FEX here, whatever KIND says
 RES="$(cd "$(dirname "$0")/.." && pwd)"
 WANT="$(grep -sE '^RUNTIME=' "$RES/launcher.conf" | head -1 | cut -d= -f2)"
 MACOS="${WOW_TEST_MACOS:-$(sw_vers -productVersion 2>/dev/null)}"
-rosetta() { printf 'KIND=rosetta\nWINE=%s\nPREFIX=%s\nWHY=%s\n' "$RES/wine" "$RES/prefix" "$1"; exit 0; }
+rosetta() { printf 'KIND=rosetta\nWINE=%s\nPREFIX=%s\nWHY=%s\nFEX_OK=%s\n' "$RES/wine" "$RES/prefix" "$1" "$FEX_OK"; exit 0; }
 # 26.5 or later, compared as numbers ("26.10" is newer than "26.5")
 macos_ok() {
   case "$MACOS" in [0-9]*) ;; *) return 1 ;; esac
@@ -24,8 +25,9 @@ macos_ok() {
   MINOR="${REST%%.*}"
   [ "$MAJOR" -gt 26 ] 2>/dev/null || { [ "$MAJOR" -eq 26 ] && [ "${MINOR:-0}" -ge 5 ]; } 2>/dev/null
 }
-fex() { printf 'KIND=fex\nWINE=%s\nPREFIX=%s\nWHY=%s\n' "$RES/wine-fex" "$RES/prefix-fex" "$1"; exit 0; }
+fex() { printf 'KIND=fex\nWINE=%s\nPREFIX=%s\nWHY=%s\nFEX_OK=1\n' "$RES/wine-fex" "$RES/prefix-fex" "$1"; exit 0; }
 fex_ok() { [ -x "$RES/wine-fex/bin/wine" ] && [ -d "$RES/prefix-fex/drive_c" ] && macos_ok; }
+FEX_OK=0; fex_ok && FEX_OK=1
 case "$WANT" in
   fex) ;;
   ""|rosetta) WHY="the default" ;;
