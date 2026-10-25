@@ -38,7 +38,7 @@ Contents/Resources/
 | `SPATIAL_AUDIO=1\|0` | Apple spatial audio for headphones (Audio pane) — **on by default** (absent = on, like `AUTO_RES`): `wow-launch` exports `WOWSILICON_SPATIAL_AUDIO_MODE=fixed`, `0` → `off`; takes effect at the next game start |
 | `NORMALIZE_AUDIO=1\|0` | volume normalizer — quiet up, loud down (Audio pane) — **on by default**: exports `WOWSILICON_NORMALIZE_AUDIO=1`, `0` → `0`; next game start |
 | `PATCHES=all\|no-silicon\|winerosetta\|none` | how much of the patch stack is applied to the client — **`all` by default** (Game pane → Patches picker). This records what the **user asked for**; `wow-client-profile` clamps it down to the best level the installed client can actually take and every tool uses the clamped value, so swapping to a client that cannot take libSiliconPatch and back again restores the full set. The picker only offers the levels in the profile's `LEVELS`. `all`: every patch, libSiliconPatch included. `no-silicon`: everything but libSiliconPatch — its ~400 hooks are hardcoded addresses with no build check, so on a modified client they corrupt memory instead of failing, and Sirus-style clients report the patched bytes to the server (WoWSilicon issue #15). `winerosetta`: only the Divx mod loader + `mods/winerosetta.dll`. That DLL's `DllMain` installs a vectored exception handler which fills two Rosetta 2 instruction gaps — it emulates `ARPL AX,DX` and rewrites `FCOMP ST(0),ST(0)` in place; neither encoding appears in the client itself, so what needs them is server-pushed Warden code. (It also exports `Direct3DCreate9` and can proxy to `d9vk.dll` / `<known folder>\d3d9.dll`; that path is dormant here, since DXVK's own `d3d9.dll` sits in the game dir and the exe imports it directly.) `none`: the client is left exactly as it shipped (Warden servers will most likely disconnect). Levels apply via `wow-verify-game --fix`, which converges the mod set, the Divx DLL and the `Wow.exe` icon patch in both directions. The pre-2.4 `SILICON=` toggle still migrates (`1`→`all`, `0`→`no-silicon`). Under `RUNTIME=fex` the key is kept but not applied: the effective level is `icon` (or `none`), see "FEX runtime" |
-| `RUNTIME=rosetta\|fex` | which wine runs the game (Game pane → Runtime, shown only in a copy built with `FEX=1`) — **`rosetta` by default** (absent = rosetta). `fex` takes effect only when the bundle has `wine-fex/` and `prefix-fex/` and the Mac runs macOS 26.5 or later; otherwise every tool runs Rosetta and `wow-runtime` says which condition failed. Switching re-runs verify with `--fix`, which converges the client to the runtime's patch level. The import carries it; a copy without FEX reads it as Rosetta (the in-app update installs a release, built without FEX) |
+| `RUNTIME=rosetta\|fex` | which wine runs the game (Game pane → Runtime, shown only in a copy built with `FEX=1`) — **`rosetta` by default** (absent = rosetta). `fex` takes effect only when the bundle has `wine-fex/` and `prefix-fex/` and the Mac runs macOS 26.5 or later; otherwise every tool runs Rosetta and `wow-runtime` says which condition failed. Switching re-runs verify with `--fix`, which converges the client to the runtime's patch level. **Without Rosetta 2** a copy that can run FEX switches itself: the launcher writes `RUNTIME=fex` through the same path (see "FEX runtime"), and it stays fex once Rosetta is back. A copy built without Rosetta (no `prefix/`) plays on FEX whatever the key says. The import carries it; a copy without FEX reads it as Rosetta (the in-app update installs a release, built without FEX) |
 | `CLOSE_ON_PLAY=1\|0` | quit the launcher once the game is in front (Play pane checkbox) — **off by default** (absent = stay open); while the game runs the launcher only leaves the screen, because the game's Local Network access is the launcher's (Assorted gotchas) |
 | `X87=auto\|rosettax87\|sidecar\|off` | x87 engine (conf-only, no UI). **`auto` by default** (absent = auto): `wow-check-x87` proves rosettax87 (game dir, via `ROSETTA_X87_PATH`) on this Mac's Rosetta runtime, then the sidecar (patch-kit/x87sidecar via `X87_SIDECAR_PATH`, cooperative attach, no debugger). When neither passes the game runs on plain Rosetta 2. Both engines patch the runtime at offsets they find by scanning it for byte patterns. A runtime with other patterns (macOS 15.0.1 has one) stops them before the loader starts, rosettax87 with exit 0, and the game never appeared. `rosettax87` and `sidecar` force that engine without the check, as every value did before `auto` existed. `off` forces none. The first line of `last-launch.log` names the engine used and why |
 | `X87_CHECKED=<engine>@<fingerprint>` | `auto`'s kept answer, written by `wow-check-x87`: the engine, keyed to size and mtime of the Rosetta runtime, the loader and both engine binaries. The probe runs once per macOS update, wine runtime or kit rebuild; every other Play reads this line. A probe takes under a second when the loader exits. A rosettax87 that fails to patch can leave the loader suspended instead (seen with a game of this copy running, and at times without one); then the probe takes the full 15 s deadline and SIGKILL ends the loader. The engine's own `Fatal:` line is a verdict either way and is kept. A kill with no such line proved nothing: its answer serves that Play (`not remembered` in the log line), nothing is written, and the next Play checks again. `wow-check-x87 reset` drops the line. The import does not carry it (`KEYS` in `wow-install-client`): a new copy proves its own engines |
@@ -131,6 +131,35 @@ prefix the x86_64 one made. Neither target runs without `FEX=1`, so a plain
   this exe. The Patches section shows a note instead of the picker. The level the
   user picked stays in `PATCHES=` and comes back on Rosetta, where verify `--fix`
   puts the mods and the patched Divx DLL back. Verify totals are the same on both.
+- **Without Rosetta 2.** Where FEX can run (a `FEX=1` copy, macOS 26.5+), a missing
+  Rosetta is not a dead end:
+  - **The launcher** switches to FEX when its Rosetta probe fails (`switchToFEXIfStranded`,
+    via `setRuntime`, so verify `--fix` brings the game folder to the FEX level first). The
+    Runtime picker is locked on FEX with the install command under it; it unlocks once
+    Rosetta is installed, and the copy stays on FEX until the player switches back.
+    `rosettaMissing` is the probe; `rosettaBlocksPlay` (missing and not on FEX) drives
+    the red "cannot start" warnings, which a FEX copy no longer shows.
+  - **The build:** `make build FEX=1` skips the Rosetta prefix with a warning (a plain
+    `make` stops as before, and on macOS 26.5+ names `make FEX=1`). `wow-runtime` then
+    answers fex whatever `RUNTIME=` says ("this copy has no Rosetta prefix"); running
+    `make build FEX=1` again with Rosetta installed adds just that prefix.
+  - **Terminal:** `wow-launch` keeps its Rosetta error and adds a line when the copy could
+    play on FEX (`wow-runtime`'s `FEX_OK=1`); it never switches on its own, because the
+    game folder has to be converged first.
+  - **The update:** a FEX copy whose download has no `wine-fex` stops the update when
+    Rosetta is missing, and otherwise says the game moves to Rosetta 2.
+  - **A copy without FEX** on such a Mac keeps every Rosetta message and adds a link to
+    the FEX build. Below macOS 26.5 nothing changes anywhere: the FEX binaries are built
+    with `minos 26.5` and load on nothing older.
+  - **Testing it on a Mac that has Rosetta:** `WOW_TEST_NO_ROSETTA=1` makes
+    `wow-check-rosetta` answer as a Mac without it, for an x86_64 loader. It is inherited
+    by `make` and by the GUI's subprocesses:
+    `WOW_TEST_NO_ROSETTA=1 "$HOME/Applications/WoW.app/Contents/MacOS/WoW Launcher"`.
+- **Pre-release versions.** A FEX test build is versioned `<next>-fex-beta` (`2.14-fex-beta`):
+  `wow-update`'s `ver_ge` and the import's 2.1 floor read the numbers before the `-`, and a
+  suffix sorts just below the same plain version (2.13 < 2.14-fex-beta < 2.14). GitHub's
+  `releases/latest` never returns a pre-release, so nobody is updated to one; its players
+  are offered the next stable release.
 - **Limits.** Experimental: tested on a 3.3.5a client against a local server. No
   DXVK, no libSiliconPatch, none of the Warden helpers winerosetta provides on
   Rosetta. Upstream's newer libDllLdr and libSiliconPatch under FEX would be a

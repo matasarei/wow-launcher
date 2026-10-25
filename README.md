@@ -177,7 +177,10 @@ No Xcode, no dependencies.
   sudo softwareupdate --install-rosetta --agree-to-license
   ```
   Verify also reports it, and skips the two checks that need wine instead of
-  failing them.
+  failing them. On macOS 26.5 or later there is a way without Rosetta: a copy
+  built with the experimental FEX runtime (`make FEX=1`,
+  [BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md#without-rosetta-2-a-copy-with-fex))
+  plays without it, and switches to FEX by itself when Rosetta is missing.
 - **Lower FPS than expected, and `last-launch.log` opens with `x87: none`:**
   neither fast x87 engine (rosettax87, then the sidecar) can patch this Mac's
   Rosetta runtime. The engines know the runtimes of some macOS releases and
