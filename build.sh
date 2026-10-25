@@ -8,7 +8,15 @@ APP="${1:-$HOME/Applications/WoW.app}"
 mkdir -p "$SRC/build" "$APP/Contents/Resources/bin"
 swiftc -swift-version 5 -parse-as-library -O -target arm64-apple-macos14.0 \
   -o "$SRC/build/WoW Launcher" "$SRC/main.swift"
-codesign --force --sign - "$SRC/build/WoW Launcher"
+# Signed on its own, outside the bundle, the binary gets "WoW Launcher-<build
+# UUID>" as its signing identifier: a new one on every compile. macOS keeps the
+# Local Network grant per signing identifier and path, so after each make launcher
+# the game was blocked from LAN realms until it was granted again (the prompt does
+# not always show). make build's final deep seal names the bundle ID; this keeps
+# that same identity for a make launcher rebuild.
+codesign --force --sign - \
+  --identifier "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$SRC/assets/Info.plist")" \
+  "$SRC/build/WoW Launcher"
 rm -f "$APP/Contents/MacOS/WoW335" "$APP/Contents/Resources/bin/wow-client-fonts.py"   # pre-native leftovers
 cp "$SRC/build/WoW Launcher" "$APP/Contents/MacOS/WoW Launcher"
 install -m 755 "$SRC/scripts/wow-"* "$APP/Contents/Resources/bin/"

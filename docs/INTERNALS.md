@@ -483,7 +483,10 @@ run that leaves the new version at the old path with the game and settings in it
   through. Why it must outlive the game: macOS attributes a child's network traffic to the app that spawned
   it (TN3179's "responsible code"), and Wine — unsigned, no bundle — has no
   identity of its own, so the game's Local Network access *is* the launcher's
-  grant. On macOS 27 the connection drops a few seconds after the launcher quits
+  grant. macOS keeps that grant per signing identifier and path, so `build.sh` signs the
+  binary with the bundle ID: signed on its own it would be `WoW Launcher-<build UUID>`,
+  a new identity after every `make launcher`, blocked from LAN realms until granted
+  again (and the prompt does not always show). On macOS 27 the connection drops a few seconds after the launcher quits
   (seen on three Macs, #7). Of TN3179's exemptions — `launchd` daemons, root,
   tools run from Terminal/SSH — none fits, which is why disclaiming Wine's
   responsibility would not help; only a nested app opened through
