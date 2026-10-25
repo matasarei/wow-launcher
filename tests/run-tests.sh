@@ -28,7 +28,7 @@ export WOW_TEST_DISPLAY="3456x2234 1728x1117 yes"
 # ---------------------------------------------------------------- fake wrapper
 APP="$TMP/WoW.app"; RES="$APP/Contents/Resources"; BIN="$RES/bin"
 mkdir -p "$BIN" "$RES/games" "$RES/logs" "$RES/wine/bin" "$RES/wine/lib/wine/x86_64-unix" \
-         "$RES/prefix/dosdevices" \
+         "$RES/prefix/dosdevices" "$RES/prefix/drive_c" \
          "$RES/patch-kit/mods" "$RES/patch-kit/rosettax87" "$RES/patch-kit/x87sidecar" \
          "$RES/patch-kit/libSiliconPatch/vanilla" "$RES/patch-kit/libSiliconPatch/wotlk"
 cp "$ROOT/scripts/"wow-* "$BIN/"; chmod +x "$BIN"/wow-*
@@ -335,7 +335,20 @@ for V in 26.5 26.5.1 26.10 27.0.1 28; do
   assert_eq "$(MAC=$V rtv KIND)" "fex" "macOS $V: FEX"
 done
 assert_eq "$(rtv WINE)|$(rtv PREFIX)" "$RES/wine-fex|$RES/prefix-fex" "the FEX runtime and its own prefix"
+# a copy built without Rosetta 2 has no Rosetta prefix: FEX plays, whatever RUNTIME= says
+mv "$RES/prefix/drive_c" "$TMP/rosetta-drive_c"
+for W in "" rosetta bogus; do
+  reset_conf; [ -n "$W" ] && printf 'RUNTIME=%s\n' "$W" >> "$RES/launcher.conf"
+  assert_eq "$(rtv KIND)" "fex" "no Rosetta prefix, RUNTIME=${W:-<absent>}: FEX"
+done
+assert_eq "$(rtv WHY)" "this copy has no Rosetta prefix (built without Rosetta 2)" "and why"
+assert_eq "$(MAC=26.4 rtv KIND)" "rosetta" "no Rosetta prefix but no FEX either (macOS 26.4): Rosetta, as before"
 rm -rf "$RES/wine-fex" "$RES/prefix-fex"; reset_conf
+assert_eq "$(rtv KIND)" "rosetta" "no Rosetta prefix in a copy without FEX: Rosetta, as before"
+mv "$TMP/rosetta-drive_c" "$RES/prefix/drive_c"
+# the seam: a Mac without Rosetta, on a Mac that has it (/usr/bin/true carries an x86_64 slice)
+WOW_TEST_NO_ROSETTA=1 "$BIN/wow-check-rosetta" /usr/bin/true >/dev/null && bad "WOW_TEST_NO_ROSETTA=1 reads as Rosetta missing" || ok
+assert_contains "$(WOW_TEST_NO_ROSETTA=1 "$BIN/wow-check-rosetta" /usr/bin/true)" "ROSETTA: not installed" "with the usual line"
 
 # ============================================================ version detection
 section "wow-game-version"
