@@ -131,6 +131,7 @@ struct DisplayOption: Identifiable, Hashable {
 final class Store: ObservableObject {
     @Published var mode = "maximized"
     @Published var renderer = "dxvk"
+    @Published var runtime = "rosetta"    // RUNTIME=rosetta|fex (wow-runtime decides what actually runs)
     @Published var spatialAudio = true     // SPATIAL_AUDIO=0 → WOWSILICON_SPATIAL_AUDIO_MODE=off (else fixed)
     @Published var normalizeAudio = true   // NORMALIZE_AUDIO=0 → WOWSILICON_NORMALIZE_AUDIO=0 (else 1)
     @Published var closeOnPlay = false     // CLOSE_ON_PLAY=1 → quit after handing focus to the game
@@ -191,6 +192,7 @@ final class Store: ObservableObject {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         let r = confGet("RENDERER")
         renderer = r.isEmpty ? "dxvk" : r
+        runtime = confGet("RUNTIME") == "fex" ? "fex" : "rosetta"
         // on unless launcher.conf says 0 — absent = on, the AUTO_RES idiom wow-launch mirrors
         let sp = confGet("SPATIAL_AUDIO"), nm = confGet("NORMALIZE_AUDIO")
         spatialAudio = sp.isEmpty || sp == "1"
@@ -289,6 +291,10 @@ final class Store: ObservableObject {
         a.informativeText = replaceable
             ? LF("You have %@. The update keeps your game, settings, addons and language packs — it imports them from this copy, then replaces it and restarts.", f["CURRENT"] ?? "")
             : LF("You have %@. This copy cannot replace itself where it is, so the update has to be done by hand from the release page.", f["CURRENT"] ?? "")
+        // releases may not carry FEX: what that means here is said before, not after
+        if replaceable && FileManager.default.isExecutableFile(atPath: Paths.resources + "/wine-fex/bin/wine") {
+            a.informativeText += "\n\n" + L("This copy carries the FEX runtime. If the new version does not, the game moves to Rosetta 2 with your settings; on a Mac without Rosetta 2 the update stops and this copy stays.")
+        }
         if replaceable { a.addButton(withTitle: L("Update")) }
         a.addButton(withTitle: L("Open Release Page"))
         a.addButton(withTitle: L("Skip This Version"))
@@ -380,8 +386,26 @@ final class Store: ObservableObject {
             let p = Process()
             p.executableURL = URL(fileURLWithPath: Paths.rosettaTool)
             let missing = (try? { try p.run(); p.waitUntilExit(); return p.terminationStatus != 0 }()) ?? false
-            DispatchQueue.main.async { self.rosettaMissing = missing }
+            // asked here as well: at launch checkRunning may not have answered yet, and
+            // the switch must not run verify --fix under a game that is already playing
+            let pids = missing ? Store.pids(shell("/usr/bin/pgrep", ["-f", Paths.runPattern])) : []
+            DispatchQueue.main.async {
+                self.rosettaMissing = missing
+                if missing { self.watchGame(pids) }
+                self.switchToFEXIfStranded()
+            }
         }
+    }
+
+    // No Rosetta 2, but this copy can play on FEX: go with FEX, through the same
+    // path as picking it by hand, so the game folder is brought to the FEX patch
+    // level before the next Play. It stays FEX once Rosetta is back; the picker
+    // unlocks then and switching back is the player's choice.
+    func switchToFEXIfStranded() {
+        guard rosettaMissing, fexAvailable, runtime != "fex",
+              !busy, !verifyRunning, !gameRunning else { return }
+        setRuntime("fex")
+        note = L("Rosetta 2 is not installed, so this copy now plays with FEX. Rosetta 2 becomes available again once it is installed.")
     }
 
     // MARK: status
@@ -415,9 +439,33 @@ final class Store: ObservableObject {
     func checkRunning() {
         let pattern = Paths.runPattern
         DispatchQueue.global().async {
-            let out = shell("/usr/bin/pgrep", ["-f", pattern])
-            let running = !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !out.hasPrefix("ERROR")
-            DispatchQueue.main.async { self.gameRunning = running }
+            let pids = Store.pids(shell("/usr/bin/pgrep", ["-f", pattern]))
+            DispatchQueue.main.async { self.watchGame(pids) }
+        }
+    }
+
+    static func pids(_ pgrepOut: String) -> [pid_t] {
+        pgrepOut.hasPrefix("ERROR") ? [] : pgrepOut.split(whereSeparator: \.isNewline)
+            .compactMap { pid_t($0.trimmingCharacters(in: .whitespaces)) }
+    }
+
+    // No polling while the game runs: the kernel reports each game process's exit
+    // (a kqueue process source), and only then is pgrep asked again, since Wine's
+    // game can be more than one process and a new one may have started meanwhile.
+    private var exitWatchers: [pid_t: DispatchSourceProcess] = [:]
+
+    private func watchGame(_ pids: [pid_t]) {
+        gameRunning = !pids.isEmpty
+        for (pid, w) in exitWatchers where !pids.contains(pid) {
+            w.cancel(); exitWatchers[pid] = nil
+        }
+        for pid in pids where exitWatchers[pid] == nil {
+            let w = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main)
+            w.setEventHandler { [weak self] in self?.checkRunning() }
+            w.resume()
+            exitWatchers[pid] = w
+            // gone between pgrep and here: a source on a dead pid never fires
+            if kill(pid, 0) != 0 && errno == ESRCH { checkRunning() }
         }
     }
 
@@ -436,11 +484,12 @@ final class Store: ObservableObject {
                     self.rosettaMissing = true
                     self.busy = false
                     self.note = L("The game cannot start: Rosetta 2 is not installed. Open Terminal and run: sudo softwareupdate --install-rosetta --agree-to-license")
+                    self.switchToFEXIfStranded()   // a probe skipped at launch (busy then) is caught up here
                 }
                 return
             }
             DispatchQueue.main.async {
-                self.rosettaMissing = false   // it started, so Rosetta is back
+                if !self.onFEX { self.rosettaMissing = false }   // it started, so Rosetta is back
                 self.gameRunning = true
                 self.busy = false
                 self.focusGame()
@@ -463,6 +512,7 @@ final class Store: ObservableObject {
                     .compactMap { pid_t($0.trimmingCharacters(in: .whitespaces)) })
                 let winPID = Store.visibleWindowOwner(among: pids)
                 DispatchQueue.main.async {
+                    if !pids.isEmpty { self.watchGame(Array(pids)) }
                     if let pid = winPID, let app = NSRunningApplication(processIdentifier: pid) {
                         self.gameApp = app
                         NSApp.yieldActivation(to: app)
@@ -471,6 +521,7 @@ final class Store: ObservableObject {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
                         }
                     } else if Date() >= deadline || !NSApp.isActive {
+                        self.checkRunning()   // stops looking: a game that never showed is not left "running"
                         if self.closeOnPlay { NSApp.terminate(nil) }
                     } else {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { tick() }
@@ -644,6 +695,39 @@ final class Store: ObservableObject {
         }
     }
 
+    // The FEX runtime is in the bundle only in a `make build FEX=1` copy, and needs
+    // macOS 26.5 — the conditions wow-runtime checks before it plays on FEX.
+    var fexAvailable: Bool {
+        FileManager.default.isExecutableFile(atPath: Paths.resources + "/wine-fex/bin/wine")
+            && FileManager.default.fileExists(atPath: Paths.resources + "/prefix-fex/drive_c")
+            && fexMacOS
+    }
+    // the FEX runtime's binaries are built for macOS 26.5 (minos) and load on nothing older
+    var fexMacOS: Bool {
+        ProcessInfo.processInfo.isOperatingSystemAtLeast(
+            OperatingSystemVersion(majorVersion: 26, minorVersion: 5, patchVersion: 0))
+    }
+    // a copy built without Rosetta 2 (make build FEX=1 on such a Mac) has none
+    var hasRosettaPrefix: Bool { FileManager.default.fileExists(atPath: Paths.resources + "/prefix/drive_c") }
+    // what the next Play runs on (wow-launch forces MTLd3D there): FEX when picked,
+    // and always in a copy without the Rosetta prefix — wow-runtime's two FEX cases
+    var onFEX: Bool { fexAvailable && (runtime == "fex" || !hasRosettaPrefix) }
+    var rosettaUsable: Bool { !rosettaMissing && hasRosettaPrefix }
+    // the red "cannot start" warnings: only when nothing else can play
+    var rosettaBlocksPlay: Bool { rosettaMissing && !onFEX }
+
+    // The patch levels follow the runtime (wow-client-profile offers only "icon"
+    // or "none" under FEX), so the game folder is brought to the new level right away, as
+    // a patch-level change does. PATCHES= keeps the player's level for Rosetta.
+    func setRuntime(_ r: String) {
+        runtime = r
+        confSet("RUNTIME", r)
+        note = LF("Runtime set to %@ — takes effect at the next game start.", r == "fex" ? "FEX" : "Rosetta 2")
+        if games.isEmpty { return }
+        verifyGame(fix: true)
+        loadProfile()
+    }
+
     func setRenderer(_ r: String) {
         renderer = r
         confSet("RENDERER", r)
@@ -684,7 +768,7 @@ final class Store: ObservableObject {
 
     // Why the list is shorter than the usual four, in this client's own terms.
     var patchLimitNote: String {
-        guard !games.isEmpty, patchLevels.count < 4 else { return "" }
+        guard !games.isEmpty, patchLevels.count < 4, profile["RUNTIME"] != "fex" else { return "" }
         if profile["ARCH"] == "x64" {
             return L("This client is 64-bit — everything the launcher adds is 32-bit only, so none of it can load into the game.")
         }
@@ -963,7 +1047,8 @@ final class Store: ObservableObject {
         verifyNeedsReinstall = false
         // The script re-probes and prints ROSETTA if it is still missing, so a
         // flag left over from before Rosetta was installed must not survive.
-        rosettaMissing = false
+        // Under FEX it never asks (nor prints the marker): the flag stays the probe's.
+        if !onFEX { rosettaMissing = false }
         verifyRunning = true
         verifySheet = true
         let p = Process()
@@ -1095,7 +1180,8 @@ final class Store: ObservableObject {
         let id = info["CFBundleIdentifier"] as? String ?? ""
         let version = info["CFBundleShortVersionString"] as? String ?? ""
         // 1.0 and 2.0 carried local.wow335.singleapp; 2.1 is the first with this one
-        let n = version.split(separator: ".").map { Int($0) ?? 0 }
+        // the leading digits of each part: a suffixed version (2.15-beta) is still 2.15
+        let n = version.split(separator: ".").map { Int($0.prefix { $0.isNumber }) ?? 0 }
         let tooOld = id == "local.wow335.singleapp"
             || (n.first ?? 0, n.count > 1 ? n[1] : 0) < (2, 1)
         if id != "io.github.matasarei.wow-launcher" && id != "local.wow335.singleapp" {
@@ -1122,8 +1208,9 @@ final class Store: ObservableObject {
 
     // Copying a client takes minutes and as much disk as the folder holds, so a
     // client the launcher can do nothing for is confirmed before, not after.
+    // Under FEX "none" is the runtime's choice, not the client's (wow-client-profile).
     private func confirmNothingApplies(_ p: [String: String]) -> Bool {
-        guard (p["LEVELS"] ?? "") == "none" else { return true }
+        guard (p["LEVELS"] ?? "") == "none", p["RUNTIME"] != "fex" else { return true }
         let a = NSAlert()
         a.alertStyle = .warning
         a.messageText = L("None of the launcher's patches apply to this client")
@@ -1720,10 +1807,25 @@ struct PlayView: View {
                 .frame(width: 110, height: 110)
             Text(store.gameVersion.isEmpty ? "World of Warcraft" : "World of Warcraft \(store.gameVersion)")
                 .font(.title2).bold()
-            if store.rosettaMissing {
+            if store.rosettaBlocksPlay {
                 VStack(spacing: 4) {
                     Label("Rosetta 2 is not installed — the game cannot start", systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
+                    Text(verbatim: "sudo softwareupdate --install-rosetta --agree-to-license")
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .foregroundStyle(.secondary)
+                    // a copy without FEX, on a Mac that could run it: the way that needs no Rosetta
+                    if !store.fexAvailable && store.fexMacOS {
+                        Link("Or build a copy with FEX, which needs no Rosetta 2",
+                             destination: URL(string: "https://github.com/matasarei/wow-launcher/blob/main/docs/BUILD-WRAPPER.md#without-rosetta-2-a-copy-with-fex")!)
+                            .font(.caption)
+                    }
+                }
+            } else if store.rosettaMissing && store.onFEX {
+                VStack(spacing: 4) {
+                    Label("Rosetta 2 is not installed — the game runs with FEX", systemImage: "info.circle")
+                        .foregroundStyle(.secondary)
                     Text(verbatim: "sudo softwareupdate --install-rosetta --agree-to-license")
                         .font(.caption.monospaced())
                         .textSelection(.enabled)
@@ -1811,9 +1913,6 @@ struct PlayView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { store.checkRunning() }
-        .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
-            store.checkRunning()
-        }
         // Rosetta gets installed in Terminal, then the user comes back here:
         // re-probe then, so the warning does not outlive the problem.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -1863,28 +1962,64 @@ struct GameView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Section("Patches") {
-                if store.patchLevels == ["none"] {
-                    Label("Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped.",
-                          systemImage: "info.circle")
-                } else {
-                    Picker("Applied to the client", selection: Binding(
-                        get: { store.patches },
-                        set: { store.setPatches($0) })) {
-                        ForEach(store.patchLevels, id: \.self) { level in
-                            Text(store.patchLevelLabel(level)).tag(level)
-                        }
+            // only in a copy that carries the FEX runtime, on a Mac that can run it
+            if store.fexAvailable {
+                Section("Runtime") {
+                    Picker("Run the game with", selection: Binding(
+                        get: { store.onFEX ? "fex" : store.runtime },
+                        set: { store.setRuntime($0) })) {
+                        Text("Rosetta 2 (default)").tag("rosetta")
+                        Text("FEX").tag("fex")
                     }
                     .pickerStyle(.menu)
-                    .disabled(store.busy || store.verifyRunning)
-                    Text(store.patchesDescription + " " + L("Applies at the next game start."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    // locked on FEX while Rosetta 2 cannot play: nothing else to pick
+                    .disabled(store.busy || store.verifyRunning || store.gameRunning || !store.rosettaUsable)
+                    if store.rosettaMissing {
+                        Text("Rosetta 2 is not installed, so the game runs with FEX. Rosetta 2 becomes an option here once it is installed:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(verbatim: "sudo softwareupdate --install-rosetta --agree-to-license")
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                            .foregroundStyle(.secondary)
+                    } else if !store.hasRosettaPrefix {
+                        Text("This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                if !store.patchLimitNote.isEmpty {
-                    Text(store.patchLimitNote)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            }
+            // the patches are built for Rosetta 2: under FEX there is nothing to pick (only
+            // the icon is patched, the Runtime caption says so), and the level the player
+            // chose comes back with Rosetta
+            if store.profile["RUNTIME"] != "fex" {
+                Section("Patches (Rosetta)") {
+                    if store.patchLevels == ["none"] {
+                        Label("Nothing to choose — no launcher patch applies to this client, so it runs exactly as it shipped.",
+                              systemImage: "info.circle")
+                    } else {
+                        Picker("Applied to the client", selection: Binding(
+                            get: { store.patches },
+                            set: { store.setPatches($0) })) {
+                            ForEach(store.patchLevels, id: \.self) { level in
+                                Text(store.patchLevelLabel(level)).tag(level)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .disabled(store.busy || store.verifyRunning)
+                        Text(store.patchesDescription + " " + L("Applies at the next game start."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if !store.patchLimitNote.isEmpty {
+                        Text(store.patchLimitNote)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             if store.supportsLanguagePacks {
@@ -1975,6 +2110,7 @@ struct GameView: View {
         .onAppear {
             store.refreshGames()
             store.refreshRealms()
+            store.checkRunning()
         }
     }
 }
@@ -2016,7 +2152,7 @@ struct VerifySheet: View {
                     .foregroundStyle(store.verifyResult.hasPrefix("OK") ? Color.green : Color.red)
                     .font(.callout).bold()
             }
-            if store.rosettaMissing {
+            if store.rosettaBlocksPlay {
                 Text("Rosetta 2 is not installed, so the settings kept in the wine prefix could not be checked.")
                     .font(.callout)
                     .foregroundStyle(.red)
@@ -2138,7 +2274,7 @@ struct DisplayView: View {
         Binding(get: { store.windowPoints }, set: { store.setWindowSize($0) })
     }
     var rendererBinding: Binding<String> {
-        Binding(get: { store.renderer }, set: { store.setRenderer($0) })
+        Binding(get: { store.onFEX ? "mtld3d" : store.renderer }, set: { store.setRenderer($0) })
     }
 
     // Standard sizes that fit on the chosen display (window size is in points).
@@ -2209,9 +2345,16 @@ struct DisplayView: View {
                     Text("MTLd3D (Metal, HDR)").tag("mtld3d")
                 }
                 .pickerStyle(.menu)
-                Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .disabled(store.onFEX)
+                Group {
+                    if store.onFEX {
+                        Text("Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet.")
+                    } else {
+                        Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             if !store.note.isEmpty {
                 Section {

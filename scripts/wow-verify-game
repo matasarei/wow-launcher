@@ -20,14 +20,18 @@ if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then G="$RES/games/$GA
 FIX=0; [ "$1" = "--fix" ] && FIX=1
 fail=0; warn=0; canfix=0; reinstall=0; i=0
 CFG="$G/WTF/Config.wtf"
-LOADER="$RES/wine/bin/wine"
-export WINEPREFIX="$RES/prefix" WINEDEBUG=-all
+# the active runtime and its prefix (see wow-runtime): the registry checks read
+# the prefix the game plays in
+RT="$("$BIN/wow-runtime")"; rt() { printf '%s\n' "$RT" | sed -n "s/^$1=//p"; }
+LOADER="$(rt WINE)/bin/wine"
+export WINEPREFIX="$(rt PREFIX)" WINEDEBUG=-all
 export HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")"   # not the user's: wine leaves ~/Wine there (see wow-wine-home)
 # Without Rosetta every "$LOADER reg query" returns nothing, which reads exactly
 # like a setting that was never written — verify would fail the two checks below
-# and offer a --fix that can never succeed. Ask once, then say so instead.
+# and offer a --fix that can never succeed. Ask once, then say so instead. The
+# FEX runtime is arm64 and needs no Rosetta.
 ROSETTA_OK=1
-if WHY="$("$BIN/wow-check-rosetta")"; then :; else ROSETTA_OK=0; echo "$WHY"; echo "ROSETTA"; fi
+if [ "$(rt KIND)" = rosetta ] && ! WHY="$("$BIN/wow-check-rosetta")"; then ROSETTA_OK=0; echo "$WHY"; echo "ROSETTA"; fi
 
 PROFILE="$("$BIN/wow-client-profile" "$G")"
 prof() { printf '%s\n' "$PROFILE" | grep -E "^$1=" | cut -d= -f2-; }
@@ -75,6 +79,7 @@ case "$PATCHES" in
   all)         WANT_LOADER=1; WANT_SILICON=1; WANT_ICON=1 ;;
   no-silicon)  WANT_LOADER=1; WANT_SILICON=0; WANT_ICON=1 ;;
   winerosetta) WANT_LOADER=1; WANT_SILICON=0; WANT_ICON=0 ;;
+  icon)        WANT_LOADER=0; WANT_SILICON=0; WANT_ICON=1 ;;   # FEX: only the icon (see wow-client-profile)
   none)        WANT_LOADER=0; WANT_SILICON=0; WANT_ICON=0 ;;
 esac
 [ -n "$CAP_SILICON" ]  || WANT_SILICON=0   # no libSiliconPatch build for this client
@@ -128,7 +133,7 @@ elif [ "$FAMILY" = wotlk ] && [ -f "$KIT/Wow.exe.icon-patched" ] && [ "$FIX" = 1
   cp "$KIT/Wow.exe.icon-patched" "$G/Wow.exe" && echo "ok: Wow.exe present (restored)" || { echo "FAIL: Wow.exe missing"; fail=$((fail+1)); }
 else echo "FAIL: $EXE missing"; fail=$((fail+1)); reinstall=1; fi
 # The cosmetic icon patch follows the level in BOTH directions: reverted from the
-# in-game backup at winerosetta/none, re-applied from the kit at all/no-silicon.
+# in-game backup at winerosetta/none, re-applied from the kit at all/no-silicon/icon.
 icon_possible() {  # true only when the exe is currently unpatched and a patch exists
   local CUR D B
   [ -f "$KIT/Wow.exe.icon-patched" ] && [ -f "$KIT/Wow.exe.orig" ] \
@@ -219,14 +224,14 @@ check_divx() {  # check_divx <dll name> — 1 step
     [ -f "$G/$DLL.bak" ] && REF="$G/$DLL.bak"
     [ -z "$REF" ] && [ -f "$ORIG" ] && REF="$ORIG"
     if [ -z "$REF" ]; then
-      # only reachable at PATCHES=none, where an unrecognised client is expected:
+      # only reachable at PATCHES=none|icon, where an unrecognised client is expected:
       # claim only what is true — this app did not patch it — and stay quiet
       echo "ok: $DLL never patched by the launcher (no original copy to compare against)"
     elif cmp -s "$G/$DLL" "$REF"; then echo "ok: $DLL is the original (no patches)"
     elif [ "$FIX" = 1 ]; then
       cp "$REF" "$G/$DLL" && echo "ok: $DLL restored (fixed)" || { echo "FAIL: $DLL"; fail=$((fail+1)); }
     else
-      echo "FAIL: $DLL is patched but the patch level is 'none' — repairable"; fail=$((fail+1)); canfix=1
+      echo "FAIL: $DLL is patched but the patch level is '$PATCHES' — repairable"; fail=$((fail+1)); canfix=1
     fi
   elif [ ! -f "$PATCHED" ]; then
     if [ -f "$G/$DLL.bak" ] && ! cmp -s "$G/$DLL" "$G/$DLL.bak"; then
@@ -253,7 +258,7 @@ step "dlls.txt"
 if [ -z "$DLLS_TXT" ]; then
   if [ ! -f "$G/dlls.txt" ]; then echo "ok: dlls.txt absent (no patches)"
   elif [ "$FIX" = 1 ]; then rm -f "$G/dlls.txt"; echo "ok: dlls.txt removed (fixed)"
-  else echo "FAIL: dlls.txt present but the patch level is 'none' — repairable"; fail=$((fail+1)); canfix=1; fi
+  else echo "FAIL: dlls.txt present but the patch level is '$PATCHES' — repairable"; fail=$((fail+1)); canfix=1; fi
 elif [ "$(cat "$G/dlls.txt" 2>/dev/null)" = "$DLLS_TXT" ]; then echo "ok: dlls.txt"
 elif [ "$FIX" = 1 ]; then
   printf '%s\n' "$DLLS_TXT" > "$G/dlls.txt"

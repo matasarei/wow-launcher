@@ -72,6 +72,12 @@
 "DXVK (default)" = "DXVK (типово)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Набирає чинності після наступного запуску гри. DXVK транслює Direct3D 9 через Vulkan — перевірений типовий варіант; MTLd3D рендерить безпосередньо через Metal і підтримує HDR.";
+"Runtime" = "Середовище виконання";
+"Run the game with" = "Запускати гру через";
+"Rosetta 2 (default)" = "Rosetta 2 (типово)";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched." = "Набирає чинності після наступного запуску гри. Rosetta 2 — транслятор Apple і перевірений типовий варіант; FEX — відкритий емулятор x86 усередині arm64-збірки Wine, з власними налаштуваннями Windows. Rosetta 2 йому не потрібна; під FEX рендерер — MTLd3D, і патчиться лише значок гри.";
+"Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "Під FEX поки що працює лише MTLd3D: DXVK у цьому середовищі ще не запускається.";
+"Runtime set to %@ — takes effect at the next game start." = "Середовище виконання: %@ — набере чинності після наступного запуску гри.";
 "Audio" = "Звук";
 "Output" = "Вивід";
 "Spatial audio (headphones)" = "Просторовий звук (навушники)";
@@ -109,7 +115,7 @@
 "Failed to install %@: %@" = "Не вдалося встановити %@: %@";
 "Verification stopped." = "Перевірку зупинено.";
 "Could not start verification: %@" = "Не вдалося запустити перевірку: %@";
-"Patches" = "Патчі";
+"Patches (Rosetta)" = "Патчі (Rosetta)";
 "Applied to the client" = "Застосовується до клієнта";
 "All patches (recommended)" = "Усі патчі (рекомендовано)";
 "All except libSiliconPatch" = "Усі, крім libSiliconPatch";
@@ -176,3 +182,9 @@
 "Updating to %@" = "Оновлення до %@";
 "Your game and settings move to the new version. The app closes and opens again by itself when it is done." = "Гра й налаштування переїдуть у нову версію. Застосунок закриється й відкриється сам, коли завершить.";
 "The update was cancelled." = "Оновлення скасовано.";
+"Rosetta 2 is not installed, so this copy now plays with FEX. Rosetta 2 becomes available again once it is installed." = "Rosetta 2 не встановлено, тож ця копія тепер запускає гру через FEX. Rosetta 2 знову стане доступною, щойно її встановлять.";
+"Rosetta 2 is not installed — the game runs with FEX" = "Rosetta 2 не встановлено — гра працює через FEX";
+"Rosetta 2 is not installed, so the game runs with FEX. Rosetta 2 becomes an option here once it is installed:" = "Rosetta 2 не встановлено, тож гра працює через FEX. Rosetta 2 з’явиться тут як варіант, щойно її встановлять:";
+"This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "Цю копію зібрано без Rosetta 2, тож у неї немає префікса Rosetta. Щоб Rosetta 2 стала доступною, знову виконайте make build FEX=1 у теці з вихідним кодом лаунчера.";
+"Or build a copy with FEX, which needs no Rosetta 2" = "Або зберіть копію з FEX — їй не потрібна Rosetta 2";
+"This copy carries the FEX runtime. If the new version does not, the game moves to Rosetta 2 with your settings; on a Mac without Rosetta 2 the update stops and this copy stays." = "У цій копії є середовище FEX. Якщо в новій версії його немає, гра перейде на Rosetta 2 з вашими налаштуваннями; на Mac без Rosetta 2 оновлення зупиниться, і ця копія залишиться.";

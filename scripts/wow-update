@@ -47,6 +47,9 @@ conf_set() {  # conf_set KEY [VALUE] — no value removes the key
 
 # Versions compare as numbers, never as text: 2.10 is newer than 2.9, and
 # "2.10" > "2.9" is false for a string compare. Missing parts count as 0.
+# A suffix after the numbers (2.15-beta) sorts just below the same plain
+# version: 2.14 < 2.15-beta < 2.15. Two suffixes compare as sort -V does
+# (beta < beta.2 < beta.10).
 # Can this copy be replaced where it stands? A real probe, not a permission bit:
 # it is the same mktemp the update itself needs, and it covers a read-only mount
 # and an ACL as well as a plain unwritable folder. Never sudo: an updater that
@@ -61,8 +64,10 @@ replaceable() {
 }
 
 ver_ge() {  # ver_ge A B → true when A >= B
-  local a b i x y
-  IFS=. read -r -a a <<< "$1"; IFS=. read -r -a b <<< "$2"
+  local a b i x y sa="" sb=""
+  case "$1" in *-*) sa="${1#*-}" ;; esac
+  case "$2" in *-*) sb="${2#*-}" ;; esac
+  IFS=. read -r -a a <<< "${1%%-*}"; IFS=. read -r -a b <<< "${2%%-*}"
   for i in 0 1 2; do
     x="${a[i]:-0}"; y="${b[i]:-0}"
     case "$x" in ''|*[!0-9]*) x=0 ;; esac
@@ -70,7 +75,11 @@ ver_ge() {  # ver_ge A B → true when A >= B
     [ "$x" -gt "$y" ] && return 0
     [ "$x" -lt "$y" ] && return 1
   done
-  return 0
+  # the same numbers: no suffix is the release, a suffix the test build before it
+  [ "$sa" = "$sb" ] && return 0
+  [ -z "$sa" ] && return 0
+  [ -z "$sb" ] && return 1
+  [ "$(printf '%s\n%s\n' "$sa" "$sb" | sort -V | tail -1)" = "$sa" ]
 }
 
 cmd_check() {
@@ -151,9 +160,14 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
     -e "$APP/Contents/Resources/games/" -e "$APP_REAL/Contents/Resources/games/" \
     && fail "the game is still running — quit it first"
   # ...and a leftover wineserver is asked to go, so nothing holds the prefix
-  # that is about to move (wow-launch does the same before a game starts)
-  WINEPREFIX="$RES/prefix" HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")" \
-    "$RES/wine/bin/wineserver" -k >/dev/null 2>&1 || true
+  # that is about to move (wow-launch does the same before a game starts).
+  # Both runtimes' (see wow-runtime): either may have played since the last start.
+  local W
+  for W in wine:prefix wine-fex:prefix-fex; do
+    [ -x "$RES/${W%%:*}/bin/wineserver" ] || continue
+    WINEPREFIX="$RES/${W#*:}" HOME="$("$RES/bin/wow-wine-home" || echo "$HOME")" \
+      "$RES/${W%%:*}/bin/wineserver" -k >/dev/null 2>&1 || true
+  done
   # beside the app: the swap is then a rename, and the import clones the game
   # (an earlier update whose Trash move failed leaves its staging dir behind —
   # its copy of the old app is in the Trash-less state the NOTE described, and
@@ -196,6 +210,13 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   # a release carries a valid deep ad-hoc seal (make sign); a broken one means a
   # damaged download, not a forgery — nothing here proves who built it
   codesign --verify --deep "$NEW" 2>/dev/null || { rm -rf "$STAGE"; fail "the downloaded app is damaged (its signature does not check out)"; }
+  # A copy with FEX replaced by one without: the game moves to Rosetta 2 — and on
+  # a Mac without Rosetta the new copy could not start it at all, so this one stays.
+  if [ -x "$RES/wine-fex/bin/wine" ] && [ ! -x "$NEW/Contents/Resources/wine-fex/bin/wine" ]; then
+    "$RES/bin/wow-check-rosetta" >/dev/null 2>&1 \
+      || { rm -rf "$STAGE"; fail "$NEW_VER has no FEX runtime and this Mac has no Rosetta 2 — keep this copy, or build one with make FEX=1"; }
+    echo "NOTE: $NEW_VER has no FEX runtime — the game moves to Rosetta 2, settings kept"
+  fi
   echo "downloaded $NEW_VER"
   # The import is run BY the new copy over this one: it carries the game, the
   # kit references and the settings, and only it knows how (wow-install-client).
@@ -206,7 +227,7 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   else
     # nothing to import, so carry the settings the import would have carried
     # (the same keys as wow-install-client's KEYS, minus the ones it recomputes)
-    local KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP'
+    local KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP|RUNTIME'
     local NEW_CONF="$NEW/Contents/Resources/launcher.conf"
     { grep -svE "^($KEYS)=" "$NEW_CONF"; grep -sE "^($KEYS)=" "$CONF"; } > "$NEW_CONF.tmp" || true
     mv "$NEW_CONF.tmp" "$NEW_CONF"

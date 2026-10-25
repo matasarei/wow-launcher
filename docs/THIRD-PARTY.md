@@ -37,6 +37,25 @@ applied to the LGPL wine tree below.
 | p11-kit | BSD-3-Clause | [p11-glue/p11-kit](https://github.com/p11-glue/p11-kit) |
 | libpng | PNG Reference Library License | [libpng.org](http://www.libpng.org/pub/png/libpng.html) |
 
+## FEX runtime (`Resources/wine-fex/`)
+
+In every release from 2.14 and in a `make build FEX=1` wrapper. Runtime r18: the `Contents/Resources/Wine` folder of the
+[WoWSilicon 3.3.0 Preview](https://github.com/WoWSilicon/WoWSilicon/releases/tag/Preview3.3.0)
+app zip (sha256-pinned in the Makefile as `FEX_RUNTIME_URL`); nothing else of that app is kept.
+It is an arm64 build of the same wine tree, with FEX as wine's x86 emulator in place of
+Rosetta 2. Changed by the build in one place: `lib/wine/aarch64-unix/wine.app`'s
+`CFBundleName` is set to `WoW` (the Dock name). Its `runtime-lock.json` records wine and
+MTLd3D, `arm64-runtime-lock.json` the FEX commit; its own licence texts are in `share/wowsilicon/licenses/`. The libraries shared with
+r17 (SDL2, FreeType, GnuTLS and the rest above) are the same components.
+
+| Component | Licence | Source |
+|---|---|---|
+| wine 11.13 (arm64) | LGPL-2.1-or-later | [WineAndAqua/wine](https://github.com/WineAndAqua/wine), branch `wine-11.13-macos`, commit [`37540b5`](https://github.com/WineAndAqua/wine/commit/37540b5d94ac1c86e2599ef55d7f3a15e3237ce8) |
+| FEX (`lib/wine/aarch64-windows/xtajit.dll`, `xtajit64.dll`, with the helpers `lib/wine/aarch64-unix/libwow64fex_macos.so`, `libarm64ecfex_macos.so`) | MIT | [FEX-Emu/FEX](https://github.com/FEX-Emu/FEX), WoWSilicon's macOS port, commit `e9c1034` |
+| FEX's bundled libraries: fmt, unordered_dense, tiny-json / range-v3 / rpmalloc / cephes, xxhash | MIT / Boost-1.0 / public domain or MIT / BSD | FEX's `External/`, licence texts in `share/wowsilicon/licenses/FEX-dependencies/` |
+| MTLd3D v0.13.0 (Metal-native D3D9) | Zlib | [athei/mtld3d](https://github.com/athei/mtld3d) |
+| Vulkan loader, KosmicKrisp Vulkan driver (the only driver in r18; DXVK is not offered under FEX yet) | Apache-2.0, MIT | as above |
+
 ## Patch kit (`Resources/patch-kit/`)
 
 Extracted at build time from the

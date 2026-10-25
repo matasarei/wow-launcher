@@ -18,6 +18,8 @@ LOADER="${1:-$APP/Contents/Resources/wine/bin/wine}"
 # A loader that is not x86_64 needs nothing from Rosetta — and a future native
 # runtime keeps working without touching this script.
 lipo -archs "$LOADER" 2>/dev/null | grep -qw x86_64 || exit 0
-arch -x86_64 /usr/bin/true >/dev/null 2>&1 && exit 0
+# WOW_TEST_NO_ROSETTA=1 answers as a Mac without Rosetta would: for the tests, and
+# for trying the no-Rosetta paths (the app, the build) on a Mac that has it
+[ "${WOW_TEST_NO_ROSETTA:-}" = 1 ] || { arch -x86_64 /usr/bin/true >/dev/null 2>&1 && exit 0; }
 echo "ROSETTA: not installed — run: sudo softwareupdate --install-rosetta --agree-to-license"
 exit 1

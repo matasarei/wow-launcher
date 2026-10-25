@@ -72,6 +72,12 @@
 "DXVK (default)" = "DXVK (par défaut)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Prend effet au prochain démarrage du jeu. DXVK traduit Direct3D 9 via Vulkan et constitue la valeur par défaut éprouvée ; MTLd3D effectue le rendu directement via Metal et peut produire du HDR.";
+"Runtime" = "Environnement d'exécution";
+"Run the game with" = "Lancer le jeu avec";
+"Rosetta 2 (default)" = "Rosetta 2 (par défaut)";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched." = "Prend effet au prochain démarrage du jeu. Rosetta 2 est le traducteur d'Apple et le choix éprouvé par défaut ; FEX est un émulateur x86 open source intégré à un Wine arm64, avec ses propres réglages Windows. Il ne nécessite pas Rosetta 2 ; sous FEX, le moteur de rendu est MTLd3D et seule l'icône du jeu est modifiée.";
+"Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "Sous FEX, le moteur de rendu est MTLd3D pour l'instant : DXVK ne fonctionne pas encore dans cet environnement.";
+"Runtime set to %@ — takes effect at the next game start." = "Environnement d'exécution réglé sur %@ — prend effet au prochain démarrage du jeu.";
 "Audio" = "Audio";
 "Output" = "Sortie";
 "Spatial audio (headphones)" = "Audio spatial (casque)";
@@ -109,7 +115,7 @@
 "Failed to install %@: %@" = "Échec de l'installation de %@ : %@";
 "Verification stopped." = "Vérification arrêtée.";
 "Could not start verification: %@" = "Impossible de démarrer la vérification : %@";
-"Patches" = "Correctifs";
+"Patches (Rosetta)" = "Correctifs (Rosetta)";
 "Applied to the client" = "Appliqué au client";
 "All patches (recommended)" = "Tous les correctifs (recommandé)";
 "All except libSiliconPatch" = "Tous sauf libSiliconPatch";
@@ -176,3 +182,9 @@
 "Updating to %@" = "Mise à jour vers %@";
 "Your game and settings move to the new version. The app closes and opens again by itself when it is done." = "Ton jeu et tes réglages passent dans la nouvelle version. L’app se ferme et se rouvre toute seule une fois terminée.";
 "The update was cancelled." = "La mise à jour a été annulée.";
+"Rosetta 2 is not installed, so this copy now plays with FEX. Rosetta 2 becomes available again once it is installed." = "Rosetta 2 n’est pas installé : cette copie joue désormais avec FEX. Rosetta 2 redevient disponible dès qu’il est installé.";
+"Rosetta 2 is not installed — the game runs with FEX" = "Rosetta 2 n’est pas installé — le jeu tourne avec FEX";
+"Rosetta 2 is not installed, so the game runs with FEX. Rosetta 2 becomes an option here once it is installed:" = "Rosetta 2 n’est pas installé : le jeu tourne avec FEX. Rosetta 2 devient une option ici dès qu’il est installé :";
+"This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "Cette copie a été construite sans Rosetta 2 : elle n’a pas de préfixe Rosetta. Pour proposer Rosetta 2, relancez make build FEX=1 dans le dossier source du lanceur.";
+"Or build a copy with FEX, which needs no Rosetta 2" = "Ou construisez une copie avec FEX, qui n’a pas besoin de Rosetta 2";
+"This copy carries the FEX runtime. If the new version does not, the game moves to Rosetta 2 with your settings; on a Mac without Rosetta 2 the update stops and this copy stays." = "Cette copie contient le runtime FEX. Si la nouvelle version ne l’a pas, le jeu passe à Rosetta 2 avec vos réglages ; sur un Mac sans Rosetta 2, la mise à jour s’arrête et cette copie reste.";

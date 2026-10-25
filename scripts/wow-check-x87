@@ -23,7 +23,7 @@ RES="$APP/Contents/Resources"
 CONF="$RES/launcher.conf"
 GAME_NAME="$(grep -sE '^GAME=' "$CONF" | head -1 | cut -d= -f2-)"
 if [ -n "$GAME_NAME" ] && [ -d "$RES/games/$GAME_NAME" ]; then GAME="$RES/games/$GAME_NAME"; else GAME="$RES/game"; fi
-LOADER="$RES/wine/bin/wine"
+LOADER="$RES/wine/bin/wine"   # always the Rosetta one: the engines exist only for it (FEX skips this check, see wow-launch)
 ROSETTAX87="$GAME/rosettax87/rosettax87"
 SIDECAR="$RES/patch-kit/x87sidecar/x87sidecar"
 RUNTIME="${WOW_TEST_ROSETTA_RUNTIME:-/usr/libexec/rosetta/runtime}"   # what the engines patch

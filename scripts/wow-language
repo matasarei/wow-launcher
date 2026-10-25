@@ -42,7 +42,7 @@ set_cvar() {
 # cosmetic Wow.exe icon patch via the kit's md5-keyed binary diffs
 patch_icon() {
   # the icon patch modifies the client: only the levels that allow that
-  case "$PATCHES" in all|no-silicon) ;; *) return 0 ;; esac
+  case "$PATCHES" in all|no-silicon|icon) ;; *) return 0 ;; esac
   [ -x /usr/bin/bspatch ] || return 0
   local CUR_MD5 D B IN_MD5 OUT_MD5
   CUR_MD5="$(md5 -q "$G/Wow.exe")"
