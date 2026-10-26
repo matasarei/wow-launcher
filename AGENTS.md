@@ -73,9 +73,11 @@ logs. The procedure:
 3. Verify the bundle is pristine:
    - `Resources/games/` is empty;
    - `Resources/launcher.conf` contains only `AUTO_RES=1`;
-   - `Resources/patch-kit/` contains only the open-source payloads, `dlls.txt`
-     and the `wow-icon-*.bsdiff` files — no `Wow.exe.*`, no `DivxDecoder.*`,
-     no `fonts-client/`;
+   - `Resources/patch-kit/` contains only the open-source payloads (in a FEX
+     build also `fex/`: `d3d9.dll` + `LICENSE`, DXVK 3.1.1 for FEX) and the
+     `wow-icon-*.bsdiff` files — no `Wow.exe.*`, no `DivxDecoder.*`, no
+     `fonts-client/`, and no `dlls.txt` (the build removes it; the installer
+     writes one per game);
    - `Resources/logs/` is empty;
    - `Resources/home/` does not exist (wine's HOME: a used wrapper keeps the
      game's Windows user profile there);
