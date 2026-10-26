@@ -14,15 +14,26 @@
   <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-orange" alt="Apple Silicon">
   <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
   <img src="https://img.shields.io/badge/SwiftUI-native-blue" alt="SwiftUI">
-  <img src="https://img.shields.io/badge/WoW-1.12%20%7C%202.4.3%20%7C%203.3.5a-gold" alt="WoW 1.12 / 2.4.3 / 3.3.5a">
+  <img src="https://img.shields.io/badge/WoW-Classic%20era-gold" alt="WoW Classic era">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license">
 </p>
 
 <p align="center">
-  <a href="https://hcnotes.cc/article/articles-my-own-private-azeroth"><b>Why and how I built this →</b></a>
+  <a href="https://hcnotes.cc/article/articles-my-own-private-azeroth"><b>The story behind the project →</b></a>
 </p>
 
 ---
+
+## Contents
+
+- [About](#about)
+  - [Rosetta 2 or FEX?](#rosetta-2-or-fex)
+  - [Other clients](#other-clients)
+- [Using the launcher](#using-the-launcher)
+- [Building the wrapper](#building-the-wrapper)
+- [Repo layout & building the launcher](#repo-layout--building-the-launcher)
+- [Troubleshooting](#troubleshooting)
+- [Credits](#credits) · [License](#license)
 
 ## About
 
@@ -31,15 +42,15 @@
   <img src="assets/screenshots/launcher-display.png" width="49%" alt="Launcher — Display settings">
 </p>
 
-Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — about the worst possible match for an ARM Mac. This project wraps everything needed to run it *fast* into one `WoW.app` bundle and puts a native SwiftUI manager in front of it:
+Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — about the worst possible match for an ARM Mac. This project wraps everything needed to run it *fast* into one `WoW.app` bundle and puts a native SwiftUI manager in front of it. The game runs one of two ways, **Rosetta 2** (the default) or **FEX** (see [Rosetta 2 or FEX?](#rosetta-2-or-fex)):
 
-| Layer | What it does |
-|---|---|
-| **Wine 11 ([WineAndAqua](https://github.com/WineAndAqua/wine) build)** | runs the Windows client on macOS |
-| **DXVK (async)** | translates Direct3D 9 → Vulkan → Metal |
-| **winerosetta + rosettax87** | fast x87 FPU math under Rosetta 2 — the single biggest FPS win for 2010-era game code |
-| **libSiliconPatch** | client-side speed hooks — on by default for the builds they were written for; drop them in Game → Patches if a server or a modified client objects |
-| **SwiftUI manager** (this repo) | install, patch, verify, configure, and launch — no terminal needed |
+| Layer | Rosetta 2 | FEX |
+|---|---|---|
+| **Wine 11 ([WineAndAqua](https://github.com/WineAndAqua/wine) build)** | the x86_64 build, translated by Rosetta 2 | the arm64 build, with [FEX](https://github.com/FEX-Emu/FEX) emulating the x86 client inside it |
+| **Renderer** | **DXVK** by default (Direct3D 9 → Vulkan → Metal), or **MTLd3D** (Direct3D 9 → Metal, HDR output) | **MTLd3D** by default, or **DXVK** |
+| **x87 math** | **winerosetta + rosettax87**: fast x87 FPU math under Rosetta 2, the single biggest FPS win for 2010-era game code | FEX emulates it itself |
+| **Client patches** | **libSiliconPatch** speed hooks and the mod loader, on by default for the builds they were written for; drop them in Game → Patches if a server or a modified client objects | the game icon only |
+| **SwiftUI manager** (this repo) | install, patch, verify, configure, and launch — no terminal needed | the same |
 
 > [!IMPORTANT]
 > **This repo contains only the launcher source and the build tooling** — no game data,
@@ -53,14 +64,40 @@ Wrath of the Lich King–era WoW is a 32-bit x86 Direct3D 9 Windows game — abo
 
 **Requirements:** an Apple Silicon Mac running **macOS 15 or newer** — the floor set
 by the embedded wine runtime; developed and tested on macOS 26. Any Apple Silicon
-model qualifies (they all run macOS 15+). Uses **Rosetta 2** under the hood — macOS
-offers to install it on first launch if it isn't already
+model qualifies (they all run macOS 15+). The default runtime uses **Rosetta 2** —
+macOS offers to install it on first launch if it isn't already
 (`softwareupdate --install-rosetta` does the same from Terminal). A major macOS
 upgrade can remove it again; the launcher then says so and repeats that command.
 On macOS 26.5 or later a copy with the FEX runtime (every release from
 2.14) also plays without Rosetta 2.
 
-The result on an M4 Max: **~120 FPS at native Retina resolution**, fast startup, fast exit.
+The result on an M4 Max: **~120 FPS at native Retina resolution** with Rosetta 2,
+fast startup, fast exit. FEX with MTLd3D plays at about the same FPS and gave the
+smoothest frame pacing in testing.
+
+### Rosetta 2 or FEX?
+
+A copy with FEX (every release from 2.14, or `make FEX=1`) offers both in
+**Game → Runtime**. A switch takes effect at the next game start; the game folder
+is brought to the new runtime's patches by itself, and your choices for the other
+one are kept.
+
+| | Rosetta 2 | FEX |
+|---|---|---|
+| **Needs** | Rosetta 2 installed, macOS 15+ | macOS 26.5+, no Rosetta 2 |
+| **Renderer** | DXVK by default, or MTLd3D | MTLd3D by default, or DXVK |
+| **Client patches** | the full set, at the level you pick in Game → Patches | the game icon only |
+| **Tested with** | 3.3.5a, 2.4.3 and 1.12 clients, language packs | a 3.3.5a client on a local server, RU/UK keyboard layouts |
+| **On an HDR screen** (MTLd3D) | the mouse pointer stays at standard brightness and looks dim; turn off **HDR output** in Display, or the game's Hardware Cursor | the pointer is drawn with the game, at the same brightness |
+
+- **Rosetta 2** is the default and the most proven. Stay on it for 2.4.3 and 1.12
+  clients and for servers with anti-cheat (Warden): winerosetta, which those servers
+  need, exists only there. It's also the only one with libSiliconPatch's speed hooks.
+- **FEX** is worth trying on macOS 26.5 or later with a 3.3.5a client: with MTLd3D it
+  was the smoothest in testing. It needs no Rosetta 2, and a copy that finds
+  Rosetta 2 missing switches to it by itself.
+- **Something misbehaves under FEX?** Switch back to Rosetta 2, and please
+  [open an issue](https://github.com/matasarei/wow-launcher/issues).
 
 **Why this exists:** for fun and discovery — making a 2010 Windows game run *great* on
 modern Apple hardware is the whole point. This is not a piracy project: it ships no
@@ -72,22 +109,29 @@ TBC 2.4.3 and vanilla 1.12. Those are the ones that are tested, supported, and f
 The launcher will install and start **any** client folder that has a game
 executable and a `Data` folder — a repack, a custom build, a later expansion. It
 fingerprints what you gave it (the executable's own version resource first, the
-`Data` layout second) and applies only the patches that can physically work on
-it; the **Game → Patches** menu shrinks to match, and a caption says why.
+`Data` layout second). On Rosetta 2 it applies only the patches that can
+physically work on it; the **Game → Patches** menu shrinks to match, and a
+caption says why.
 
-| What you install | What it gets |
-|---|---|
-| **3.3.5a (12340), 2.4.3, 1.12** | everything: DXVK, the mod loader, winerosetta, libSiliconPatch where a build exists, the icon patch, display matching, language packs |
-| **A repack or custom build of those** | the same, minus anything keyed to a Blizzard executable (icon patch, language packs). libSiliconPatch is still offered unless the executable declares a build other than 12340 — its hooks are hardcoded 12340 addresses |
-| **Cataclysm / MoP** (32-bit, still MPQ) | DXVK, the mod loader and winerosetta; **never** libSiliconPatch. Untested — no such client was available while building this |
-| **WoD / Legion and later** (64-bit, CASC) | nothing. Every DLL in the patch kit is 32-bit x86 and cannot be loaded into a 64-bit process, so the client is copied in and started exactly as it shipped. The app tells you this and asks for confirmation **before** the copy — expect it not to run |
+Under FEX the picture is different, and for most of these clients better. FEX
+emulates the x86 processor itself, 64-bit included, so the game runs as it
+shipped and needs none of the Rosetta 2 patches, which are what limit the other
+clients there. Only the game icon is patched, where a patch exists for the
+executable.
+
+| What you install | On Rosetta 2 | On FEX |
+|---|---|---|
+| **3.3.5a (12340), 2.4.3, 1.12** | everything: DXVK, the mod loader, winerosetta, libSiliconPatch where a build exists, the icon patch, display matching, language packs | runs as shipped, with the icon patch, display matching and language packs. Tested with 3.3.5a; language packs not yet |
+| **A repack or custom build of those** | the same, minus anything keyed to a Blizzard executable (icon patch, language packs). libSiliconPatch is still offered unless the executable declares a build other than 12340 — its hooks are hardcoded 12340 addresses | runs as shipped, the same as an original client. Untested |
+| **Cataclysm / MoP** (32-bit, still MPQ) | DXVK, the mod loader and winerosetta; **never** libSiliconPatch. Untested — no such client was available while building this | runs as shipped, the same as an original client. Untested |
+| **WoD / Legion and later** (64-bit, CASC) | nothing. Every DLL in the patch kit is 32-bit x86 and cannot be loaded into a 64-bit process, so the client is copied in and started exactly as it shipped. The app tells you this and asks for confirmation **before** the copy — expect it not to run | FEX runs 64-bit code too, so the processor is no obstacle. These clients draw with Direct3D 11 or newer, though, which neither MTLd3D nor DXVK here covers: Wine's own Direct3D 11 does the drawing. Untested |
 
 "Supported" still means the classic three. The rest is there because refusing
 to try is worse than trying and saying honestly what happened.
 
 **Not a WoWSilicon copy or fork:** [WoWSilicon](https://github.com/WoWSilicon/WoWSilicon)
 is the upstream that makes the performance possible — this project gratefully reuses its
-open-source building blocks (the wine runtime, winerosetta/rosettax87, the patch DLLs)
+open-source building blocks (both wine runtimes, FEX's included, winerosetta/rosettax87, the patch DLLs)
 but builds a different thing with them. WoWSilicon is a patcher/launcher app that manages
 games living elsewhere on your disk and a shared `~/.wine` prefix, with profiles for
 several expansions. This is a **single-game appliance**: the client, the wine stack, a
@@ -108,9 +152,9 @@ matching, the Cyrillic input layer, the fast-exit fix, and a proper "WoW" Dock i
 Double-click **WoW.app** — a native manager window opens:
 
 - **Play** — one big button. Shows current mode/resolution/retina state, a one-click "re-detect display" refresh, a live *running* indicator with force-stop, and an **Install** button instead when no game is present.
-- **Game** — install a client (pick any client folder — what it is gets detected, it's copied in, and it gets the Apple Silicon patches that apply to it, then it's verified), or **update from a previous version**: *Import from Previous App…* takes the game — already patched, with your settings, addons and language packs — from the older WoW Launcher app still in your Applications (2.1 or later, any name) and only copies and verifies it; the old app is left untouched, so delete it once the new one plays. When a server's own updater has changed the client folder, **Update Game…** copies the new files in and re-applies the patches, keeping your addons, settings, server list and language packs. Also: choose how much of the patch stack to apply (**Patches (Rosetta)**: the menu lists only the levels this client can take; hidden under FEX, which patches only the icon), and — only in a copy with FEX (every release from 2.14, or `make FEX=1`) — which runtime runs the game (**Runtime**: Rosetta 2 by default, or FEX, macOS 26.5+, no Rosetta 2 needed, MTLd3D by default or DXVK 3.1.1, icon patch only), **Verify** integrity (client-aware checks: files, patches, settings — 43 of them for 3.3.5a) with one-click **Fix Issues** repair, or a reinstall suggestion if game data is damaged beyond repair. Below: the **language packs** (3.3.5a/2.4.3) — import a pack from a client in another language and switch the game language from a dropdown (the pack's data and matching executable are swapped, the cache cleared); and the **server list** editor (realmlist.wtf) — radio-select the active server, add or remove entries.
+- **Game** — install a client (pick any client folder — what it is gets detected, it's copied in, and it gets the Apple Silicon patches that apply to it, then it's verified), or **update from a previous version**: *Import from Previous App…* takes the game — already patched, with your settings, addons and language packs — from the older WoW Launcher app still in your Applications (2.1 or later, any name) and only copies and verifies it; the old app is left untouched, so delete it once the new one plays. When a server's own updater has changed the client folder, **Update Game…** copies the new files in and re-applies the patches, keeping your addons, settings, server list and language packs. Also: choose how much of the patch stack to apply (**Patches (Rosetta)**: the menu lists only the levels this client can take; hidden under FEX, which patches only the icon), and — only in a copy with FEX (every release from 2.14, or `make FEX=1`) — which runtime runs the game (**Runtime**: Rosetta 2 by default, or FEX, see [Rosetta 2 or FEX?](#rosetta-2-or-fex)), **Verify** integrity (client-aware checks: files, patches, settings — 43 of them for 3.3.5a) with one-click **Fix Issues** repair, or a reinstall suggestion if game data is damaged beyond repair. Below: the **language packs** (3.3.5a/2.4.3) — import a pack from a client in another language and switch the game language from a dropdown (the pack's data and matching executable are swapped, the cache cleared); and the **server list** editor (realmlist.wtf) — radio-select the active server, add or remove entries.
 - **AddOns** — list installed addons (with versions from their .toc), install from ZIP or folder, remove to Trash, reveal in Finder. Blizzard built-ins are hidden.
-- **Display** — window mode (maximized / windowed / fullscreen) with standard window sizes, automatic resolution & Retina matching at every launch, a renderer choice (**DXVK** by default or the Metal-native **MTLd3D** with HDR output, which a switch turns off for a game that looks too bright; under FEX its own choice, MTLd3D by default or DXVK 3.1.1), or pick a specific display: the game window is moved there automatically after launch (needs a one-time Accessibility permission).
+- **Display** — window mode (maximized / windowed / fullscreen) with standard window sizes, automatic resolution & Retina matching at every launch, a renderer choice (**DXVK** by default or the Metal-native **MTLd3D** with HDR output, which a switch turns off for a game that looks too bright; under FEX its own choice, MTLd3D by default or DXVK), or pick a specific display: the game window is moved there automatically after launch (needs a one-time Accessibility permission).
 - **About** — version, **Check for Updates** with an automatic weekly check, links (repository, build story, third-party components), license and trademark info. When a newer version is out you get the choice to update, open the release page or skip that version; updating downloads it, moves your game and settings into it (the import, in reverse), replaces this copy and restarts — the old one goes to the Trash.
 
 **Cyrillic input** (tested on both ruRU and enUS clients): needs the Cyrillic **fonts from a ruRU client** — they are not bundled (they are Blizzard files), only the converter is. Install a ruRU client or import a ruRU **language pack** in the Game tab once; the app extracts the fonts from its MPQ archive, remaps them with the built-in native tool (nothing to install) and stashes them for any client afterwards, including enUS ones. With the fonts in place, ruRU clients type Cyrillic always, and enUS clients whenever your Mac has a Russian keyboard layout configured (the installer detects it and enables `CHAT_CP=1251` in `Contents/Resources/launcher.conf`; set the key manually to force it either way). The remap covers the whole CP1251 alphabet, so Ukrainian and Belarusian layouts type correctly too.
@@ -184,8 +228,9 @@ No Xcode, no dependencies.
   [BUILD-WRAPPER.md](docs/BUILD-WRAPPER.md#without-rosetta-2-a-copy-with-fex))
   plays without it, and switches to FEX by itself when Rosetta is missing.
 - **Lower FPS than expected, and `last-launch.log` opens with `x87: none`:**
-  neither fast x87 engine (rosettax87, then the sidecar) can patch this Mac's
-  Rosetta runtime. The engines know the runtimes of some macOS releases and
+  this one is about Rosetta 2. Under FEX the line always reads `x87: none (FEX
+  emulates x87 itself)`, and that is normal. On Rosetta 2, neither fast x87
+  engine (rosettax87, then the sidecar) can patch this Mac's Rosetta runtime. The engines know the runtimes of some macOS releases and
   not others (15.0.1 is one they do not know). The game then runs on plain
   Rosetta 2: it works, with fewer FPS in crowded places. The line quotes what
   each engine answered. The check runs again by itself after a macOS update;
@@ -196,6 +241,13 @@ No Xcode, no dependencies.
   `X87=rosettax87` in `Resources/launcher.conf` forces the engine without the
   check. On such a Mac Play then does nothing, and the log ends with `Fatal:
   failed to scan rosetta runtime for offsets.` and `ShellExecuteEx failed`.
+- **Something misbehaves under FEX** (the game doesn't start, draws wrong, or
+  a server drops it): switch **Game → Runtime** back to **Rosetta 2**. The game
+  folder gets your patch level back by itself. Please
+  [open an issue](https://github.com/matasarei/wow-launcher/issues) with
+  `Contents/Resources/logs/last-launch.log`. With DXVK under FEX, a few seconds
+  of texture glitches on the very first start are normal: DXVK is building its
+  shader cache, and the next starts are clean.
 - **Something feels wrong with the game?** Open the **Game** tab and click
   **Verify** — it runs version-aware checks over the client files, the Apple Silicon
   patches, and the settings, and offers **Fix Issues** for everything
