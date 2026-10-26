@@ -980,7 +980,7 @@ reset_conf
 section "install 2.4.3 (replaces wotlk)"
 cp "$TMP/client-tbc/DivxTac.dll" "$RES/patch-kit/DivxTac.dll.2.4.3.orig"
 echo patchedtac > "$RES/patch-kit/DivxTac.dll.2.4.3.patched"
-printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\n' >> "$RES/launcher.conf"
+printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\nHDR=0\n' >> "$RES/launcher.conf"
 OUT="$("$BIN/wow-install-client" "$TMP/client-tbc" 2>&1)"
 assert_contains "$OUT" "game installed (2.4.3)" "install completed"
 assert_nofile "$G/mods/libSiliconPatch.dll"
@@ -991,6 +991,7 @@ CONF="$(cat "$RES/launcher.conf")"
 assert_contains "$CONF" "GAME_VERSION=2.4.3" "GAME_VERSION replaced"
 echo "$CONF" | grep -q "^RENDERER=" && bad "RENDERER not reset on install" || ok
 echo "$CONF" | grep -q "^FEX_RENDERER=" && bad "FEX_RENDERER not reset on install" || ok
+assert_contains "$CONF" "HDR=0" "HDR is the player's screen preference: a fresh install keeps it"
 grep -q "videoOptionsVersion" "$G/WTF/Config.wtf" && bad "wotlk cvars leaked into tbc config" || ok
 
 section "verify 2.4.3"
@@ -1511,7 +1512,7 @@ reset_conf; rm -rf "$RES/games"/*
 OLD="$TMP/Old Launcher.app"; OLDRES="$OLD/Contents/Resources"
 cp -R "$APP" "$OLD"; mk_plist "$OLD" io.github.matasarei.wow-launcher 2.7
 "$OLD/Contents/Resources/bin/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
-printf 'PATCHES=no-silicon\nRENDERER=mtld3d\nFEX_RENDERER=dxvk\nCLOSE_ON_PLAY=1\nRETINA=off\nDISPLAY_RECT=1,2,3,4\nGAME_DISPLAY=Old Screen\nRUNTIME=fex\n' >> "$OLDRES/launcher.conf"
+printf 'PATCHES=no-silicon\nRENDERER=mtld3d\nFEX_RENDERER=dxvk\nHDR=0\nCLOSE_ON_PLAY=1\nRETINA=off\nDISPLAY_RECT=1,2,3,4\nGAME_DISPLAY=Old Screen\nRUNTIME=fex\n' >> "$OLDRES/launcher.conf"
 sed -i '' 's/^SET gxWindow .*/SET gxWindow "0"/' "$OLDRES/games/main/WTF/Config.wtf"
 echo 'SET myCvar "42"' >> "$OLDRES/games/main/WTF/Config.wtf"
 mkdir -p "$OLDRES/games/main/locales/deDE/pack"; echo de-exe > "$OLDRES/games/main/locales/deDE/Wow.exe"
@@ -1582,7 +1583,7 @@ assert_contains "$OUT" "importing from Old Launcher 2.10" "the previous app is a
 assert_contains "$OUT" "game installed (3.3.5a), imported from Old Launcher 2.10" "and its game installed"
 assert_eq "$(tree_sums "$OLD")" "$BEFORE_OLD" "the previous app is left byte-for-byte as it was"
 CONF="$(cat "$RES/launcher.conf")"
-for kv in PATCHES=no-silicon RENDERER=mtld3d FEX_RENDERER=dxvk CLOSE_ON_PLAY=1 RETINA=off GAME_VERSION=3.3.5a GAME_FAMILY=wotlk RUNTIME=fex; do
+for kv in PATCHES=no-silicon RENDERER=mtld3d FEX_RENDERER=dxvk HDR=0 CLOSE_ON_PLAY=1 RETINA=off GAME_VERSION=3.3.5a GAME_FAMILY=wotlk RUNTIME=fex; do
   assert_contains "$CONF" "$kv" "$kv after the move"
 done
 # the runtime choice comes along, and this copy, built without FEX=1, says why it plays on Rosetta
@@ -1943,7 +1944,7 @@ apply() {  # apply <zip> <digest> — against the disposable copy
 apply_setup
 Z="$TMP/rel/WoW-v2.10.zip"
 mk_release_zip "$Z" 2.10
-printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\nRUNTIME=fex\n' >> "$AAPP/Contents/Resources/launcher.conf"
+printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\nHDR=0\nRUNTIME=fex\n' >> "$AAPP/Contents/Resources/launcher.conf"
 mkdir -p "$TMP/applytest/.wow-update.leftover/new"   # an earlier update that could not tidy up
 mk_fex_runtime "$AAPP/Contents/Resources"   # a FEX=1 copy: both runtimes' wineservers are stopped
 : > "$WINELOG"; OUT="$(apply "$Z" "$(digest_of "$Z")")"
@@ -1968,6 +1969,7 @@ done
 # a zip, so this suite cannot reproduce the case it guards against)
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RENDERER=mtld3d" "the settings were carried into it"
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "FEX_RENDERER=dxvk" "FEX's renderer too"
+assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "HDR=0" "and the HDR choice"
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RUNTIME=fex" "the runtime choice too"
 stage_count() { find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' '; }
 # a FEX copy on a Mac without Rosetta: a release without FEX could not play there
