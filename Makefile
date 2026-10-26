@@ -33,9 +33,9 @@ PAYLOAD_SHA256 = 53771ef7595371cdd31db1a1269df481750c4e33f479ad862bb94376427d894
 FEX_RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/Preview3.3.0/WoWSilicon_3.3.0_Preview.zip
 FEX_RUNTIME_SHA256 = b9d7c9606c526903da017066dc643b656517fef368a3d14f39c1d7a417392e8a
 
-.PHONY: build wrapper check skeleton runtime runtime-fex payloads patch-kit prefix prefix-rosetta prefix-fex launcher sign install test check-strings compile lint zip
+.PHONY: build wrapper check skeleton runtime runtime-fex fex-zip payloads patch-kit patch-kit-fex prefix prefix-rosetta prefix-fex launcher sign install test check-strings compile lint zip
 
-build: check skeleton runtime $(if $(FEX),runtime-fex) patch-kit prefix $(if $(FEX),prefix-fex) launcher sign
+build: check skeleton runtime $(if $(FEX),runtime-fex) patch-kit $(if $(FEX),patch-kit-fex) prefix $(if $(FEX),prefix-fex) launcher sign
 	@echo ""
 	@echo "==> Done: $(APP)"
 	@echo "    Open it and click Install to add your WoW 3.3.5a client."
@@ -81,10 +81,8 @@ runtime:
 # runtime is kept — its own launcher, updater and payloads are not this wrapper's.
 runtime-fex:
 	@if [ -x "$(WINE_FEX)/bin/wine" ]; then echo "==> FEX runtime already present, skipping"; else \
-	  echo "==> FEX runtime (arm64 wine 11.13 + FEX, ~200 MB download)"; \
-	  mkdir -p "$(DEPS)"; \
-	  [ -f "$(DEPS)/wowsilicon-fex.zip" ] || curl -fL --progress-bar -o "$(DEPS)/wowsilicon-fex.zip" "$(FEX_RUNTIME_URL)"; \
-	  echo "$(FEX_RUNTIME_SHA256)  $(DEPS)/wowsilicon-fex.zip" | shasum -a 256 -c - >/dev/null || { echo "ERROR: FEX runtime checksum mismatch — delete $(DEPS)/wowsilicon-fex.zip and retry"; exit 1; }; \
+	  echo "==> FEX runtime (arm64 wine 11.13 + FEX)"; \
+	  $(MAKE) --no-print-directory fex-zip || exit 1; \
 	  rm -rf "$(DEPS)/fex-unpack" && mkdir -p "$(DEPS)/fex-unpack" && ditto -x -k "$(DEPS)/wowsilicon-fex.zip" "$(DEPS)/fex-unpack"; \
 	  W="$$(find "$(DEPS)/fex-unpack" -maxdepth 4 -type d -path '*/Contents/Resources/Wine' | head -1)"; \
 	  [ -x "$$W/bin/wine" ] || { echo "ERROR: no Contents/Resources/Wine in $(DEPS)/wowsilicon-fex.zip"; exit 1; }; \
@@ -92,6 +90,15 @@ runtime-fex:
 	@# its loader is wine.app, whose bundle name is what the Dock shows ("World Of Warcraft")
 	@echo "==> Dock-name cosmetics for the FEX runtime (game shows as 'WoW')"
 	@/usr/libexec/PlistBuddy -c 'Set :CFBundleName WoW' "$(WINE_FEX)/lib/wine/aarch64-unix/wine.app/Contents/Info.plist"
+
+# The pinned 3.3.0 Preview app zip, which both the FEX runtime and its DXVK come out of.
+# Called by the two targets that need it, only when they do: a copy that already has
+# both is never sent to download it again.
+fex-zip:
+	@mkdir -p "$(DEPS)"
+	@[ -f "$(DEPS)/wowsilicon-fex.zip" ] || { echo "==> WoWSilicon 3.3.0 Preview (~200 MB download — only used as a file source)"; \
+	  curl -fL --progress-bar -o "$(DEPS)/wowsilicon-fex.zip" "$(FEX_RUNTIME_URL)"; }
+	@echo "$(FEX_RUNTIME_SHA256)  $(DEPS)/wowsilicon-fex.zip" | shasum -a 256 -c - >/dev/null || { echo "ERROR: FEX runtime checksum mismatch — delete $(DEPS)/wowsilicon-fex.zip and retry"; exit 1; }
 
 # Materialize the open-source patch payloads in $(DEPS)/Patching, always from the
 # pinned release DMG. Never from a WoWSilicon.app installed on this Mac: a newer
@@ -124,6 +131,20 @@ patch-kit: payloads
 	@cp scripts/rosettax87-shim "$(RES)/patch-kit/rosettax87/"
 	@chmod +x "$(RES)/patch-kit/rosettax87/"* "$(RES)/patch-kit/x87sidecar/x87sidecar"
 	@cp assets/wow-icon-*.bsdiff "$(RES)/patch-kit/"
+
+# DXVK for FEX, only with FEX=1: the 3.3.0 Preview's DXVK 3.1.1, built for KosmicKrisp,
+# the only Vulkan driver in r18 (it has no MoltenVK). Rosetta's D9VK (patch-kit/d3d9.dll,
+# from the 3.2.2 DMG) is not touched: the game folder holds one or the other, per
+# runtime (wow-runtime DXVK_KIT=).
+FEX_DXVK_IN_ZIP = WoWSilicon_3.3.0_Preview.app/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Contents/Resources/Patching/dxvk-kosmickrisp
+patch-kit-fex:
+	@if [ -f "$(RES)/patch-kit/fex/d3d9.dll" ]; then echo "==> DXVK for FEX already present, skipping"; else \
+	  echo "==> DXVK for FEX (DXVK 3.1.1 for KosmicKrisp, from the 3.3.0 Preview)"; \
+	  $(MAKE) --no-print-directory fex-zip || exit 1; \
+	  mkdir -p "$(RES)/patch-kit/fex" && \
+	  unzip -p "$(DEPS)/wowsilicon-fex.zip" "$(FEX_DXVK_IN_ZIP)/LICENSE" > "$(RES)/patch-kit/fex/LICENSE" && \
+	  unzip -p "$(DEPS)/wowsilicon-fex.zip" "$(FEX_DXVK_IN_ZIP)/d3d9.dll" > "$(RES)/patch-kit/fex/d3d9.dll.tmp" && \
+	  mv "$(RES)/patch-kit/fex/d3d9.dll.tmp" "$(RES)/patch-kit/fex/d3d9.dll" || exit 1; fi
 
 # The prefix, for either runtime: $(1) the runtime dir, $(2) the prefix dir. Each runtime
 # has its own: an arm64 wine cannot use a prefix the x86_64 one made (upstream: old bottles
