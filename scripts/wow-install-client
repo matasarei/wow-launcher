@@ -213,7 +213,7 @@ fi
 # the profile offers, so it is read again after. What the game is
 # and where it sits on screen are this install's to work out.
 if [ "$MIGRATE" = 1 ]; then
-  KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA'
+  KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|FEX_RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA'
   KEYS="$KEYS|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP"   # see wow-update
   KEYS="$KEYS|GAME_SOURCE"   # the same game, so the same folder it came from
   KEYS="$KEYS|RUNTIME"   # a copy built without FEX=1 plays on Rosetta and says why (wow-runtime)
@@ -244,7 +244,8 @@ fi
 echo "applying patch kit..."
 mkdir -p "$DEST/mods"
 # Both are 32-bit x86: on a 64-bit client they could never be loaded at all.
-[ "$CAP_DXVK" = 1 ]   && cp "$KIT/d3d9.dll" "$DEST/"
+# The DXVK is the runtime's (wow-runtime DXVK_KIT): Rosetta's D9VK, or FEX's DXVK 3.1.1
+[ "$CAP_DXVK" = 1 ]   && cp "$KIT/$(rt DXVK_KIT)" "$DEST/d3d9.dll"
 [ "$CAP_LOADER" = 1 ] && cp "$KIT/libDllLdr.dll" "$DEST/"
 ditto "$KIT/rosettax87" "$DEST/rosettax87"
 # Patch level (launcher.conf PATCHES=, Game pane picker; survives reinstalls):
@@ -402,7 +403,7 @@ fi
 RESET='GAME|GAME_VERSION|GAME_FAMILY|GAME_BUILD|GAME_EXE|AUTO_RES|DISPLAY_RECT'
 [ "$MIGRATE" = 1 ] || RESET="$RESET|GAME_SOURCE"
 [ "$UPDATE" = 1 ] || RESET="$RESET|GAME_DISPLAY"
-[ "$MIGRATE" = 1 ] || [ "$UPDATE" = 1 ] || RESET="$RESET|RENDERER|RETINA"
+[ "$MIGRATE" = 1 ] || [ "$UPDATE" = 1 ] || RESET="$RESET|RENDERER|FEX_RENDERER|RETINA"
 grep -vE "^($RESET)=" "$RES/launcher.conf" 2>/dev/null > "$RES/launcher.conf.tmp" || true
 # AUTO_RES=0 is the player's choice too (resolution managed by hand) — kept from
 # a previous app, but only where there are gx* cvars to auto-match at all

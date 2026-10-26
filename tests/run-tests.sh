@@ -338,6 +338,19 @@ for V in 26.5 26.5.1 26.10 27.0.1 28; do
   assert_eq "$(MAC=$V rtv KIND)" "fex" "macOS $V: FEX"
 done
 assert_eq "$(rtv WINE)|$(rtv PREFIX)" "$RES/wine-fex|$RES/prefix-fex" "the FEX runtime and its own prefix"
+# DXVK per runtime: Rosetta's D9VK on MoltenVK; under FEX the Preview's DXVK 3.1.1 on
+# KosmicKrisp, only when the kit has it — never D9VK on KosmicKrisp
+assert_eq "$(rtv DXVK_KIT)|$(rtv DXVK)|$(rtv VK_ICD)" "d3d9.dll|0|" "FEX without its DXVK: none, the game folder keeps D9VK"
+mkdir -p "$RES/patch-kit/fex" "$RES/wine-fex/lib/vulkan/icd.d"
+: > "$RES/patch-kit/fex/d3d9.dll"; echo '{}' > "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json"
+assert_eq "$(rtv DXVK_KIT)|$(rtv DXVK)" "fex/d3d9.dll|1" "FEX with its DXVK in the kit"
+assert_eq "$(rtv VK_ICD)" "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json" "pointed at KosmicKrisp"
+reset_conf
+assert_eq "$(rtv DXVK_KIT)|$(rtv DXVK)|$(rtv VK_ICD)" "d3d9.dll|1|" "Rosetta: D9VK, whatever the kit holds for FEX; no manifest, no VK_ICD"
+mkdir -p "$RES/wine/lib/vulkan/icd.d"; echo '{}' > "$RES/wine/lib/vulkan/icd.d/MoltenVK_icd.json"
+assert_eq "$(rtv VK_ICD)" "$RES/wine/lib/vulkan/icd.d/MoltenVK_icd.json" "Rosetta: pointed at MoltenVK"
+rm -rf "$RES/patch-kit/fex" "$RES/wine-fex/lib" "$RES/wine/lib/vulkan"
+printf 'RUNTIME=fex\n' >> "$RES/launcher.conf"
 WOW_TEST_MACOS=26.5 "$ROOT/scripts/wow-runtime" --macos-ok && ok || bad "--macos-ok: 26.5 can run FEX"
 WOW_TEST_MACOS=26.4 "$ROOT/scripts/wow-runtime" --macos-ok && bad "--macos-ok: 26.4 cannot run FEX" || ok
 # a copy built without Rosetta 2 has no Rosetta prefix: FEX plays, whatever RUNTIME= says
@@ -743,7 +756,37 @@ assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "no x87 engine, even with X8
 assert_contains "$(game_line)" "OVR=d3d9=b" "MTLd3D, even with RENDERER=dxvk"
 assert_contains "$(game_line)" "cursor.software=auto " "MTLd3D's overlay cursor while HDR is on"
 assert_eq "$(head -1 "$LAUNCHLOG")" "x87: none (FEX emulates x87 itself)" "the log's first line still names the x87 engine"
-assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: mtld3d (FEX: MTLd3D only for now)" "the second names the runtime and renderer"
+assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: mtld3d" "the second names the runtime and renderer (RENDERER= is Rosetta's)"
+# FEX_RENDERER=dxvk: the Preview's DXVK 3.1.1 on KosmicKrisp — only with it in the game folder
+GD="$RES/games/main/d3d9.dll"; cp "$GD" "$TMP/game-d9vk.dll"
+printf 'FEX_RENDERER=dxvk\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "OVR=d3d9=b" "FEX_RENDERER=dxvk in a copy without FEX's DXVK: MTLd3D"
+assert_contains "$(sed -n 2p "$LAUNCHLOG")" "renderer: mtld3d (FEX: this copy has no DXVK for FEX)" "and the log says why"
+mkdir -p "$RES/patch-kit/fex" "$RES/wine-fex/lib/vulkan/icd.d"
+echo dxvk311 > "$RES/patch-kit/fex/d3d9.dll"; echo '{}' > "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "OVR=d3d9=b" "the game folder still has D9VK: MTLd3D, never D9VK on KosmicKrisp"
+assert_contains "$(sed -n 2p "$LAUNCHLOG")" "(FEX: the game folder does not hold FEX's DXVK — Verify puts it there)" "and the log says why"
+rm -f "$GD"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(sed -n 2p "$LAUNCHLOG")" "renderer: mtld3d (FEX: no DXVK d3d9.dll in the game folder)" "no d3d9.dll at all (a 64-bit client): MTLd3D, no Verify hint"
+cp "$RES/patch-kit/fex/d3d9.dll" "$GD"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "OVR=d3d9=n,b" "FEX's DXVK in the game folder: DXVK"
+assert_contains "$(game_line)" "VK=$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json " "on KosmicKrisp"
+assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: dxvk" "the log names DXVK"
+mv "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json" "$TMP/kk.json"
+VK_DRIVER_FILES=/stale/icd.json; export VK_DRIVER_FILES
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "VK=unset" "no KosmicKrisp manifest: no VK_DRIVER_FILES, a stale shell value cleared"
+unset VK_DRIVER_FILES; mv "$TMP/kk.json" "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json"
+sed -i '' 's/^FEX_RENDERER=.*/FEX_RENDERER=mtld3d/' "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "OVR=d3d9=b" "FEX_RENDERER=mtld3d: MTLd3D"
+assert_contains "$(game_line)" "VK=unset" "with no Vulkan driver"
+cp "$TMP/game-d9vk.dll" "$GD"; rm -rf "$RES/patch-kit/fex" "$RES/wine-fex/lib"
+sed -i '' '/^FEX_RENDERER=/d' "$RES/launcher.conf"
 [ -L "$RES/prefix-fex/dosdevices/z:" ] && ok || bad "z: drive link made in the FEX prefix"
 assert_contains "$(readlink "$RES/prefix-fex/drive_c/users/${USER:-$(id -un)}")" "../../../home/Wine" "the Windows profile is linked into the FEX prefix"
 # a Mac too old for the runtime: Rosetta, as if nothing were set, and the log says why
@@ -912,7 +955,7 @@ reset_conf
 section "install 2.4.3 (replaces wotlk)"
 cp "$TMP/client-tbc/DivxTac.dll" "$RES/patch-kit/DivxTac.dll.2.4.3.orig"
 echo patchedtac > "$RES/patch-kit/DivxTac.dll.2.4.3.patched"
-printf 'RENDERER=mtld3d\n' >> "$RES/launcher.conf"
+printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\n' >> "$RES/launcher.conf"
 OUT="$("$BIN/wow-install-client" "$TMP/client-tbc" 2>&1)"
 assert_contains "$OUT" "game installed (2.4.3)" "install completed"
 assert_nofile "$G/mods/libSiliconPatch.dll"
@@ -921,7 +964,8 @@ assert_eq "$(cat "$G/DivxTac.dll")" "patchedtac" "the older DivxTac.dll is the l
 assert_eq "$(cat "$G/DivxTac.dll.bak")" "origtac" "DivxTac backup kept"
 CONF="$(cat "$RES/launcher.conf")"
 assert_contains "$CONF" "GAME_VERSION=2.4.3" "GAME_VERSION replaced"
-echo "$CONF" | grep -q "RENDERER=" && bad "RENDERER not reset on install" || ok
+echo "$CONF" | grep -q "^RENDERER=" && bad "RENDERER not reset on install" || ok
+echo "$CONF" | grep -q "^FEX_RENDERER=" && bad "FEX_RENDERER not reset on install" || ok
 grep -q "videoOptionsVersion" "$G/WTF/Config.wtf" && bad "wotlk cvars leaked into tbc config" || ok
 
 section "verify 2.4.3"
@@ -1155,6 +1199,23 @@ assert_nofile "$G/mods/winerosetta.dll"
 assert_nofile "$G/mods/libSiliconPatch.dll"
 assert_contains "$OUT" "RESULT: OK — all checks passed" "and verifies clean that way"
 mv "$TMP/kit-divx.patched" "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched"
+# The game folder holds the runtime's DXVK: FEX's DXVK 3.1.1 once the kit has it, D9VK
+# otherwise; a runtime switch (verify --fix) swaps them, with the same step count.
+assert_eq "$(cat "$G/d3d9.dll")" "d3d9" "FEX without its DXVK in the kit: the game folder keeps D9VK"
+mkdir -p "$RES/patch-kit/fex"; echo dxvk311 > "$RES/patch-kit/fex/d3d9.dll"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "FAIL: d3d9.dll (DXVK renderer) missing or modified — repairable" "FEX with its DXVK: verify asks for it"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_eq "$(cat "$G/d3d9.dll")" "dxvk311" "--fix puts FEX's DXVK into the game folder"
+assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" "43" "with the same 43 steps"
+assert_contains "$("$BIN/wow-verify-game" 2>&1)" "ok: d3d9.dll (DXVK renderer)" "and then verifies clean"
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_eq "$(cat "$G/d3d9.dll")" "dxvk311" "an install under FEX copies FEX's DXVK"
+sed -i '' '/^RUNTIME=/d' "$RES/launcher.conf"
+assert_contains "$("$BIN/wow-verify-game" 2>&1)" "FAIL: d3d9.dll (DXVK renderer) missing or modified" "back on Rosetta: verify wants D9VK again"
+printf 'RUNTIME=fex\n' >> "$RES/launcher.conf"; rm -rf "$RES/patch-kit/fex"
+"$BIN/wow-verify-game" --fix >/dev/null 2>&1
+assert_eq "$(cat "$G/d3d9.dll")" "d3d9" "a FEX copy without its DXVK gets D9VK back"
 # the live Divx patch (no kit reference) ran through the FEX loader and wineserver
 assert_contains "$(grep -B1 -F 'rundll32' "$TMP/fex-install.log" | head -1)" "FEX STUB wine" "the live 3.3.5a Divx patch runs through the FEX loader"
 assert_contains "$(grep -F 'FEX STUB wineserver' "$TMP/fex-install.log")" "FEX STUB wineserver" "and waits on the FEX wineserver"
@@ -1425,7 +1486,7 @@ reset_conf; rm -rf "$RES/games"/*
 OLD="$TMP/Old Launcher.app"; OLDRES="$OLD/Contents/Resources"
 cp -R "$APP" "$OLD"; mk_plist "$OLD" io.github.matasarei.wow-launcher 2.7
 "$OLD/Contents/Resources/bin/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
-printf 'PATCHES=no-silicon\nRENDERER=mtld3d\nCLOSE_ON_PLAY=1\nRETINA=off\nDISPLAY_RECT=1,2,3,4\nGAME_DISPLAY=Old Screen\nRUNTIME=fex\n' >> "$OLDRES/launcher.conf"
+printf 'PATCHES=no-silicon\nRENDERER=mtld3d\nFEX_RENDERER=dxvk\nCLOSE_ON_PLAY=1\nRETINA=off\nDISPLAY_RECT=1,2,3,4\nGAME_DISPLAY=Old Screen\nRUNTIME=fex\n' >> "$OLDRES/launcher.conf"
 sed -i '' 's/^SET gxWindow .*/SET gxWindow "0"/' "$OLDRES/games/main/WTF/Config.wtf"
 echo 'SET myCvar "42"' >> "$OLDRES/games/main/WTF/Config.wtf"
 mkdir -p "$OLDRES/games/main/locales/deDE/pack"; echo de-exe > "$OLDRES/games/main/locales/deDE/Wow.exe"
@@ -1496,7 +1557,7 @@ assert_contains "$OUT" "importing from Old Launcher 2.10" "the previous app is a
 assert_contains "$OUT" "game installed (3.3.5a), imported from Old Launcher 2.10" "and its game installed"
 assert_eq "$(tree_sums "$OLD")" "$BEFORE_OLD" "the previous app is left byte-for-byte as it was"
 CONF="$(cat "$RES/launcher.conf")"
-for kv in PATCHES=no-silicon RENDERER=mtld3d CLOSE_ON_PLAY=1 RETINA=off GAME_VERSION=3.3.5a GAME_FAMILY=wotlk RUNTIME=fex; do
+for kv in PATCHES=no-silicon RENDERER=mtld3d FEX_RENDERER=dxvk CLOSE_ON_PLAY=1 RETINA=off GAME_VERSION=3.3.5a GAME_FAMILY=wotlk RUNTIME=fex; do
   assert_contains "$CONF" "$kv" "$kv after the move"
 done
 # the runtime choice comes along, and this copy, built without FEX=1, says why it plays on Rosetta
@@ -1857,7 +1918,7 @@ apply() {  # apply <zip> <digest> — against the disposable copy
 apply_setup
 Z="$TMP/rel/WoW-v2.10.zip"
 mk_release_zip "$Z" 2.10
-printf 'RENDERER=mtld3d\nRUNTIME=fex\n' >> "$AAPP/Contents/Resources/launcher.conf"
+printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\nRUNTIME=fex\n' >> "$AAPP/Contents/Resources/launcher.conf"
 mkdir -p "$TMP/applytest/.wow-update.leftover/new"   # an earlier update that could not tidy up
 mk_fex_runtime "$AAPP/Contents/Resources"   # a FEX=1 copy: both runtimes' wineservers are stopped
 : > "$WINELOG"; OUT="$(apply "$Z" "$(digest_of "$Z")")"
@@ -1881,6 +1942,7 @@ done
 # by LaunchServices when a GUI app downloads, and ditto does not carry one from
 # a zip, so this suite cannot reproduce the case it guards against)
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RENDERER=mtld3d" "the settings were carried into it"
+assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "FEX_RENDERER=dxvk" "FEX's renderer too"
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RUNTIME=fex" "the runtime choice too"
 stage_count() { find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' '; }
 # a FEX copy on a Mac without Rosetta: a release without FEX could not play there

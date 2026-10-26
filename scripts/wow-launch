@@ -71,15 +71,27 @@ elif [ "$X87_ENGINE" != "none" ]; then
     export ROSETTA_X87_PATH="$GAME/rosettax87/rosettax87"
   fi
 fi
-# Renderer (launcher.conf RENDERER=): dxvk (default) loads the game-dir DXVK
-# d3d9.dll; mtld3d uses the runtime's builtin d3d9, which IS the MTLd3D
-# Metal-native backend (HDR-capable).
-# Under FEX only MTLd3D for now: the runtime's builtin d3d9 needs nothing in the
-# game folder, while DXVK there would need the KosmicKrisp build of d3d9.dll (r18
-# has no MoltenVK).
-RENDERER="$(grep -sE '^RENDERER=' "$RES/launcher.conf" | cut -d= -f2)"
+# Renderer, one key per runtime. Rosetta (launcher.conf RENDERER=): dxvk (default)
+# loads the game-dir DXVK d3d9.dll (D9VK); mtld3d uses the runtime's builtin d3d9,
+# which IS the MTLd3D Metal-native backend (HDR-capable).
+# FEX (FEX_RENDERER=): mtld3d (default), or dxvk, the 3.3.0 Preview's DXVK 3.1.1 —
+# only when the game folder really holds it (verify --fix puts it there): Rosetta's
+# D9VK is built for MoltenVK, and r18's only Vulkan driver is KosmicKrisp.
 RENDERER_WHY=""
-if [ "$RUNTIME" = fex ] && [ "$RENDERER" != "mtld3d" ]; then RENDERER=mtld3d; RENDERER_WHY=" (FEX: MTLd3D only for now)"; fi
+if [ "$RUNTIME" = fex ]; then
+  RENDERER="$(grep -sE '^FEX_RENDERER=' "$RES/launcher.conf" | cut -d= -f2)"
+  RENDERER="${RENDERER:-mtld3d}"
+  if [ "$RENDERER" = dxvk ] && [ "$(rt DXVK)" != 1 ]; then
+    RENDERER=mtld3d; RENDERER_WHY=" (FEX: this copy has no DXVK for FEX)"
+  elif [ "$RENDERER" = dxvk ] && [ ! -f "$GAME/d3d9.dll" ]; then
+    # a 64-bit client never gets one (wow-client-profile CAP_DXVK), so no "run Verify" here
+    RENDERER=mtld3d; RENDERER_WHY=" (FEX: no DXVK d3d9.dll in the game folder)"
+  elif [ "$RENDERER" = dxvk ] && ! cmp -s "$GAME/d3d9.dll" "$RES/patch-kit/$(rt DXVK_KIT)"; then
+    RENDERER=mtld3d; RENDERER_WHY=" (FEX: the game folder does not hold FEX's DXVK — Verify puts it there)"
+  fi
+else
+  RENDERER="$(grep -sE '^RENDERER=' "$RES/launcher.conf" | cut -d= -f2)"
+fi
 if [ "$RENDERER" = "mtld3d" ]; then
   export WINEDLLOVERRIDES="d3d9=b"
 else
@@ -89,10 +101,11 @@ else
   # not among the macOS loader's default search paths, so left to itself it
   # may find no driver, or one from a Vulkan SDK installed on the Mac (read
   # from the loader's documented search order, not reproduced). Named
-  # explicitly, as upstream does; an older runtime (MoltenVK itself as the
-  # library) has no manifest, and then nothing is set.
-  ICD="$WINEDIR/lib/vulkan/icd.d/MoltenVK_icd.json"
-  if [ -f "$ICD" ]; then export VK_DRIVER_FILES="$ICD"; else unset VK_DRIVER_FILES; fi
+  # explicitly, as upstream does — MoltenVK under Rosetta, KosmicKrisp under FEX
+  # (wow-runtime VK_ICD); an older runtime (MoltenVK itself as the library) has
+  # no manifest, and then nothing is set.
+  ICD="$(rt VK_ICD)"
+  if [ -n "$ICD" ]; then export VK_DRIVER_FILES="$ICD"; else unset VK_DRIVER_FILES; fi
 fi
 export MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS=1
 # what upstream's own launcher sets for this runtime (wowsilicon-launch, 3.3.0 Preview)
