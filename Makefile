@@ -138,8 +138,11 @@ patch-kit: payloads
 # from the 3.2.2 DMG) is not touched: the game folder holds one or the other, per
 # runtime (wow-runtime DXVK_KIT=).
 FEX_DXVK_IN_ZIP = WoWSilicon_3.3.0_Preview.app/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Contents/Resources/Patching/dxvk-kosmickrisp
+# Already in the kit: kept, unless the cached zip (a newer pin) holds a different one.
 patch-kit-fex:
-	@if [ -f "$(RES)/patch-kit/fex/d3d9.dll" ]; then echo "==> DXVK for FEX already present, skipping"; else \
+	@if [ -f "$(RES)/patch-kit/fex/d3d9.dll" ] && { [ ! -f "$(DEPS)/wowsilicon-fex.zip" ] \
+	     || unzip -p "$(DEPS)/wowsilicon-fex.zip" "$(FEX_DXVK_IN_ZIP)/d3d9.dll" | cmp -s - "$(RES)/patch-kit/fex/d3d9.dll"; }; then \
+	  echo "==> DXVK for FEX already present, skipping"; else \
 	  echo "==> DXVK for FEX (DXVK 3.1.1 for KosmicKrisp, from the 3.3.0 Preview)"; \
 	  $(MAKE) --no-print-directory fex-zip || exit 1; \
 	  mkdir -p "$(RES)/patch-kit/fex" && \
