@@ -75,6 +75,11 @@ The result on an M4 Max: **~120 FPS at native Retina resolution** with Rosetta 2
 fast startup, fast exit. FEX with MTLd3D plays at about the same FPS and gave the
 smoothest frame pacing in testing.
 
+**Why this exists:** for fun and discovery — making a 2010 Windows game run *great* on
+modern Apple hardware is the whole point. This is not a piracy project: it ships no
+game data, and it is built around **original classic-era clients** — WotLK 3.3.5a (12340),
+TBC 2.4.3 and vanilla 1.12. Those are the ones that are tested, supported, and fast.
+
 ### Rosetta 2 or FEX?
 
 A copy with FEX (every release from 2.14, or `make FEX=1`) offers both in
@@ -87,7 +92,7 @@ one are kept.
 | **Needs** | Rosetta 2 installed, macOS 15+ | macOS 26.5+, no Rosetta 2 |
 | **Renderer** | DXVK by default, or MTLd3D | MTLd3D by default, or DXVK |
 | **Client patches** | the full set, at the level you pick in Game → Patches | the game icon only |
-| **Tested with** | 3.3.5a, 2.4.3 and 1.12 clients, language packs | a 3.3.5a client on a local server, RU/UK keyboard layouts |
+| **Tested with** | 3.3.5a, 2.4.3 and 1.12 clients, Cyrillic keyboard layouts | a 3.3.5a client on a local server, Cyrillic keyboard layouts |
 | **On an HDR screen** (MTLd3D) | the mouse pointer stays at standard brightness and looks dim; turn off **HDR output** in Display, or the game's Hardware Cursor | the pointer is drawn with the game, at the same brightness |
 
 - **Rosetta 2** is the default and the most proven. Stay on it for 2.4.3 and 1.12
@@ -98,11 +103,6 @@ one are kept.
   Rosetta 2 missing switches to it by itself.
 - **Something misbehaves under FEX?** Switch back to Rosetta 2, and please
   [open an issue](https://github.com/matasarei/wow-launcher/issues).
-
-**Why this exists:** for fun and discovery — making a 2010 Windows game run *great* on
-modern Apple hardware is the whole point. This is not a piracy project: it ships no
-game data, and it is built around **original classic-era clients** — WotLK 3.3.5a (12340),
-TBC 2.4.3 and vanilla 1.12. Those are the ones that are tested, supported, and fast.
 
 ### Other clients
 
@@ -121,10 +121,10 @@ executable.
 
 | What you install | On Rosetta 2 | On FEX |
 |---|---|---|
-| **3.3.5a (12340), 2.4.3, 1.12** | everything: DXVK, the mod loader, winerosetta, libSiliconPatch where a build exists, the icon patch, display matching, language packs | runs as shipped, with the icon patch, display matching and language packs. Tested with 3.3.5a; language packs not yet |
-| **A repack or custom build of those** | the same, minus anything keyed to a Blizzard executable (icon patch, language packs). libSiliconPatch is still offered unless the executable declares a build other than 12340 — its hooks are hardcoded 12340 addresses | runs as shipped, the same as an original client. Untested |
-| **Cataclysm / MoP** (32-bit, still MPQ) | DXVK, the mod loader and winerosetta; **never** libSiliconPatch. Untested — no such client was available while building this | runs as shipped, the same as an original client. Untested |
-| **WoD / Legion and later** (64-bit, CASC) | nothing. Every DLL in the patch kit is 32-bit x86 and cannot be loaded into a 64-bit process, so the client is copied in and started exactly as it shipped. The app tells you this and asks for confirmation **before** the copy — expect it not to run | FEX runs 64-bit code too, so the processor is no obstacle. These clients draw with Direct3D 11 or newer, though, which neither MTLd3D nor DXVK here covers: Wine's own Direct3D 11 does the drawing. Untested |
+| **3.3.5a (12340), 2.4.3, 1.12** | everything: DXVK, the mod loader, winerosetta, libSiliconPatch where a build exists, the icon patch, display matching, language packs | runs as shipped, with the icon patch, display matching and language packs. Tested with 3.3.5a |
+| **A repack or custom build of those** | the same, minus anything keyed to a Blizzard executable (icon patch, language packs). libSiliconPatch is still offered unless the executable declares a build other than 12340 — its hooks are hardcoded 12340 addresses | runs as shipped, the same as an original client. Untested, feedback wanted. |
+| **Cataclysm / MoP** (32-bit, still MPQ) | DXVK, the mod loader and winerosetta; **never** libSiliconPatch. Untested, feedback wanted: no such client was available while building this | runs as shipped, the same as an original client. Untested, feedback wanted. |
+| **WoD / Legion and later** (64-bit, CASC) | nothing. Every DLL in the patch kit is 32-bit x86 and cannot be loaded into a 64-bit process, so the client is copied in and started exactly as it shipped. The app tells you this and asks for confirmation **before** the copy — expect it not to run | FEX runs 64-bit code too, so the processor is no obstacle. These clients draw with Direct3D 11 or newer, though, which neither MTLd3D nor DXVK here covers: Wine's own Direct3D 11 does the drawing. Untested, feedback wanted. |
 
 "Supported" still means the classic three. The rest is there because refusing
 to try is worse than trying and saying honestly what happened.
