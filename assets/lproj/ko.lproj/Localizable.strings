@@ -72,7 +72,7 @@
 "DXVK (default)" = "DXVK(기본값)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "MTLd3D (Metal, HDR, default)" = "MTLd3D (Metal, HDR, 기본값)";
-"Takes effect at the next game start. Under FEX, MTLd3D is the default and the one that can output HDR; DXVK there is the WoWSilicon 3.3.0 Preview's DXVK 3.1.1 on the KosmicKrisp Vulkan driver." = "다음 게임 시작 시 적용됩니다. FEX에서는 MTLd3D가 기본값이며 HDR을 출력할 수 있는 렌더러입니다. 그곳의 DXVK는 WoWSilicon 3.3.0 Preview의 DXVK 3.1.1로, KosmicKrisp Vulkan 드라이버에서 동작합니다.";
+"Takes effect at the next game start. Under FEX, MTLd3D is the default: it draws through Metal directly, runs the smoothest and can output HDR. DXVK draws through Vulkan instead — worth a try if something looks wrong with MTLd3D." = "다음 게임 시작 시 적용됩니다. FEX에서는 MTLd3D가 기본값입니다. Metal로 직접 그려 가장 부드럽게 실행되고 HDR을 출력할 수 있습니다. DXVK는 대신 Vulkan으로 그립니다. MTLd3D에서 화면이 이상하게 보이면 시도해 보세요.";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "다음 게임 시작 시 적용됩니다. DXVK는 Vulkan을 통해 Direct3D 9를 변환하는 검증된 기본값이며, MTLd3D는 Metal로 직접 렌더링하고 HDR을 출력할 수 있습니다.";
 "Runtime" = "런타임";
 "Run the game with" = "게임 실행 방식";
@@ -190,3 +190,7 @@
 "This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "이 사본은 Rosetta 2 없이 빌드되어 Rosetta 프리픽스가 없습니다. Rosetta 2를 선택할 수 있게 하려면 런처 소스 폴더에서 make build FEX=1을 다시 실행하세요.";
 "Or build a copy with FEX, which needs no Rosetta 2" = "또는 Rosetta 2가 필요 없는 FEX 사본을 빌드하세요";
 "This copy carries the FEX runtime. If the new version does not, the game moves to Rosetta 2 with your settings; on a Mac without Rosetta 2 the update stops and this copy stays." = "이 사본에는 FEX 런타임이 들어 있습니다. 새 버전에 없으면 게임은 설정을 유지한 채 Rosetta 2로 실행되며, Rosetta 2가 없는 Mac에서는 업데이트가 중단되고 이 사본이 유지됩니다.";
+"HDR output" = "HDR 출력";
+"On a screen with HDR headroom, such as a MacBook Pro's XDR display, MTLd3D lifts the game into HDR: brighter highlights and more vivid colors. Turn it off if the game looks too bright there. Other screens look the same either way." = "MacBook Pro의 XDR 디스플레이처럼 HDR 여유가 있는 화면에서는 MTLd3D가 게임을 HDR로 끌어올립니다. 밝은 부분은 더 밝게, 색은 더 선명하게 보입니다. 그 화면에서 게임이 너무 밝게 느껴지면 끄세요. 다른 화면에서는 어느 쪽이든 똑같이 보입니다.";
+"HDR output turned on — takes effect at the next game start." = "HDR 출력이 켜졌습니다. 다음 게임 시작 시 적용됩니다.";
+"HDR output turned off — takes effect at the next game start." = "HDR 출력이 꺼졌습니다. 다음 게임 시작 시 적용됩니다.";

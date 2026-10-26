@@ -132,6 +132,7 @@ final class Store: ObservableObject {
     @Published var mode = "maximized"
     @Published var renderer = "dxvk"          // RENDERER=, Rosetta's (absent = dxvk)
     @Published var fexRenderer = "mtld3d"     // FEX_RENDERER=, FEX's own (absent = mtld3d)
+    @Published var hdr = true             // HDR=0 → MTLd3D's color.hdr.enable=false, both runtimes (absent = on)
     @Published var runtime = "rosetta"    // RUNTIME=rosetta|fex (wow-runtime decides what actually runs)
     @Published var spatialAudio = true     // SPATIAL_AUDIO=0 → WOWSILICON_SPATIAL_AUDIO_MODE=off (else fixed)
     @Published var normalizeAudio = true   // NORMALIZE_AUDIO=0 → WOWSILICON_NORMALIZE_AUDIO=0 (else 1)
@@ -194,6 +195,7 @@ final class Store: ObservableObject {
         let r = confGet("RENDERER")
         renderer = r.isEmpty ? "dxvk" : r
         fexRenderer = confGet("FEX_RENDERER") == "dxvk" ? "dxvk" : "mtld3d"
+        hdr = confGet("HDR") != "0"   // only 0 turns it off, as wow-launch reads it
         runtime = confGet("RUNTIME") == "fex" ? "fex" : "rosetta"
         // on unless launcher.conf says 0 — absent = on, the AUTO_RES idiom wow-launch mirrors
         let sp = confGet("SPATIAL_AUDIO"), nm = confGet("NORMALIZE_AUDIO")
@@ -750,6 +752,14 @@ final class Store: ObservableObject {
                                                   andPath: Paths.resources + "/patch-kit/fex/d3d9.dll") {
             verifyGame(fix: true)
         }
+    }
+
+    // One key for both runtimes' MTLd3D: wow-launch passes color.hdr.enable=false on 0.
+    func setHDR(_ on: Bool) {
+        hdr = on
+        confSet("HDR", on ? "1" : "0")
+        note = on ? L("HDR output turned on — takes effect at the next game start.")
+                  : L("HDR output turned off — takes effect at the next game start.")
     }
 
     // Both are read by wow-launch and exported into the runtime's environment;
@@ -2295,6 +2305,9 @@ struct DisplayView: View {
         Binding(get: { store.onFEX ? (store.fexDXVK ? store.fexRenderer : "mtld3d") : store.renderer },
                 set: { store.setRenderer($0) })
     }
+    var hdrBinding: Binding<Bool> {
+        Binding(get: { store.hdr }, set: { store.setHDR($0) })
+    }
 
     // Standard sizes that fit on the chosen display (window size is in points).
     var fittingSizes: [String] {
@@ -2374,13 +2387,19 @@ struct DisplayView: View {
                     if store.onFEX && !store.fexDXVK {
                         Text("Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet.")
                     } else if store.onFEX {
-                        Text("Takes effect at the next game start. Under FEX, MTLd3D is the default and the one that can output HDR; DXVK there is the WoWSilicon 3.3.0 Preview's DXVK 3.1.1 on the KosmicKrisp Vulkan driver.")
+                        Text("Takes effect at the next game start. Under FEX, MTLd3D is the default: it draws through Metal directly, runs the smoothest and can output HDR. DXVK draws through Vulkan instead — worth a try if something looks wrong with MTLd3D.")
                     } else {
                         Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")
                     }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                if rendererBinding.wrappedValue == "mtld3d" {
+                    Toggle("HDR output", isOn: hdrBinding)
+                    Text("On a screen with HDR headroom, such as a MacBook Pro's XDR display, MTLd3D lifts the game into HDR: brighter highlights and more vivid colors. Turn it off if the game looks too bright there. Other screens look the same either way.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             if !store.note.isEmpty {
                 Section {

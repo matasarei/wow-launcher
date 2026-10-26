@@ -219,10 +219,21 @@ fi
 # the game window through the compositor. The Rosetta runtime's 0.7.0 has no
 # such key.
 if [ "$RUNTIME" = fex ]; then export MTLD3D_CONFIG="${MTLD3D_CONFIG:+$MTLD3D_CONFIG;}cursor.software=auto"; fi
+# HDR (launcher.conf HDR=, Display pane, both runtimes): on a screen with EDR
+# headroom MTLd3D lifts the game's SDR frames into HDR, its default. HDR=0 forces
+# its SDR present path; anything else passes nothing and leaves the default.
+# With HDR off FEX's cursor.software=auto stays off, and the hardware cursor
+# matches the SDR picture.
+HDR="$(grep -sE '^HDR=' "$RES/launcher.conf" | cut -d= -f2)"
+HDR_WHY=""
+if [ "$HDR" = 0 ]; then
+  export MTLD3D_CONFIG="${MTLD3D_CONFIG:+$MTLD3D_CONFIG;}color.hdr.enable=false"
+  [ "$RENDERER" = mtld3d ] && HDR_WHY=", HDR off"
+fi
 # The engine is the log's first line. A report of a game that never appeared
 # then names the engine used, and why.
 echo "x87: $X87_ENGINE${X87_WHY:+ ($X87_WHY)}" > "$LOG"
-echo "runtime: $RUNTIME ($(rt WHY)), renderer: ${RENDERER:-dxvk}$RENDERER_WHY" >> "$LOG"
+echo "runtime: $RUNTIME ($(rt WHY)), renderer: ${RENDERER:-dxvk}$RENDERER_WHY$HDR_WHY" >> "$LOG"
 nohup "$LOADER" "$EXE" >> "$LOG" 2>&1 &
 disown
 # Move the game window to the chosen display once it appears (needs Accessibility)

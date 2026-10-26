@@ -72,7 +72,7 @@
 "DXVK (default)" = "DXVK (predeterminado)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "MTLd3D (Metal, HDR, default)" = "MTLd3D (Metal, HDR, predeterminado)";
-"Takes effect at the next game start. Under FEX, MTLd3D is the default and the one that can output HDR; DXVK there is the WoWSilicon 3.3.0 Preview's DXVK 3.1.1 on the KosmicKrisp Vulkan driver." = "Surte efecto al próximo inicio del juego. Con FEX, MTLd3D es la opción predeterminada y la que puede emitir HDR; DXVK es allí el DXVK 3.1.1 de WoWSilicon 3.3.0 Preview sobre el controlador Vulkan KosmicKrisp.";
+"Takes effect at the next game start. Under FEX, MTLd3D is the default: it draws through Metal directly, runs the smoothest and can output HDR. DXVK draws through Vulkan instead — worth a try if something looks wrong with MTLd3D." = "Surte efecto al próximo inicio del juego. Con FEX, MTLd3D es la opción predeterminada: dibuja directamente con Metal, es la más fluida y puede emitir HDR. DXVK dibuja con Vulkan: vale la pena probarlo si algo se ve mal con MTLd3D.";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Surte efecto al próximo inicio del juego. DXVK traduce Direct3D 9 mediante Vulkan y es la opción probada; MTLd3D renderiza directamente con Metal y puede emitir HDR.";
 "Runtime" = "Entorno de ejecución";
 "Run the game with" = "Ejecutar el juego con";
@@ -190,3 +190,7 @@
 "This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "Esta copia se compiló sin Rosetta 2, así que no tiene prefijo de Rosetta. Para que Rosetta 2 sea una opción, vuelve a ejecutar make build FEX=1 en la carpeta de código del launcher.";
 "Or build a copy with FEX, which needs no Rosetta 2" = "O compila una copia con FEX, que no necesita Rosetta 2";
 "This copy carries the FEX runtime. If the new version does not, the game moves to Rosetta 2 with your settings; on a Mac without Rosetta 2 the update stops and this copy stays." = "Esta copia incluye el runtime FEX. Si la nueva versión no lo incluye, el juego pasa a Rosetta 2 con tus ajustes; en un Mac sin Rosetta 2 la actualización se detiene y esta copia se queda.";
+"HDR output" = "Salida HDR";
+"On a screen with HDR headroom, such as a MacBook Pro's XDR display, MTLd3D lifts the game into HDR: brighter highlights and more vivid colors. Turn it off if the game looks too bright there. Other screens look the same either way." = "En una pantalla con margen HDR, como la pantalla XDR de un MacBook Pro, MTLd3D eleva el juego a HDR: luces más brillantes y colores más vivos. Desactívala si el juego se ve demasiado brillante ahí. En otras pantallas se ve igual en ambos casos.";
+"HDR output turned on — takes effect at the next game start." = "Salida HDR activada: surte efecto al próximo inicio del juego.";
+"HDR output turned off — takes effect at the next game start." = "Salida HDR desactivada: surte efecto al próximo inicio del juego.";

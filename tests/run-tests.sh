@@ -643,11 +643,31 @@ rm -rf "$RES/wine/lib/vulkan"
 assert_contains "$(cat "$WINELOG")" "VK=unset" "without the manifest a stale shell value is cleared too"
 assert_contains "$(cat "$WINELOG")" "ROSETTA=$G/rosettax87/rosettax87-shim" "rosettax87 shim engine by default"
 [ -L "$RES/prefix/dosdevices/z:" ] && ok || bad "z: drive link not recreated"
+# HDR=0 under DXVK: the key is passed all the same (DXVK never reads it), but the
+# log names HDR only for the renderer it changes
+printf 'HDR=0\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(sed -n 2p "$RES/logs/last-launch.log")" "renderer: dxvk" "DXVK by default"
+case "$(sed -n 2p "$RES/logs/last-launch.log")" in *HDR*) bad "HDR=0 under DXVK: nothing about HDR in the log" ;; *) ok ;; esac
+sed -i '' '/^HDR=/d' "$RES/launcher.conf"
 printf 'RENDERER=mtld3d\nX87=sidecar\n' >> "$RES/launcher.conf"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(cat "$WINELOG")" "OVR=d3d9=b" "mtld3d override"
 assert_contains "$(cat "$WINELOG")" "SIDECAR=$RES/patch-kit/x87sidecar/x87sidecar" "sidecar engine"
 assert_contains "$(cat "$WINELOG")" "VK=unset" "MTLd3D needs no Vulkan driver"
+case "$(cat "$WINELOG")" in *color.hdr*) bad "no HDR key: MTLd3D's own default, nothing passed" ;; *) ok ;; esac
+printf 'HDR=0\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "color.hdr.enable=false PREFIX=" "HDR=0: MTLd3D told to stay SDR"
+assert_contains "$(sed -n 2p "$RES/logs/last-launch.log")" "renderer: mtld3d, HDR off" "and the log says so"
+sed -i '' 's/^HDR=.*/HDR=1/' "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+case "$(cat "$WINELOG")" in *color.hdr*) bad "HDR=1: nothing passed" ;; *) ok ;; esac
+case "$(sed -n 2p "$RES/logs/last-launch.log")" in *HDR*) bad "HDR=1: nothing in the log" ;; *) ok ;; esac
+sed -i '' 's/^HDR=.*/HDR=yes/' "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+case "$(cat "$WINELOG")" in *color.hdr*) bad "only HDR=0 turns it off" ;; *) ok ;; esac
+sed -i '' '/^HDR=/d' "$RES/launcher.conf"
 # audio (runtime r15 winecoreaudio contract): spatial mixer and normalizer on unless
 # the conf says 0 (absent = on, like AUTO_RES), device following left to the driver's
 # default, control files pinned inside the bundle
@@ -785,6 +805,11 @@ sed -i '' 's/^FEX_RENDERER=.*/FEX_RENDERER=mtld3d/' "$RES/launcher.conf"
 : > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
 assert_contains "$(game_line)" "OVR=d3d9=b" "FEX_RENDERER=mtld3d: MTLd3D"
 assert_contains "$(game_line)" "VK=unset" "with no Vulkan driver"
+printf 'HDR=0\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "cursor.software=auto;color.hdr.enable=false " "FEX + HDR=0: MTLd3D stays SDR (the overlay cursor's auto then stays off)"
+assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: mtld3d, HDR off" "and the log says so"
+sed -i '' '/^HDR=/d' "$RES/launcher.conf"
 cp "$TMP/game-d9vk.dll" "$GD"; rm -rf "$RES/patch-kit/fex" "$RES/wine-fex/lib"
 sed -i '' '/^FEX_RENDERER=/d' "$RES/launcher.conf"
 [ -L "$RES/prefix-fex/dosdevices/z:" ] && ok || bad "z: drive link made in the FEX prefix"
@@ -859,6 +884,13 @@ echo N > "$RES/prefix/.retina-mode"
 assert_eq "$(cat "$G/dxvk.conf")" "dxgi.maxFrameRate = 60" "retina off: our line goes, the user's stays"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(cat "$WINELOG")" "MTL=cursor.scale=1" "retina off: MTLd3D told not to double the cursor"
+printf 'HDR=0\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "MTL=cursor.scale=1;color.hdr.enable=false PREFIX=" "retina off + HDR=0: both keys"
+echo Y > "$RES/prefix/.retina-mode"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "MTL=color.hdr.enable=false PREFIX=" "retina on + HDR=0: the HDR key alone"
+echo N > "$RES/prefix/.retina-mode"; sed -i '' '/^HDR=/d' "$RES/launcher.conf"
 echo 'd3d9.enlargeHardwareCursor = 2' > "$G/dxvk.conf"
 "$BIN/wow-launch"; sleep 0.3
 assert_nofile "$G/dxvk.conf"
@@ -955,7 +987,7 @@ reset_conf
 section "install 2.4.3 (replaces wotlk)"
 cp "$TMP/client-tbc/DivxTac.dll" "$RES/patch-kit/DivxTac.dll.2.4.3.orig"
 echo patchedtac > "$RES/patch-kit/DivxTac.dll.2.4.3.patched"
-printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\n' >> "$RES/launcher.conf"
+printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\nHDR=0\n' >> "$RES/launcher.conf"
 OUT="$("$BIN/wow-install-client" "$TMP/client-tbc" 2>&1)"
 assert_contains "$OUT" "game installed (2.4.3)" "install completed"
 assert_nofile "$G/mods/libSiliconPatch.dll"
@@ -966,6 +998,7 @@ CONF="$(cat "$RES/launcher.conf")"
 assert_contains "$CONF" "GAME_VERSION=2.4.3" "GAME_VERSION replaced"
 echo "$CONF" | grep -q "^RENDERER=" && bad "RENDERER not reset on install" || ok
 echo "$CONF" | grep -q "^FEX_RENDERER=" && bad "FEX_RENDERER not reset on install" || ok
+assert_contains "$CONF" "HDR=0" "HDR is the player's screen preference: a fresh install keeps it"
 grep -q "videoOptionsVersion" "$G/WTF/Config.wtf" && bad "wotlk cvars leaked into tbc config" || ok
 
 section "verify 2.4.3"
@@ -1486,7 +1519,7 @@ reset_conf; rm -rf "$RES/games"/*
 OLD="$TMP/Old Launcher.app"; OLDRES="$OLD/Contents/Resources"
 cp -R "$APP" "$OLD"; mk_plist "$OLD" io.github.matasarei.wow-launcher 2.7
 "$OLD/Contents/Resources/bin/wow-install-client" "$TMP/client-wotlk" >/dev/null 2>&1
-printf 'PATCHES=no-silicon\nRENDERER=mtld3d\nFEX_RENDERER=dxvk\nCLOSE_ON_PLAY=1\nRETINA=off\nDISPLAY_RECT=1,2,3,4\nGAME_DISPLAY=Old Screen\nRUNTIME=fex\n' >> "$OLDRES/launcher.conf"
+printf 'PATCHES=no-silicon\nRENDERER=mtld3d\nFEX_RENDERER=dxvk\nHDR=0\nCLOSE_ON_PLAY=1\nRETINA=off\nDISPLAY_RECT=1,2,3,4\nGAME_DISPLAY=Old Screen\nRUNTIME=fex\n' >> "$OLDRES/launcher.conf"
 sed -i '' 's/^SET gxWindow .*/SET gxWindow "0"/' "$OLDRES/games/main/WTF/Config.wtf"
 echo 'SET myCvar "42"' >> "$OLDRES/games/main/WTF/Config.wtf"
 mkdir -p "$OLDRES/games/main/locales/deDE/pack"; echo de-exe > "$OLDRES/games/main/locales/deDE/Wow.exe"
@@ -1557,7 +1590,7 @@ assert_contains "$OUT" "importing from Old Launcher 2.10" "the previous app is a
 assert_contains "$OUT" "game installed (3.3.5a), imported from Old Launcher 2.10" "and its game installed"
 assert_eq "$(tree_sums "$OLD")" "$BEFORE_OLD" "the previous app is left byte-for-byte as it was"
 CONF="$(cat "$RES/launcher.conf")"
-for kv in PATCHES=no-silicon RENDERER=mtld3d FEX_RENDERER=dxvk CLOSE_ON_PLAY=1 RETINA=off GAME_VERSION=3.3.5a GAME_FAMILY=wotlk RUNTIME=fex; do
+for kv in PATCHES=no-silicon RENDERER=mtld3d FEX_RENDERER=dxvk HDR=0 CLOSE_ON_PLAY=1 RETINA=off GAME_VERSION=3.3.5a GAME_FAMILY=wotlk RUNTIME=fex; do
   assert_contains "$CONF" "$kv" "$kv after the move"
 done
 # the runtime choice comes along, and this copy, built without FEX=1, says why it plays on Rosetta
@@ -1918,7 +1951,7 @@ apply() {  # apply <zip> <digest> — against the disposable copy
 apply_setup
 Z="$TMP/rel/WoW-v2.10.zip"
 mk_release_zip "$Z" 2.10
-printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\nRUNTIME=fex\n' >> "$AAPP/Contents/Resources/launcher.conf"
+printf 'RENDERER=mtld3d\nFEX_RENDERER=dxvk\nHDR=0\nRUNTIME=fex\n' >> "$AAPP/Contents/Resources/launcher.conf"
 mkdir -p "$TMP/applytest/.wow-update.leftover/new"   # an earlier update that could not tidy up
 mk_fex_runtime "$AAPP/Contents/Resources"   # a FEX=1 copy: both runtimes' wineservers are stopped
 : > "$WINELOG"; OUT="$(apply "$Z" "$(digest_of "$Z")")"
@@ -1943,6 +1976,7 @@ done
 # a zip, so this suite cannot reproduce the case it guards against)
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RENDERER=mtld3d" "the settings were carried into it"
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "FEX_RENDERER=dxvk" "FEX's renderer too"
+assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "HDR=0" "and the HDR choice"
 assert_contains "$(cat "$AAPP/Contents/Resources/launcher.conf")" "RUNTIME=fex" "the runtime choice too"
 stage_count() { find "$TMP/applytest" -maxdepth 1 -name '.wow-update.*' | wc -l | tr -d ' '; }
 # a FEX copy on a Mac without Rosetta: a release without FEX could not play there
