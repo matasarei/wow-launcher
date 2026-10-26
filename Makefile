@@ -33,10 +33,6 @@ PAYLOAD_SHA256 = 53771ef7595371cdd31db1a1269df481750c4e33f479ad862bb94376427d894
 FEX_RUNTIME_URL    = https://github.com/WoWSilicon/WoWSilicon/releases/download/Preview3.3.0/WoWSilicon_3.3.0_Preview.zip
 FEX_RUNTIME_SHA256 = b9d7c9606c526903da017066dc643b656517fef368a3d14f39c1d7a417392e8a
 
-# A locally installed WoWSilicon 3.x can serve the payloads without a download.
-WOWSILICON ?= $(firstword $(wildcard $(HOME)/Applications/WoWSilicon.app /Applications/WoWSilicon.app))
-LOCAL_PAY   = $(WOWSILICON)/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching
-
 .PHONY: build wrapper check skeleton runtime runtime-fex payloads patch-kit prefix prefix-rosetta prefix-fex launcher sign install test check-strings compile lint zip
 
 build: check skeleton runtime $(if $(FEX),runtime-fex) patch-kit prefix $(if $(FEX),prefix-fex) launcher sign
@@ -97,21 +93,22 @@ runtime-fex:
 	@echo "==> Dock-name cosmetics for the FEX runtime (game shows as 'WoW')"
 	@/usr/libexec/PlistBuddy -c 'Set :CFBundleName WoW' "$(WINE_FEX)/lib/wine/aarch64-unix/wine.app/Contents/Info.plist"
 
-# Materialize the open-source patch payloads in $(DEPS)/Patching: from a locally
-# installed WoWSilicon 3.x when present, otherwise from the release DMG.
+# Materialize the open-source patch payloads in $(DEPS)/Patching, always from the
+# pinned release DMG. Never from a WoWSilicon.app installed on this Mac: a newer
+# upstream (FEX-first) would silently change what the Rosetta side copies. The
+# marker names the DMG's checksum, so a cache made any other way, or from an
+# older pin, is made again.
 payloads:
-	@if [ -f "$(DEPS)/Patching/d9vk/d3d9.dll" ]; then echo "==> payloads already present, skipping"; \
-	elif [ -d "$(LOCAL_PAY)/x87sidecar" ]; then \
-	  echo "==> payloads from $(WOWSILICON)"; \
-	  mkdir -p "$(DEPS)"; ditto "$(LOCAL_PAY)" "$(DEPS)/Patching"; \
+	@if [ -f "$(DEPS)/Patching/.from-dmg-$(PAYLOAD_SHA256)" ]; then echo "==> payloads already present, skipping"; \
 	else \
-	  echo "==> payloads (WoWSilicon 3.2.1 DMG, ~160 MB download — only used as a file source)"; \
-	  mkdir -p "$(DEPS)"; \
+	  echo "==> payloads (WoWSilicon 3.2.2 DMG, ~160 MB download — only used as a file source)"; \
+	  rm -rf "$(DEPS)/Patching"; mkdir -p "$(DEPS)"; \
 	  [ -f "$(DEPS)/wowsilicon.dmg" ] || curl -fL --progress-bar -o "$(DEPS)/wowsilicon.dmg" "$(PAYLOAD_URL)"; \
 	  echo "$(PAYLOAD_SHA256)  $(DEPS)/wowsilicon.dmg" | shasum -a 256 -c - >/dev/null || { echo "ERROR: payload DMG checksum mismatch — delete $(DEPS)/wowsilicon.dmg and retry"; exit 1; }; \
 	  hdiutil attach -nobrowse -readonly -mountpoint "$(DEPS)/dmg-mount" "$(DEPS)/wowsilicon.dmg" >/dev/null; \
 	  ditto "$(DEPS)/dmg-mount/WoWSilicon.app/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching" "$(DEPS)/Patching"; \
-	  hdiutil detach "$(DEPS)/dmg-mount" >/dev/null; fi
+	  hdiutil detach "$(DEPS)/dmg-mount" >/dev/null; \
+	  touch "$(DEPS)/Patching/.from-dmg-$(PAYLOAD_SHA256)"; fi
 
 patch-kit: payloads
 	@echo "==> patch kit (open-source payloads only)"

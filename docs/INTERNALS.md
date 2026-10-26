@@ -78,9 +78,11 @@ Contents/Resources/
   validation to defeat. The old stack (≤ v2.5.5, CrossOver-based) needed `wineloader2`
   (signature-stripped loader) and a winerosetta `ntdll.so` swap — all obsolete.
 - **Payloads** (`make payloads`): the game-side files come from the WoWSilicon 3.2.2
-  release DMG (sha256-pinned, mounted read-only, never launched/installed) — or from a
-  locally installed WoWSilicon 3.x if one is found (detected by `Patching/x87sidecar`).
-  Materialized in `build/deps/Patching/`.
+  release DMG (sha256-pinned, mounted read-only, never launched/installed), and only
+  from it. A WoWSilicon.app installed on the Mac is never used: upstream is moving to
+  FEX, and a newer app would silently change what the Rosetta side copies.
+  Materialized in `build/deps/Patching/`, marked `.from-dmg-<DMG sha256>`; a cache
+  without that marker (an older pin, or one made from a local app) is made again.
 - **Dock name**: the game must not show as "wine" in the Dock. The macOS process
   name comes from the last component of the **exec path string** (not resolved).
   ntdll builds the loader path itself (`wineloader = ntdll_dir + "/wine"`,
