@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-orange" alt="Apple Silicon">
   <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
   <img src="https://img.shields.io/badge/SwiftUI-native-blue" alt="SwiftUI">
-  <img src="https://img.shields.io/badge/WoW-1.12%20%7C%202.4.3%20%7C%203.3.5a-gold" alt="WoW 1.12 / 2.4.3 / 3.3.5a">
+  <img src="https://img.shields.io/badge/WoW-Classic%20era-gold" alt="WoW Classic era">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license">
 </p>
 
@@ -98,19 +98,22 @@ TBC 2.4.3 and vanilla 1.12. Those are the ones that are tested, supported, and f
 The launcher will install and start **any** client folder that has a game
 executable and a `Data` folder — a repack, a custom build, a later expansion. It
 fingerprints what you gave it (the executable's own version resource first, the
-`Data` layout second) and applies only the patches that can physically work on
-it; the **Game → Patches** menu shrinks to match, and a caption says why.
+`Data` layout second). On Rosetta 2 it applies only the patches that can
+physically work on it; the **Game → Patches** menu shrinks to match, and a
+caption says why.
 
-| What you install | What it gets (on Rosetta 2) |
-|---|---|
-| **3.3.5a (12340), 2.4.3, 1.12** | everything: DXVK, the mod loader, winerosetta, libSiliconPatch where a build exists, the icon patch, display matching, language packs |
-| **A repack or custom build of those** | the same, minus anything keyed to a Blizzard executable (icon patch, language packs). libSiliconPatch is still offered unless the executable declares a build other than 12340 — its hooks are hardcoded 12340 addresses |
-| **Cataclysm / MoP** (32-bit, still MPQ) | DXVK, the mod loader and winerosetta; **never** libSiliconPatch. Untested — no such client was available while building this |
-| **WoD / Legion and later** (64-bit, CASC) | nothing. Every DLL in the patch kit is 32-bit x86 and cannot be loaded into a 64-bit process, so the client is copied in and started exactly as it shipped. The app tells you this and asks for confirmation **before** the copy — expect it not to run |
+Under FEX the picture is different, and for most of these clients better. FEX
+emulates the x86 processor itself, 64-bit included, so the game runs as it
+shipped and needs none of the Rosetta 2 patches, which are what limit the other
+clients there. Only the game icon is patched, where a patch exists for the
+executable.
 
-Under FEX every client gets the game icon patch only, where one exists for its
-executable: the rest of the patch kit is built for Rosetta 2, so the Patches menu
-is hidden there.
+| What you install | On Rosetta 2 | On FEX |
+|---|---|---|
+| **3.3.5a (12340), 2.4.3, 1.12** | everything: DXVK, the mod loader, winerosetta, libSiliconPatch where a build exists, the icon patch, display matching, language packs | runs as shipped, with the icon patch, display matching and language packs. Tested with 3.3.5a; language packs not yet |
+| **A repack or custom build of those** | the same, minus anything keyed to a Blizzard executable (icon patch, language packs). libSiliconPatch is still offered unless the executable declares a build other than 12340 — its hooks are hardcoded 12340 addresses | runs as shipped, the same as an original client. Untested |
+| **Cataclysm / MoP** (32-bit, still MPQ) | DXVK, the mod loader and winerosetta; **never** libSiliconPatch. Untested — no such client was available while building this | runs as shipped, the same as an original client. Untested |
+| **WoD / Legion and later** (64-bit, CASC) | nothing. Every DLL in the patch kit is 32-bit x86 and cannot be loaded into a 64-bit process, so the client is copied in and started exactly as it shipped. The app tells you this and asks for confirmation **before** the copy — expect it not to run | FEX runs 64-bit code too, so the processor is no obstacle. These clients draw with Direct3D 11 or newer, though, which neither MTLd3D nor DXVK here covers: Wine's own Direct3D 11 does the drawing. Untested |
 
 "Supported" still means the classic three. The rest is there because refusing
 to try is worse than trying and saying honestly what happened.
