@@ -756,7 +756,29 @@ assert_contains "$(game_line)" "SIDECAR= ROSETTA= " "no x87 engine, even with X8
 assert_contains "$(game_line)" "OVR=d3d9=b" "MTLd3D, even with RENDERER=dxvk"
 assert_contains "$(game_line)" "cursor.software=auto " "MTLd3D's overlay cursor while HDR is on"
 assert_eq "$(head -1 "$LAUNCHLOG")" "x87: none (FEX emulates x87 itself)" "the log's first line still names the x87 engine"
-assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: mtld3d (FEX: MTLd3D only for now)" "the second names the runtime and renderer"
+assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: mtld3d" "the second names the runtime and renderer (RENDERER= is Rosetta's)"
+# FEX_RENDERER=dxvk: the Preview's DXVK 3.1.1 on KosmicKrisp — only with it in the game folder
+GD="$RES/games/main/d3d9.dll"; cp "$GD" "$TMP/game-d9vk.dll"
+printf 'FEX_RENDERER=dxvk\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "OVR=d3d9=b" "FEX_RENDERER=dxvk in a copy without FEX's DXVK: MTLd3D"
+assert_contains "$(sed -n 2p "$LAUNCHLOG")" "renderer: mtld3d (FEX: this copy has no DXVK for FEX)" "and the log says why"
+mkdir -p "$RES/patch-kit/fex" "$RES/wine-fex/lib/vulkan/icd.d"
+echo dxvk311 > "$RES/patch-kit/fex/d3d9.dll"; echo '{}' > "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "OVR=d3d9=b" "the game folder still has D9VK: MTLd3D, never D9VK on KosmicKrisp"
+assert_contains "$(sed -n 2p "$LAUNCHLOG")" "(FEX: the game folder does not hold FEX's DXVK — Verify puts it there)" "and the log says why"
+cp "$RES/patch-kit/fex/d3d9.dll" "$GD"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "OVR=d3d9=n,b" "FEX's DXVK in the game folder: DXVK"
+assert_contains "$(game_line)" "VK=$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json " "on KosmicKrisp"
+assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: dxvk" "the log names DXVK"
+sed -i '' 's/^FEX_RENDERER=.*/FEX_RENDERER=mtld3d/' "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "OVR=d3d9=b" "FEX_RENDERER=mtld3d: MTLd3D"
+assert_contains "$(game_line)" "VK=unset" "with no Vulkan driver"
+cp "$TMP/game-d9vk.dll" "$GD"; rm -rf "$RES/patch-kit/fex" "$RES/wine-fex/lib"
+sed -i '' '/^FEX_RENDERER=/d' "$RES/launcher.conf"
 [ -L "$RES/prefix-fex/dosdevices/z:" ] && ok || bad "z: drive link made in the FEX prefix"
 assert_contains "$(readlink "$RES/prefix-fex/drive_c/users/${USER:-$(id -un)}")" "../../../home/Wine" "the Windows profile is linked into the FEX prefix"
 # a Mac too old for the runtime: Rosetta, as if nothing were set, and the log says why
