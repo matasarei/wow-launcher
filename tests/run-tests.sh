@@ -768,6 +768,9 @@ echo dxvk311 > "$RES/patch-kit/fex/d3d9.dll"; echo '{}' > "$RES/wine-fex/lib/vul
 : > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
 assert_contains "$(game_line)" "OVR=d3d9=b" "the game folder still has D9VK: MTLd3D, never D9VK on KosmicKrisp"
 assert_contains "$(sed -n 2p "$LAUNCHLOG")" "(FEX: the game folder does not hold FEX's DXVK — Verify puts it there)" "and the log says why"
+rm -f "$GD"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(sed -n 2p "$LAUNCHLOG")" "renderer: mtld3d (FEX: no DXVK d3d9.dll in the game folder)" "no d3d9.dll at all (a 64-bit client): MTLd3D, no Verify hint"
 cp "$RES/patch-kit/fex/d3d9.dll" "$GD"
 : > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
 assert_contains "$(game_line)" "OVR=d3d9=n,b" "FEX's DXVK in the game folder: DXVK"

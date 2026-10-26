@@ -83,6 +83,9 @@ if [ "$RUNTIME" = fex ]; then
   RENDERER="${RENDERER:-mtld3d}"
   if [ "$RENDERER" = dxvk ] && [ "$(rt DXVK)" != 1 ]; then
     RENDERER=mtld3d; RENDERER_WHY=" (FEX: this copy has no DXVK for FEX)"
+  elif [ "$RENDERER" = dxvk ] && [ ! -f "$GAME/d3d9.dll" ]; then
+    # a 64-bit client never gets one (wow-client-profile CAP_DXVK), so no "run Verify" here
+    RENDERER=mtld3d; RENDERER_WHY=" (FEX: no DXVK d3d9.dll in the game folder)"
   elif [ "$RENDERER" = dxvk ] && ! cmp -s "$GAME/d3d9.dll" "$RES/patch-kit/$(rt DXVK_KIT)"; then
     RENDERER=mtld3d; RENDERER_WHY=" (FEX: the game folder does not hold FEX's DXVK — Verify puts it there)"
   fi
