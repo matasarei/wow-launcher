@@ -743,6 +743,13 @@ final class Store: ObservableObject {
             confSet("RENDERER", r)
         }
         note = LF("Renderer set to %@ — takes effect at the next game start.", r == "mtld3d" ? "MTLd3D" : "DXVK")
+        // DXVK under FEX runs only with FEX's DXVK in the game folder (wow-launch falls back
+        // to MTLd3D otherwise): a copy rebuilt with it after the install still holds D9VK
+        if onFEX && r == "dxvk" && !games.isEmpty
+            && !FileManager.default.contentsEqual(atPath: Paths.game + "/d3d9.dll",
+                                                  andPath: Paths.resources + "/patch-kit/fex/d3d9.dll") {
+            verifyGame(fix: true)
+        }
     }
 
     // Both are read by wow-launch and exported into the runtime's environment;
