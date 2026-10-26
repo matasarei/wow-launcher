@@ -92,7 +92,7 @@ one are kept.
 | **Needs** | Rosetta 2 installed, macOS 15+ | macOS 26.5+, no Rosetta 2 |
 | **Renderer** | DXVK by default, or MTLd3D | MTLd3D by default, or DXVK |
 | **Client patches** | the full set, at the level you pick in Game → Patches | the game icon only |
-| **Tested with** | 3.3.5a, 2.4.3 and 1.12 clients, language packs, Cyrillic keyboard layouts | a 3.3.5a client on a local server, language packs, Cyrillic keyboard layouts |
+| **Tested with** | 3.3.5a, 2.4.3 and 1.12 clients, Cyrillic keyboard layouts | a 3.3.5a client on a local server, Cyrillic keyboard layouts |
 | **On an HDR screen** (MTLd3D) | the mouse pointer stays at standard brightness and looks dim; turn off **HDR output** in Display, or the game's Hardware Cursor | the pointer is drawn with the game, at the same brightness |
 
 - **Rosetta 2** is the default and the most proven. Stay on it for 2.4.3 and 1.12
