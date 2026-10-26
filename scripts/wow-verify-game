@@ -250,7 +250,9 @@ check_divx() {  # check_divx <dll name> — 1 step
 }
 check_divx DivxDecoder.dll
 check_divx DivxTac.dll
-if [ "$CAP_DXVK" = 1 ]; then from_kit d3d9.dll d3d9.dll "d3d9.dll (DXVK renderer)"
+# the active runtime's DXVK (wow-runtime DXVK_KIT): switching the runtime runs --fix,
+# which swaps Rosetta's D9VK and FEX's DXVK 3.1.1 in the game folder both ways
+if [ "$CAP_DXVK" = 1 ]; then from_kit d3d9.dll "$(rt DXVK_KIT)" "d3d9.dll (DXVK renderer)"
 else step "d3d9.dll (DXVK renderer)"; echo "ok: DXVK not applicable (this client is 64-bit)"; fi
 if [ "$CAP_LOADER" = 1 ]; then from_kit libDllLdr.dll libDllLdr.dll "libDllLdr.dll"
 else step "libDllLdr.dll"; echo "ok: mod loader not applicable to this client"; fi

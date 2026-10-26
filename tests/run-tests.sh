@@ -1168,6 +1168,23 @@ assert_nofile "$G/mods/winerosetta.dll"
 assert_nofile "$G/mods/libSiliconPatch.dll"
 assert_contains "$OUT" "RESULT: OK — all checks passed" "and verifies clean that way"
 mv "$TMP/kit-divx.patched" "$RES/patch-kit/DivxDecoder.dll.3.3.5a.patched"
+# The game folder holds the runtime's DXVK: FEX's DXVK 3.1.1 once the kit has it, D9VK
+# otherwise; a runtime switch (verify --fix) swaps them, with the same step count.
+assert_eq "$(cat "$G/d3d9.dll")" "d3d9" "FEX without its DXVK in the kit: the game folder keeps D9VK"
+mkdir -p "$RES/patch-kit/fex"; echo dxvk311 > "$RES/patch-kit/fex/d3d9.dll"
+OUT="$("$BIN/wow-verify-game" 2>&1)"
+assert_contains "$OUT" "FAIL: d3d9.dll (DXVK renderer) missing or modified — repairable" "FEX with its DXVK: verify asks for it"
+OUT="$("$BIN/wow-verify-game" --fix 2>&1)"
+assert_eq "$(cat "$G/d3d9.dll")" "dxvk311" "--fix puts FEX's DXVK into the game folder"
+assert_eq "$(echo "$OUT" | awk '/^PROGRESS/ {print $3}' | sort -u)" "43" "with the same 43 steps"
+assert_contains "$("$BIN/wow-verify-game" 2>&1)" "ok: d3d9.dll (DXVK renderer)" "and then verifies clean"
+OUT="$("$BIN/wow-install-client" "$TMP/client-wotlk" 2>&1)"
+assert_eq "$(cat "$G/d3d9.dll")" "dxvk311" "an install under FEX copies FEX's DXVK"
+sed -i '' '/^RUNTIME=/d' "$RES/launcher.conf"
+assert_contains "$("$BIN/wow-verify-game" 2>&1)" "FAIL: d3d9.dll (DXVK renderer) missing or modified" "back on Rosetta: verify wants D9VK again"
+printf 'RUNTIME=fex\n' >> "$RES/launcher.conf"; rm -rf "$RES/patch-kit/fex"
+"$BIN/wow-verify-game" --fix >/dev/null 2>&1
+assert_eq "$(cat "$G/d3d9.dll")" "d3d9" "a FEX copy without its DXVK gets D9VK back"
 # the live Divx patch (no kit reference) ran through the FEX loader and wineserver
 assert_contains "$(grep -B1 -F 'rundll32' "$TMP/fex-install.log" | head -1)" "FEX STUB wine" "the live 3.3.5a Divx patch runs through the FEX loader"
 assert_contains "$(grep -F 'FEX STUB wineserver' "$TMP/fex-install.log")" "FEX STUB wineserver" "and waits on the FEX wineserver"

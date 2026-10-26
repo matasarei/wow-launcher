@@ -244,7 +244,8 @@ fi
 echo "applying patch kit..."
 mkdir -p "$DEST/mods"
 # Both are 32-bit x86: on a 64-bit client they could never be loaded at all.
-[ "$CAP_DXVK" = 1 ]   && cp "$KIT/d3d9.dll" "$DEST/"
+# The DXVK is the runtime's (wow-runtime DXVK_KIT): Rosetta's D9VK, or FEX's DXVK 3.1.1
+[ "$CAP_DXVK" = 1 ]   && cp "$KIT/$(rt DXVK_KIT)" "$DEST/d3d9.dll"
 [ "$CAP_LOADER" = 1 ] && cp "$KIT/libDllLdr.dll" "$DEST/"
 ditto "$KIT/rosettax87" "$DEST/rosettax87"
 # Patch level (launcher.conf PATCHES=, Game pane picker; survives reinstalls):
