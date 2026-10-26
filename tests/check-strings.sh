@@ -50,7 +50,7 @@ done
 # NEVER_TRANSLATED are literals that reach one of those call sites and are meant
 # to read the same in every language — the app's own name, a brand, a licence
 # line. They fall back to English by design, which is the correct rendering.
-NEVER_TRANSLATED='^(WoW Launcher|GitHub|FEX|MIT License · © [0-9]{4} .*)$'
+NEVER_TRANSLATED='^(WoW Launcher|GitHub|FEX|DXVK|MIT License · © [0-9]{4} .*)$'
 
 grep -oE '(\bL|\bLF|\bText|\bButton|\bLabel|\bSection|\bPicker|\bLink|\bToggle|\bLabeledContent|\.help|\.confirmationDialog)\( *"[^"]*"' "$SRC" \
   | sed -E 's/^[^"]*"//; s/"$//' \

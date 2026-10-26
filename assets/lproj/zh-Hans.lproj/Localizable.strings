@@ -71,6 +71,8 @@
 "Graphics backend" = "图形后端";
 "DXVK (default)" = "DXVK（默认）";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
+"MTLd3D (Metal, HDR, default)" = "MTLd3D (Metal, HDR，默认)";
+"Takes effect at the next game start. Under FEX, MTLd3D is the default and the one that can output HDR; DXVK there is the WoWSilicon 3.3.0 Preview's DXVK 3.1.1 on the KosmicKrisp Vulkan driver." = "下次启动游戏时生效。在 FEX 下，MTLd3D 是默认选项，也是可输出 HDR 的渲染器；那里的 DXVK 是 WoWSilicon 3.3.0 Preview 中的 DXVK 3.1.1，运行在 KosmicKrisp Vulkan 驱动上。";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "下次启动游戏时生效。DXVK 通过 Vulkan 转换 Direct3D 9，是经过验证的默认选项；MTLd3D 直接通过 Metal 渲染并可输出 HDR。";
 "Runtime" = "运行环境";
 "Run the game with" = "游戏运行方式";

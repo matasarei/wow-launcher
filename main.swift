@@ -130,7 +130,8 @@ struct DisplayOption: Identifiable, Hashable {
 
 final class Store: ObservableObject {
     @Published var mode = "maximized"
-    @Published var renderer = "dxvk"
+    @Published var renderer = "dxvk"          // RENDERER=, Rosetta's (absent = dxvk)
+    @Published var fexRenderer = "mtld3d"     // FEX_RENDERER=, FEX's own (absent = mtld3d)
     @Published var runtime = "rosetta"    // RUNTIME=rosetta|fex (wow-runtime decides what actually runs)
     @Published var spatialAudio = true     // SPATIAL_AUDIO=0 → WOWSILICON_SPATIAL_AUDIO_MODE=off (else fixed)
     @Published var normalizeAudio = true   // NORMALIZE_AUDIO=0 → WOWSILICON_NORMALIZE_AUDIO=0 (else 1)
@@ -192,6 +193,7 @@ final class Store: ObservableObject {
         autoRes = !((try? String(contentsOfFile: Paths.conf, encoding: .utf8))?.contains("AUTO_RES=0") ?? false)
         let r = confGet("RENDERER")
         renderer = r.isEmpty ? "dxvk" : r
+        fexRenderer = confGet("FEX_RENDERER") == "dxvk" ? "dxvk" : "mtld3d"
         runtime = confGet("RUNTIME") == "fex" ? "fex" : "rosetta"
         // on unless launcher.conf says 0 — absent = on, the AUTO_RES idiom wow-launch mirrors
         let sp = confGet("SPATIAL_AUDIO"), nm = confGet("NORMALIZE_AUDIO")
@@ -702,6 +704,9 @@ final class Store: ObservableObject {
             && FileManager.default.fileExists(atPath: Paths.resources + "/prefix-fex/drive_c")
             && fexMacOS
     }
+    // the Preview's DXVK 3.1.1 for KosmicKrisp, in a copy built with it (make build FEX=1):
+    // without it DXVK cannot run under FEX (wow-runtime DXVK=0)
+    var fexDXVK: Bool { FileManager.default.fileExists(atPath: Paths.resources + "/patch-kit/fex/d3d9.dll") }
     // the FEX runtime's binaries are built for macOS 26.5 (minos) and load on nothing older
     var fexMacOS: Bool {
         ProcessInfo.processInfo.isOperatingSystemAtLeast(
@@ -728,9 +733,15 @@ final class Store: ObservableObject {
         loadProfile()
     }
 
+    // one choice per runtime, as wow-launch reads them: RENDERER= is Rosetta's, FEX_RENDERER= FEX's
     func setRenderer(_ r: String) {
-        renderer = r
-        confSet("RENDERER", r)
+        if onFEX {
+            fexRenderer = r
+            confSet("FEX_RENDERER", r)
+        } else {
+            renderer = r
+            confSet("RENDERER", r)
+        }
         note = LF("Renderer set to %@ — takes effect at the next game start.", r == "mtld3d" ? "MTLd3D" : "DXVK")
     }
 
@@ -2274,7 +2285,8 @@ struct DisplayView: View {
         Binding(get: { store.windowPoints }, set: { store.setWindowSize($0) })
     }
     var rendererBinding: Binding<String> {
-        Binding(get: { store.onFEX ? "mtld3d" : store.renderer }, set: { store.setRenderer($0) })
+        Binding(get: { store.onFEX ? (store.fexDXVK ? store.fexRenderer : "mtld3d") : store.renderer },
+                set: { store.setRenderer($0) })
     }
 
     // Standard sizes that fit on the chosen display (window size is in points).
@@ -2341,14 +2353,21 @@ struct DisplayView: View {
             }
             Section("Renderer") {
                 Picker("Graphics backend", selection: rendererBinding) {
-                    Text("DXVK (default)").tag("dxvk")
-                    Text("MTLd3D (Metal, HDR)").tag("mtld3d")
+                    if store.onFEX {
+                        Text("DXVK").tag("dxvk")
+                        Text("MTLd3D (Metal, HDR, default)").tag("mtld3d")
+                    } else {
+                        Text("DXVK (default)").tag("dxvk")
+                        Text("MTLd3D (Metal, HDR)").tag("mtld3d")
+                    }
                 }
                 .pickerStyle(.menu)
-                .disabled(store.onFEX)
+                .disabled(store.onFEX && !store.fexDXVK)
                 Group {
-                    if store.onFEX {
+                    if store.onFEX && !store.fexDXVK {
                         Text("Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet.")
+                    } else if store.onFEX {
+                        Text("Takes effect at the next game start. Under FEX, MTLd3D is the default and the one that can output HDR; DXVK there is the WoWSilicon 3.3.0 Preview's DXVK 3.1.1 on the KosmicKrisp Vulkan driver.")
                     } else {
                         Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")
                     }

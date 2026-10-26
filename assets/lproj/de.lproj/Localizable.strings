@@ -71,6 +71,8 @@
 "Graphics backend" = "Grafik-Backend";
 "DXVK (default)" = "DXVK (Standard)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
+"MTLd3D (Metal, HDR, default)" = "MTLd3D (Metal, HDR, Standard)";
+"Takes effect at the next game start. Under FEX, MTLd3D is the default and the one that can output HDR; DXVK there is the WoWSilicon 3.3.0 Preview's DXVK 3.1.1 on the KosmicKrisp Vulkan driver." = "Wirksam beim nächsten Spielstart. Unter FEX ist MTLd3D der Standard und der Renderer, der HDR ausgeben kann; DXVK ist dort das DXVK 3.1.1 aus der WoWSilicon 3.3.0 Preview auf dem Vulkan-Treiber KosmicKrisp.";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Wirksam beim nächsten Spielstart. DXVK übersetzt Direct3D 9 über Vulkan und ist der bewährte Standard; MTLd3D rendert direkt über Metal und kann HDR ausgeben.";
 "Runtime" = "Laufzeit";
 "Run the game with" = "Spiel ausführen mit";
