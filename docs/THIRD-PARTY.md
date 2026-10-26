@@ -54,7 +54,7 @@ r17 (SDL2, FreeType, GnuTLS and the rest above) are the same components.
 | FEX (`lib/wine/aarch64-windows/xtajit.dll`, `xtajit64.dll`, with the helpers `lib/wine/aarch64-unix/libwow64fex_macos.so`, `libarm64ecfex_macos.so`) | MIT | [FEX-Emu/FEX](https://github.com/FEX-Emu/FEX), WoWSilicon's macOS port, commit `e9c1034` |
 | FEX's bundled libraries: fmt, unordered_dense, tiny-json / range-v3 / rpmalloc / cephes, xxhash | MIT / Boost-1.0 / public domain or MIT / BSD | FEX's `External/`, licence texts in `share/wowsilicon/licenses/FEX-dependencies/` |
 | MTLd3D v0.13.0 (Metal-native D3D9) | Zlib | [athei/mtld3d](https://github.com/athei/mtld3d) |
-| Vulkan loader, KosmicKrisp Vulkan driver (the only driver in r18; DXVK is not offered under FEX yet) | Apache-2.0, MIT | as above |
+| Vulkan loader, KosmicKrisp Vulkan driver (the only driver in r18; DXVK under FEX runs on it) | Apache-2.0, MIT | as above |
 
 ## Patch kit (`Resources/patch-kit/`)
 
@@ -65,6 +65,7 @@ Extracted at build time from the
 | Component | Licence | Source |
 |---|---|---|
 | `d3d9.dll` (D9VK 1.10.3, with the hardware-cursor scaling patch from [tairasu/d9vk](https://github.com/tairasu/d9vk) `7437b616`) | Zlib | [Sikarugir-App/d9vk](https://github.com/Sikarugir-App/d9vk), a fork of [doitsujin/dxvk](https://github.com/doitsujin/dxvk) |
+| `fex/d3d9.dll` (only in a `make build FEX=1` copy): DXVK 3.1.1 built for the KosmicKrisp Vulkan driver, with WoWSilicon's patches (the hardware-cursor scaling key among them); taken from the [3.3.0 Preview](https://github.com/WoWSilicon/WoWSilicon/releases/tag/Preview3.3.0) app zip (`FEX_RUNTIME_URL`, sha256-pinned), `Patching/dxvk-kosmickrisp/` | Zlib (`fex/LICENSE`: Philip Rebohle, Joshua Ashton, Robin Kertels, Jeffrey Ellison) | WoWSilicon's build of [doitsujin/dxvk](https://github.com/doitsujin/dxvk) |
 | `mods/winerosetta.dll` | MIT | [Gcenx/winerosetta](https://github.com/Gcenx/winerosetta) — the Rosetta 2 instruction shim (emulates `ARPL AX,DX`, rewrites `FCOMP ST(0),ST(0)`) |
 | `libDllLdr.dll` | see **Binary-only components** below | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) |
 | `libSiliconPatch/{wotlk,vanilla}/libSiliconPatch.dll` | see **Binary-only components** below | [WoWSilicon/WoWSilicon](https://github.com/WoWSilicon/WoWSilicon) |

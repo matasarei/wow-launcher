@@ -34,7 +34,8 @@ Contents/Resources/
 | `CHAT_CP=1251` | Cyrillic input layer for any client (env locale, system codepage, remapped fonts); auto-added by the installer when a Russian keyboard layout is present, `CHAT_CP=` empty opts out |
 | `GAME_DISPLAY=<name>` | show the game on this display (GUI writes it) |
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |
-| `RENDERER=dxvk\|mtld3d` | graphics backend (Display pane): dxvk = game-dir DXVK d3d9 (`d3d9=n,b`); mtld3d = the runtime's builtin Metal-native d3d9, HDR-capable (`d3d9=b`) |
+| `RENDERER=dxvk\|mtld3d` | graphics backend on **Rosetta** (Display pane): dxvk = game-dir DXVK d3d9, D9VK on MoltenVK (`d3d9=n,b`), the default; mtld3d = the runtime's builtin Metal-native d3d9, HDR-capable (`d3d9=b`) |
+| `FEX_RENDERER=dxvk\|mtld3d` | the same choice on **FEX**, its own key so Rosetta's never changes: absent = mtld3d; dxvk = the 3.3.0 Preview's DXVK 3.1.1 on KosmicKrisp, only in a copy with `patch-kit/fex/d3d9.dll` and only while the game folder holds it (see "FEX runtime"). Carried by an import and an update, reset by a fresh install, like `RENDERER` |
 | `SPATIAL_AUDIO=1\|0` | Apple spatial audio for headphones (Audio pane) — **on by default** (absent = on, like `AUTO_RES`): `wow-launch` exports `WOWSILICON_SPATIAL_AUDIO_MODE=fixed`, `0` → `off`; takes effect at the next game start |
 | `NORMALIZE_AUDIO=1\|0` | volume normalizer — quiet up, loud down (Audio pane) — **on by default**: exports `WOWSILICON_NORMALIZE_AUDIO=1`, `0` → `0`; next game start |
 | `PATCHES=all\|no-silicon\|winerosetta\|none` | how much of the patch stack is applied to the client — **`all` by default** (Game pane → Patches picker). This records what the **user asked for**; `wow-client-profile` clamps it down to the best level the installed client can actually take and every tool uses the clamped value, so swapping to a client that cannot take libSiliconPatch and back again restores the full set. The picker only offers the levels in the profile's `LEVELS`. `all`: every patch, libSiliconPatch included. `no-silicon`: everything but libSiliconPatch — its ~400 hooks are hardcoded addresses with no build check, so on a modified client they corrupt memory instead of failing, and Sirus-style clients report the patched bytes to the server (WoWSilicon issue #15). `winerosetta`: only the Divx mod loader + `mods/winerosetta.dll`. That DLL's `DllMain` installs a vectored exception handler which fills two Rosetta 2 instruction gaps — it emulates `ARPL AX,DX` and rewrites `FCOMP ST(0),ST(0)` in place; neither encoding appears in the client itself, so what needs them is server-pushed Warden code. (It also exports `Direct3DCreate9` and can proxy to `d9vk.dll` / `<known folder>\d3d9.dll`; that path is dormant here, since DXVK's own `d3d9.dll` sits in the game dir and the exe imports it directly.) `none`: the client is left exactly as it shipped (Warden servers will most likely disconnect). Levels apply via `wow-verify-game --fix`, which converges the mod set, the Divx DLL and the `Wow.exe` icon patch in both directions. The pre-2.4 `SILICON=` toggle still migrates (`1`→`all`, `0`→`no-silicon`). Under `RUNTIME=fex` the key is kept but not applied: the effective level is `icon` (or `none`), see "FEX runtime" |
@@ -117,11 +118,22 @@ prefix the x86_64 one made. Neither target runs without `FEX=1`, so a plain
   macOS 26.5) to decide whether to show the picker at all.
 - **What FEX skips.** The Rosetta 2 check (an arm64 wine doesn't need it), the x87
   engines (`x87: none (FEX emulates x87 itself)` is the log's first line), the
-  `WoW`-symlink/shim Dock trick, and DXVK: the renderer is forced to MTLd3D
-  (`renderer: mtld3d (FEX: MTLd3D only for now)` on the log's second line, the
-  Display pane's picker disabled with a caption) — r18 ships no MoltenVK, and the
-  kit's `d3d9.dll` is the d9vk build. `FEX_HOSTFEATURES=disableafp` is exported, as
-  upstream's launcher does.
+  `WoW`-symlink/shim Dock trick, and Rosetta's DXVK: r18 ships no MoltenVK, only
+  KosmicKrisp, and the kit's `d3d9.dll` is D9VK, built for MoltenVK.
+  `FEX_HOSTFEATURES=disableafp` is exported, as upstream's launcher does.
+- **DXVK under FEX.** A `make build FEX=1` copy also carries the 3.3.0 Preview's DXVK
+  3.1.1 for KosmicKrisp (`patch-kit/fex/d3d9.dll`, taken from the same pinned zip by
+  `patch-kit-fex`), the pairing WoWSilicon's own Preview launcher uses
+  (`--renderer dxvk`, `VK_DRIVER_FILES=…/KosmicKrisp_icd.json`). `wow-runtime` says
+  which DLL the game folder holds (`DXVK_KIT`) and whether DXVK can run (`DXVK`), and
+  names the Vulkan manifest (`VK_ICD`, MoltenVK under Rosetta). Install and verify use
+  `DXVK_KIT`, so a runtime switch (verify `--fix`) swaps D9VK and 3.1.1 in the game
+  folder both ways, with the same step count. The renderer is FEX's own
+  `FEX_RENDERER` (absent = MTLd3D); `wow-launch` runs DXVK only when the game folder's
+  `d3d9.dll` is the kit's FEX DXVK, so D9VK is never loaded on KosmicKrisp, and
+  otherwise falls back to MTLd3D with the reason on the log's second line. The Rosetta
+  side, `RENDERER` and D9VK + MoltenVK, does not change: upstream is moving to FEX, and
+  its newer builds are not assumed to work with the Rosetta wine.
 - **Patches: the icon only.** In the real game the client starts under FEX only
   without the launcher's patches — even `no-silicon` stops it right after the mods
   load. They are built for Rosetta 2: `winerosetta.dll` fills Rosetta instruction
@@ -158,14 +170,15 @@ prefix the x86_64 one made. Neither target runs without `FEX=1`, so a plain
     `wow-check-rosetta` answer as a Mac without it, for an x86_64 loader. It is inherited
     by `make` and by the GUI's subprocesses:
     `WOW_TEST_NO_ROSETTA=1 "$HOME/Applications/WoW.app/Contents/MacOS/WoW Launcher"`.
-- **Limits.** Tested on a 3.3.5a client against a local server. No
-  DXVK, no libSiliconPatch, none of the Warden helpers winerosetta provides on
+- **Limits.** Tested on a 3.3.5a client against a local server. DXVK 3.1.1 under
+  FEX is new and less proven than MTLd3D there. No libSiliconPatch, none of the Warden helpers winerosetta provides on
   Rosetta. Upstream's newer libDllLdr and libSiliconPatch under FEX would be a
   separate change.
 
 ## Patch kit anatomy
 
-Shipped by `make patch-kit` (open-source payloads only): `d3d9.dll` (DXVK),
+Shipped by `make patch-kit` (open-source payloads only): `d3d9.dll` (DXVK: D9VK,
+for Rosetta), in a `FEX=1` copy also `fex/d3d9.dll` + `fex/LICENSE` (DXVK 3.1.1, for FEX),
 `libDllLdr.dll`, `mods/winerosetta.dll`, `libSiliconPatch/{vanilla,wotlk}/`,
 `vanilla-tweaks.exe`, `rosettax87/`, `x87sidecar/`,
 `wow-icon-<in-md5>-<out-md5>.bsdiff`. (`dlls.txt` is generated per version by

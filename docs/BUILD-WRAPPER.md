@@ -85,7 +85,8 @@ rebuilds just the GUI/scripts into an existing wrapper.
 wine with the FEX emulator (from the WoWSilicon 3.3.0 Preview, ~200 MB download,
 sha256-verified, ~540 MB in the app) and its own wine prefix. Such a copy shows a
 **Runtime** picker in the Game pane (Rosetta 2 stays the default); FEX needs
-macOS 26.5 or later, runs the game with MTLd3D, and applies only the icon patch.
+macOS 26.5 or later, runs the game with MTLd3D by default (or DXVK 3.1.1, the
+Preview's build for its KosmicKrisp driver), and applies only the icon patch.
 The releases are built this way from 2.14.
 
 It also builds — and plays — on a Mac **without Rosetta 2**: the build skips only the
