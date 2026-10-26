@@ -14,10 +14,22 @@
 # Usage: wow-runtime — prints, one per line:
 #   KIND=rosetta|fex   WINE=<runtime dir>   PREFIX=<prefix dir>   WHY=<reason>
 #   FEX_OK=1|0         whether this copy could play on FEX here, whatever KIND says
+#   DXVK_KIT=<path>    the DXVK d3d9.dll the game folder must hold, in patch-kit/: Rosetta's
+#                      D9VK (d3d9.dll, built for MoltenVK), or under FEX the Preview's DXVK
+#                      3.1.1 for KosmicKrisp (fex/d3d9.dll) when the kit has it
+#   DXVK=1|0           whether DXVK can run on this runtime (FEX: only with fex/d3d9.dll)
+#   VK_ICD=<manifest>  the Vulkan driver DXVK is pointed at, empty when the runtime has
+#                      none: MoltenVK under Rosetta (r16+), KosmicKrisp under FEX (r18)
 RES="$(cd "$(dirname "$0")/.." && pwd)"
 WANT="$(grep -sE '^RUNTIME=' "$RES/launcher.conf" | head -1 | cut -d= -f2)"
 MACOS="${WOW_TEST_MACOS:-$(sw_vers -productVersion 2>/dev/null)}"
-rosetta() { printf 'KIND=rosetta\nWINE=%s\nPREFIX=%s\nWHY=%s\nFEX_OK=%s\n' "$RES/wine" "$RES/prefix" "$1" "$FEX_OK"; exit 0; }
+# an older runtime (MoltenVK itself as the Vulkan library) has no manifest: VK_ICD empty
+icd() { [ -f "$1" ] && printf '%s' "$1"; }
+rosetta() {
+  printf 'KIND=rosetta\nWINE=%s\nPREFIX=%s\nWHY=%s\nFEX_OK=%s\n' "$RES/wine" "$RES/prefix" "$1" "$FEX_OK"
+  printf 'DXVK_KIT=d3d9.dll\nDXVK=1\nVK_ICD=%s\n' "$(icd "$RES/wine/lib/vulkan/icd.d/MoltenVK_icd.json")"
+  exit 0
+}
 # 26.5 or later, compared as numbers ("26.10" is newer than "26.5")
 macos_ok() {
   case "$MACOS" in [0-9]*) ;; *) return 1 ;; esac
@@ -27,7 +39,14 @@ macos_ok() {
   [ "$MAJOR" -gt 26 ] 2>/dev/null || { [ "$MAJOR" -eq 26 ] && [ "${MINOR:-0}" -ge 5 ]; } 2>/dev/null
 }
 [ "${1:-}" = --macos-ok ] && { macos_ok; exit; }
-fex() { printf 'KIND=fex\nWINE=%s\nPREFIX=%s\nWHY=%s\nFEX_OK=1\n' "$RES/wine-fex" "$RES/prefix-fex" "$1"; exit 0; }
+# Rosetta's D9VK is never loaded on KosmicKrisp: a FEX copy built before its DXVK
+# existed keeps D9VK in the game folder and plays MTLd3D (DXVK=0)
+fex() {
+  printf 'KIND=fex\nWINE=%s\nPREFIX=%s\nWHY=%s\nFEX_OK=1\n' "$RES/wine-fex" "$RES/prefix-fex" "$1"
+  if [ -f "$RES/patch-kit/fex/d3d9.dll" ]; then printf 'DXVK_KIT=fex/d3d9.dll\nDXVK=1\n'; else printf 'DXVK_KIT=d3d9.dll\nDXVK=0\n'; fi
+  printf 'VK_ICD=%s\n' "$(icd "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json")"
+  exit 0
+}
 fex_ok() { [ -x "$RES/wine-fex/bin/wine" ] && [ -d "$RES/prefix-fex/drive_c" ] && macos_ok; }
 FEX_OK=0; fex_ok && FEX_OK=1
 case "$WANT" in

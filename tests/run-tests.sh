@@ -338,6 +338,19 @@ for V in 26.5 26.5.1 26.10 27.0.1 28; do
   assert_eq "$(MAC=$V rtv KIND)" "fex" "macOS $V: FEX"
 done
 assert_eq "$(rtv WINE)|$(rtv PREFIX)" "$RES/wine-fex|$RES/prefix-fex" "the FEX runtime and its own prefix"
+# DXVK per runtime: Rosetta's D9VK on MoltenVK; under FEX the Preview's DXVK 3.1.1 on
+# KosmicKrisp, only when the kit has it — never D9VK on KosmicKrisp
+assert_eq "$(rtv DXVK_KIT)|$(rtv DXVK)|$(rtv VK_ICD)" "d3d9.dll|0|" "FEX without its DXVK: none, the game folder keeps D9VK"
+mkdir -p "$RES/patch-kit/fex" "$RES/wine-fex/lib/vulkan/icd.d"
+: > "$RES/patch-kit/fex/d3d9.dll"; echo '{}' > "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json"
+assert_eq "$(rtv DXVK_KIT)|$(rtv DXVK)" "fex/d3d9.dll|1" "FEX with its DXVK in the kit"
+assert_eq "$(rtv VK_ICD)" "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json" "pointed at KosmicKrisp"
+reset_conf
+assert_eq "$(rtv DXVK_KIT)|$(rtv DXVK)|$(rtv VK_ICD)" "d3d9.dll|1|" "Rosetta: D9VK, whatever the kit holds for FEX; no manifest, no VK_ICD"
+mkdir -p "$RES/wine/lib/vulkan/icd.d"; echo '{}' > "$RES/wine/lib/vulkan/icd.d/MoltenVK_icd.json"
+assert_eq "$(rtv VK_ICD)" "$RES/wine/lib/vulkan/icd.d/MoltenVK_icd.json" "Rosetta: pointed at MoltenVK"
+rm -rf "$RES/patch-kit/fex" "$RES/wine-fex/lib" "$RES/wine/lib/vulkan"
+printf 'RUNTIME=fex\n' >> "$RES/launcher.conf"
 WOW_TEST_MACOS=26.5 "$ROOT/scripts/wow-runtime" --macos-ok && ok || bad "--macos-ok: 26.5 can run FEX"
 WOW_TEST_MACOS=26.4 "$ROOT/scripts/wow-runtime" --macos-ok && bad "--macos-ok: 26.4 cannot run FEX" || ok
 # a copy built without Rosetta 2 has no Rosetta prefix: FEX plays, whatever RUNTIME= says
