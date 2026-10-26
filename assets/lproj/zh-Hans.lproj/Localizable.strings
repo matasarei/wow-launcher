@@ -190,3 +190,7 @@
 "This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "此副本构建时没有 Rosetta 2，因此没有 Rosetta 前缀。要让 Rosetta 2 成为可选项，请在启动器源代码文件夹中再次运行 make build FEX=1。";
 "Or build a copy with FEX, which needs no Rosetta 2" = "或者构建一个带 FEX 的副本，它不需要 Rosetta 2";
 "This copy carries the FEX runtime. If the new version does not, the game moves to Rosetta 2 with your settings; on a Mac without Rosetta 2 the update stops and this copy stays." = "此副本带有 FEX 运行时。如果新版本没有，游戏将保留你的设置改用 Rosetta 2 运行；在没有 Rosetta 2 的 Mac 上，更新会停止并保留此副本。";
+"HDR output" = "HDR 输出";
+"On a screen with HDR headroom, such as a MacBook Pro's XDR display, MTLd3D lifts the game into HDR: brighter highlights and more vivid colors. Turn it off if the game looks too bright there. Other screens look the same either way." = "在有 HDR 余量的屏幕上（例如 MacBook Pro 的 XDR 显示屏），MTLd3D 会把游戏提升为 HDR：高光更亮，色彩更鲜艳。如果游戏在那里显得太亮，请将其关闭。在其他屏幕上，开关与否看起来都一样。";
+"HDR output turned on — takes effect at the next game start." = "HDR 输出已开启——下次启动游戏时生效。";
+"HDR output turned off — takes effect at the next game start." = "HDR 输出已关闭——下次启动游戏时生效。";

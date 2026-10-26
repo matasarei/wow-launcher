@@ -190,3 +190,7 @@
 "This copy was built without Rosetta 2, so it has no Rosetta prefix. To make Rosetta 2 an option, run make build FEX=1 again in the launcher's source folder." = "Эта копия собрана без Rosetta 2, поэтому у неё нет префикса Rosetta. Чтобы Rosetta 2 стала доступна, снова выполните make build FEX=1 в папке с исходниками лаунчера.";
 "Or build a copy with FEX, which needs no Rosetta 2" = "Или соберите копию с FEX — ей не нужна Rosetta 2";
 "This copy carries the FEX runtime. If the new version does not, the game moves to Rosetta 2 with your settings; on a Mac without Rosetta 2 the update stops and this copy stays." = "В этой копии есть среда FEX. Если в новой версии её нет, игра перейдёт на Rosetta 2 с вашими настройками; на Mac без Rosetta 2 обновление остановится, и эта копия останется.";
+"HDR output" = "Вывод HDR";
+"On a screen with HDR headroom, such as a MacBook Pro's XDR display, MTLd3D lifts the game into HDR: brighter highlights and more vivid colors. Turn it off if the game looks too bright there. Other screens look the same either way." = "На экране с запасом яркости HDR, например на XDR-дисплее MacBook Pro, MTLd3D переводит игру в HDR: светлые участки ярче, цвета насыщеннее. Выключите, если игра там кажется слишком яркой. На других экранах картинка одинакова в обоих случаях.";
+"HDR output turned on — takes effect at the next game start." = "Вывод HDR включён — вступит в силу при следующем запуске игры.";
+"HDR output turned off — takes effect at the next game start." = "Вывод HDR выключен — вступит в силу при следующем запуске игры.";
