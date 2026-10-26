@@ -19,10 +19,21 @@
 </p>
 
 <p align="center">
-  <a href="https://hcnotes.cc/article/articles-my-own-private-azeroth"><b>Why and how I built this →</b></a>
+  <a href="https://hcnotes.cc/article/articles-my-own-private-azeroth"><b>The story behind the project →</b></a>
 </p>
 
 ---
+
+## Contents
+
+- [About](#about)
+  - [Rosetta 2 or FEX?](#rosetta-2-or-fex)
+  - [Other clients](#other-clients)
+- [Using the launcher](#using-the-launcher)
+- [Building the wrapper](#building-the-wrapper)
+- [Repo layout & building the launcher](#repo-layout--building-the-launcher)
+- [Troubleshooting](#troubleshooting)
+- [Credits](#credits) · [License](#license)
 
 ## About
 
