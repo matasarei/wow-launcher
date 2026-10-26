@@ -776,6 +776,11 @@ cp "$RES/patch-kit/fex/d3d9.dll" "$GD"
 assert_contains "$(game_line)" "OVR=d3d9=n,b" "FEX's DXVK in the game folder: DXVK"
 assert_contains "$(game_line)" "VK=$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json " "on KosmicKrisp"
 assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: dxvk" "the log names DXVK"
+mv "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json" "$TMP/kk.json"
+VK_DRIVER_FILES=/stale/icd.json; export VK_DRIVER_FILES
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "VK=unset" "no KosmicKrisp manifest: no VK_DRIVER_FILES, a stale shell value cleared"
+unset VK_DRIVER_FILES; mv "$TMP/kk.json" "$RES/wine-fex/lib/vulkan/icd.d/KosmicKrisp_icd.json"
 sed -i '' 's/^FEX_RENDERER=.*/FEX_RENDERER=mtld3d/' "$RES/launcher.conf"
 : > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
 assert_contains "$(game_line)" "OVR=d3d9=b" "FEX_RENDERER=mtld3d: MTLd3D"
