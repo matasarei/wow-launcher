@@ -648,6 +648,19 @@ printf 'RENDERER=mtld3d\nX87=sidecar\n' >> "$RES/launcher.conf"
 assert_contains "$(cat "$WINELOG")" "OVR=d3d9=b" "mtld3d override"
 assert_contains "$(cat "$WINELOG")" "SIDECAR=$RES/patch-kit/x87sidecar/x87sidecar" "sidecar engine"
 assert_contains "$(cat "$WINELOG")" "VK=unset" "MTLd3D needs no Vulkan driver"
+case "$(cat "$WINELOG")" in *color.hdr*) bad "no HDR key: MTLd3D's own default, nothing passed" ;; *) ok ;; esac
+printf 'HDR=0\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "color.hdr.enable=false PREFIX=" "HDR=0: MTLd3D told to stay SDR"
+assert_contains "$(sed -n 2p "$RES/logs/last-launch.log")" "renderer: mtld3d, HDR off" "and the log says so"
+sed -i '' 's/^HDR=.*/HDR=1/' "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+case "$(cat "$WINELOG")" in *color.hdr*) bad "HDR=1: nothing passed" ;; *) ok ;; esac
+case "$(sed -n 2p "$RES/logs/last-launch.log")" in *HDR*) bad "HDR=1: nothing in the log" ;; *) ok ;; esac
+sed -i '' 's/^HDR=.*/HDR=yes/' "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+case "$(cat "$WINELOG")" in *color.hdr*) bad "only HDR=0 turns it off" ;; *) ok ;; esac
+sed -i '' '/^HDR=/d' "$RES/launcher.conf"
 # audio (runtime r15 winecoreaudio contract): spatial mixer and normalizer on unless
 # the conf says 0 (absent = on, like AUTO_RES), device following left to the driver's
 # default, control files pinned inside the bundle
@@ -785,6 +798,11 @@ sed -i '' 's/^FEX_RENDERER=.*/FEX_RENDERER=mtld3d/' "$RES/launcher.conf"
 : > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
 assert_contains "$(game_line)" "OVR=d3d9=b" "FEX_RENDERER=mtld3d: MTLd3D"
 assert_contains "$(game_line)" "VK=unset" "with no Vulkan driver"
+printf 'HDR=0\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; WOW_TEST_MACOS=27.0.1 "$BIN/wow-launch"; launched
+assert_contains "$(game_line)" "cursor.software=auto;color.hdr.enable=false " "FEX + HDR=0: MTLd3D stays SDR (the overlay cursor's auto then stays off)"
+assert_eq "$(sed -n 2p "$LAUNCHLOG")" "runtime: fex (RUNTIME=fex), renderer: mtld3d, HDR off" "and the log says so"
+sed -i '' '/^HDR=/d' "$RES/launcher.conf"
 cp "$TMP/game-d9vk.dll" "$GD"; rm -rf "$RES/patch-kit/fex" "$RES/wine-fex/lib"
 sed -i '' '/^FEX_RENDERER=/d' "$RES/launcher.conf"
 [ -L "$RES/prefix-fex/dosdevices/z:" ] && ok || bad "z: drive link made in the FEX prefix"
@@ -859,6 +877,13 @@ echo N > "$RES/prefix/.retina-mode"
 assert_eq "$(cat "$G/dxvk.conf")" "dxgi.maxFrameRate = 60" "retina off: our line goes, the user's stays"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(cat "$WINELOG")" "MTL=cursor.scale=1" "retina off: MTLd3D told not to double the cursor"
+printf 'HDR=0\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "MTL=cursor.scale=1;color.hdr.enable=false PREFIX=" "retina off + HDR=0: both keys"
+echo Y > "$RES/prefix/.retina-mode"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(cat "$WINELOG")" "MTL=color.hdr.enable=false PREFIX=" "retina on + HDR=0: the HDR key alone"
+echo N > "$RES/prefix/.retina-mode"; sed -i '' '/^HDR=/d' "$RES/launcher.conf"
 echo 'd3d9.enlargeHardwareCursor = 2' > "$G/dxvk.conf"
 "$BIN/wow-launch"; sleep 0.3
 assert_nofile "$G/dxvk.conf"
