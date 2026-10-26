@@ -643,6 +643,13 @@ rm -rf "$RES/wine/lib/vulkan"
 assert_contains "$(cat "$WINELOG")" "VK=unset" "without the manifest a stale shell value is cleared too"
 assert_contains "$(cat "$WINELOG")" "ROSETTA=$G/rosettax87/rosettax87-shim" "rosettax87 shim engine by default"
 [ -L "$RES/prefix/dosdevices/z:" ] && ok || bad "z: drive link not recreated"
+# HDR=0 under DXVK: the key is passed all the same (DXVK never reads it), but the
+# log names HDR only for the renderer it changes
+printf 'HDR=0\n' >> "$RES/launcher.conf"
+: > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
+assert_contains "$(sed -n 2p "$RES/logs/last-launch.log")" "renderer: dxvk" "DXVK by default"
+case "$(sed -n 2p "$RES/logs/last-launch.log")" in *HDR*) bad "HDR=0 under DXVK: nothing about HDR in the log" ;; *) ok ;; esac
+sed -i '' '/^HDR=/d' "$RES/launcher.conf"
 printf 'RENDERER=mtld3d\nX87=sidecar\n' >> "$RES/launcher.conf"
 : > "$WINELOG"; "$BIN/wow-launch"; sleep 0.3
 assert_contains "$(cat "$WINELOG")" "OVR=d3d9=b" "mtld3d override"
