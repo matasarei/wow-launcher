@@ -227,7 +227,7 @@ cmd_apply() {  # cmd_apply <asset url> <size> <digest> [<pid to wait for>]
   else
     # nothing to import, so carry the settings the import would have carried
     # (the same keys as wow-install-client's KEYS, minus the ones it recomputes)
-    local KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP|RUNTIME'
+    local KEYS='PATCHES|SILICON|CHAT_CP|RENDERER|FEX_RENDERER|SPATIAL_AUDIO|NORMALIZE_AUDIO|CLOSE_ON_PLAY|X87|RETINA|UPDATE_CHECK|UPDATE_CHECKED|UPDATE_SKIP|RUNTIME'
     local NEW_CONF="$NEW/Contents/Resources/launcher.conf"
     { grep -svE "^($KEYS)=" "$NEW_CONF"; grep -sE "^($KEYS)=" "$CONF"; } > "$NEW_CONF.tmp" || true
     mv "$NEW_CONF.tmp" "$NEW_CONF"
