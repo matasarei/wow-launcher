@@ -113,8 +113,9 @@ payloads:
 	  [ -f "$(DEPS)/wowsilicon.dmg" ] || curl -fL --progress-bar -o "$(DEPS)/wowsilicon.dmg" "$(PAYLOAD_URL)"; \
 	  echo "$(PAYLOAD_SHA256)  $(DEPS)/wowsilicon.dmg" | shasum -a 256 -c - >/dev/null || { echo "ERROR: payload DMG checksum mismatch — delete $(DEPS)/wowsilicon.dmg and retry"; exit 1; }; \
 	  hdiutil attach -nobrowse -readonly -mountpoint "$(DEPS)/dmg-mount" "$(DEPS)/wowsilicon.dmg" >/dev/null; \
-	  ditto "$(DEPS)/dmg-mount/WoWSilicon.app/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching" "$(DEPS)/Patching"; \
+	  ditto "$(DEPS)/dmg-mount/WoWSilicon.app/Contents/Resources/WoWSilicon-swift_WoWSiliconSwift.bundle/Patching" "$(DEPS)/Patching"; OK=$$?; \
 	  hdiutil detach "$(DEPS)/dmg-mount" >/dev/null; \
+	  [ "$$OK" = 0 ] || { rm -rf "$(DEPS)/Patching"; echo "ERROR: the payloads could not be copied out of the DMG — run make again"; exit 1; }; \
 	  touch "$(DEPS)/Patching/.from-dmg-$(PAYLOAD_SHA256)"; fi
 
 patch-kit: payloads
