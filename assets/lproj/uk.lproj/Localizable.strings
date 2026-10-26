@@ -72,7 +72,7 @@
 "DXVK (default)" = "DXVK (типово)";
 "MTLd3D (Metal, HDR)" = "MTLd3D (Metal, HDR)";
 "MTLd3D (Metal, HDR, default)" = "MTLd3D (Metal, HDR, типово)";
-"Takes effect at the next game start. Under FEX, MTLd3D is the default and the one that can output HDR; DXVK there is the WoWSilicon 3.3.0 Preview's DXVK 3.1.1 on the KosmicKrisp Vulkan driver." = "Набирає чинності після наступного запуску гри. Під FEX MTLd3D — типовий варіант і єдиний із HDR; DXVK там — DXVK 3.1.1 із WoWSilicon 3.3.0 Preview на Vulkan-драйвері KosmicKrisp.";
+"Takes effect at the next game start. Under FEX, MTLd3D is the default: it draws through Metal directly, runs the smoothest and can output HDR. DXVK draws through Vulkan instead — worth a try if something looks wrong with MTLd3D." = "Набере чинності після наступного запуску гри. Під FEX за замовчуванням MTLd3D: він малює напряму через Metal, працює найплавніше й може виводити HDR. DXVK малює через Vulkan — варто спробувати, якщо з MTLd3D щось відображається неправильно.";
 "Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR." = "Набирає чинності після наступного запуску гри. DXVK транслює Direct3D 9 через Vulkan — перевірений типовий варіант; MTLd3D рендерить безпосередньо через Metal і підтримує HDR.";
 "Runtime" = "Середовище виконання";
 "Run the game with" = "Запускати гру через";

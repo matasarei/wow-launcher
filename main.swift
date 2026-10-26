@@ -2387,7 +2387,7 @@ struct DisplayView: View {
                     if store.onFEX && !store.fexDXVK {
                         Text("Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet.")
                     } else if store.onFEX {
-                        Text("Takes effect at the next game start. Under FEX, MTLd3D is the default and the one that can output HDR; DXVK there is the WoWSilicon 3.3.0 Preview's DXVK 3.1.1 on the KosmicKrisp Vulkan driver.")
+                        Text("Takes effect at the next game start. Under FEX, MTLd3D is the default: it draws through Metal directly, runs the smoothest and can output HDR. DXVK draws through Vulkan instead — worth a try if something looks wrong with MTLd3D.")
                     } else {
                         Text("Takes effect at the next game start. DXVK translates Direct3D 9 via Vulkan and is the proven default; MTLd3D renders directly through Metal and can output HDR.")
                     }
