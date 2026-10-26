@@ -36,6 +36,7 @@ Contents/Resources/
 | `DISPLAY_RECT=x,y,w,h` | resolved AX coords for the window mover (recomputed at Play) |
 | `RENDERER=dxvk\|mtld3d` | graphics backend on **Rosetta** (Display pane): dxvk = game-dir DXVK d3d9, D9VK on MoltenVK (`d3d9=n,b`), the default; mtld3d = the runtime's builtin Metal-native d3d9, HDR-capable (`d3d9=b`) |
 | `FEX_RENDERER=dxvk\|mtld3d` | the same choice on **FEX**, its own key so Rosetta's never changes: absent = mtld3d; dxvk = the 3.3.0 Preview's DXVK 3.1.1 on KosmicKrisp, only in a copy with `patch-kit/fex/d3d9.dll` and only while the game folder holds it (see "FEX runtime"). Carried by an import and an update, reset by a fresh install, like `RENDERER` |
+| `HDR=1\|0` | MTLd3D's HDR output on **both runtimes** (Display pane, shown while MTLd3D is the renderer) — **on by default** (absent = on): on a screen with EDR headroom (the MacBook's XDR display) MTLd3D lifts the game's SDR frames into HDR; `0` → `wow-launch` adds `color.hdr.enable=false` to `MTLD3D_CONFIG`, MTLd3D's SDR path (any other value passes nothing), and the launch log's line 2 ends `, HDR off`. Screens without EDR look the same either way. Under FEX, `cursor.software=auto` then stays off and the hardware cursor is back. A player's screen preference: carried by an import and an update, kept by a fresh install, like `SPATIAL_AUDIO` |
 | `SPATIAL_AUDIO=1\|0` | Apple spatial audio for headphones (Audio pane) — **on by default** (absent = on, like `AUTO_RES`): `wow-launch` exports `WOWSILICON_SPATIAL_AUDIO_MODE=fixed`, `0` → `off`; takes effect at the next game start |
 | `NORMALIZE_AUDIO=1\|0` | volume normalizer — quiet up, loud down (Audio pane) — **on by default**: exports `WOWSILICON_NORMALIZE_AUDIO=1`, `0` → `0`; next game start |
 | `PATCHES=all\|no-silicon\|winerosetta\|none` | how much of the patch stack is applied to the client — **`all` by default** (Game pane → Patches picker). This records what the **user asked for**; `wow-client-profile` clamps it down to the best level the installed client can actually take and every tool uses the clamped value, so swapping to a client that cannot take libSiliconPatch and back again restores the full set. The picker only offers the levels in the profile's `LEVELS`. `all`: every patch, libSiliconPatch included. `no-silicon`: everything but libSiliconPatch — its ~400 hooks are hardcoded addresses with no build check, so on a modified client they corrupt memory instead of failing, and Sirus-style clients report the patched bytes to the server (WoWSilicon issue #15). `winerosetta`: only the Divx mod loader + `mods/winerosetta.dll`. That DLL's `DllMain` installs a vectored exception handler which fills two Rosetta 2 instruction gaps — it emulates `ARPL AX,DX` and rewrites `FCOMP ST(0),ST(0)` in place; neither encoding appears in the client itself, so what needs them is server-pushed Warden code. (It also exports `Direct3DCreate9` and can proxy to `d9vk.dll` / `<known folder>\d3d9.dll`; that path is dormant here, since DXVK's own `d3d9.dll` sits in the game dir and the exe imports it directly.) `none`: the client is left exactly as it shipped (Warden servers will most likely disconnect). Levels apply via `wow-verify-game --fix`, which converges the mod set, the Divx DLL and the `Wow.exe` icon patch in both directions. The pre-2.4 `SILICON=` toggle still migrates (`1`→`all`, `0`→`no-silicon`). Under `RUNTIME=fex` the key is kept but not applied: the effective level is `icon` (or `none`), see "FEX runtime" |
@@ -288,7 +289,7 @@ skipped); the old kit's self-populated references (`DivxDecoder/DivxTac
 has) and its `fonts-client/` stash if `wow-client-fonts check` passes (pre-2.3
 remaps do not); and the player's choices from `launcher.conf`: `PATCHES`
 (`SILICON` only when there is no `PATCHES`), `CHAT_CP`, `RENDERER`,
-`SPATIAL_AUDIO`, `NORMALIZE_AUDIO`, `CLOSE_ON_PLAY`, `X87`, `RETINA`, and
+`FEX_RENDERER`, `HDR`, `SPATIAL_AUDIO`, `NORMALIZE_AUDIO`, `CLOSE_ON_PLAY`, `X87`, `RETINA`, and
 `AUTO_RES=0` (resolution managed by hand, for gx*-cvar clients). Not the
 screen setup (`DISPLAY_RECT`, `GAME_DISPLAY`) nor `GAME_*` (recomputed).
 Nothing is patched by the installer — the Divx DLL is already patched, and
@@ -481,6 +482,8 @@ run that leaves the new version at the old path with the game and settings in it
   RetinaMode — right under Y, doubled twice under N on a Retina panel — so
   wow-launch exports `MTLD3D_CONFIG=cursor.scale=1` when RetinaMode is not Y
   (0.10.0's auto followed RetinaMode instead; revisit when MTLd3D moves on).
+  `HDR=0` goes through the same variable (`color.hdr.enable=false`), appended
+  after the cursor keys.
   D9VK doubles only when
   `dxvk.conf` sets `d3d9.enlargeHardwareCursor` (in the WoWSilicon 3.2.2 payload's
   build; the 3.2.0/3.2.1 builds lost it, older builds read it too). So wow-launch
