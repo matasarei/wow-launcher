@@ -77,8 +77,8 @@
 "Runtime" = "Environnement d'exécution";
 "Run the game with" = "Lancer le jeu avec";
 "Rosetta 2 (default)" = "Rosetta 2 (par défaut)";
-"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched." = "Prend effet au prochain démarrage du jeu. Rosetta 2 est le traducteur d'Apple et le choix éprouvé par défaut ; FEX est un émulateur x86 open source intégré à un Wine arm64, avec ses propres réglages Windows. Il ne nécessite pas Rosetta 2 ; sous FEX, le moteur de rendu est MTLd3D et seule l'icône du jeu est modifiée.";
-"Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "Sous FEX, le moteur de rendu est MTLd3D pour l'instant : DXVK ne fonctionne pas encore dans cet environnement.";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX MTLd3D is the default renderer and only the game icon is patched." = "Prend effet au prochain démarrage du jeu. Rosetta 2 est le traducteur d'Apple et le choix éprouvé par défaut ; FEX est un émulateur x86 open source intégré à un Wine arm64, avec ses propres réglages Windows. Il ne nécessite pas Rosetta 2 ; sous FEX, le moteur de rendu par défaut est MTLd3D et seule l'icône du jeu est modifiée.";
+"This copy was built without DXVK for FEX, so under FEX the renderer is MTLd3D. To make DXVK an option there, run make build FEX=1 again in the launcher's source folder." = "Cette copie a été construite sans DXVK pour FEX : sous FEX, le moteur de rendu est donc MTLd3D. Pour y proposer DXVK, relancez make build FEX=1 dans le dossier source du lanceur.";
 "Runtime set to %@ — takes effect at the next game start." = "Environnement d'exécution réglé sur %@ — prend effet au prochain démarrage du jeu.";
 "Audio" = "Audio";
 "Output" = "Sortie";

@@ -77,8 +77,8 @@
 "Runtime" = "Runtime";
 "Run the game with" = "Run the game with";
 "Rosetta 2 (default)" = "Rosetta 2 (default)";
-"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched." = "Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched.";
-"Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet.";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX MTLd3D is the default renderer and only the game icon is patched." = "Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX MTLd3D is the default renderer and only the game icon is patched.";
+"This copy was built without DXVK for FEX, so under FEX the renderer is MTLd3D. To make DXVK an option there, run make build FEX=1 again in the launcher's source folder." = "This copy was built without DXVK for FEX, so under FEX the renderer is MTLd3D. To make DXVK an option there, run make build FEX=1 again in the launcher's source folder.";
 "Runtime set to %@ — takes effect at the next game start." = "Runtime set to %@ — takes effect at the next game start.";
 "Audio" = "Audio";
 "Output" = "Output";
