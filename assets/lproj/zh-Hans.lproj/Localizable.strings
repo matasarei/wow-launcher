@@ -77,8 +77,8 @@
 "Runtime" = "运行环境";
 "Run the game with" = "游戏运行方式";
 "Rosetta 2 (default)" = "Rosetta 2（默认）";
-"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched." = "下次启动游戏时生效。Rosetta 2 是 Apple 的转译器，也是经过验证的默认选项；FEX 是内置于 arm64 Wine 的开源 x86 模拟器，使用独立的 Windows 设置。无需 Rosetta 2；在 FEX 下渲染器为 MTLd3D，且只修补游戏图标。";
-"Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet." = "在 FEX 下渲染器暂时固定为 MTLd3D：DXVK 尚不能在该运行环境中运行。";
+"Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX MTLd3D is the default renderer and only the game icon is patched." = "下次启动游戏时生效。Rosetta 2 是 Apple 的转译器，也是经过验证的默认选项；FEX 是内置于 arm64 Wine 的开源 x86 模拟器，使用独立的 Windows 设置。无需 Rosetta 2；在 FEX 下默认渲染器为 MTLd3D，且只修补游戏图标。";
+"This copy was built without DXVK for FEX, so under FEX the renderer is MTLd3D. To make DXVK an option there, run make build FEX=1 again in the launcher's source folder." = "此副本构建时没有适用于 FEX 的 DXVK，因此在 FEX 下渲染器为 MTLd3D。要让 DXVK 在 FEX 下也成为可选项，请在启动器源代码文件夹中再次运行 make build FEX=1。";
 "Runtime set to %@ — takes effect at the next game start." = "运行环境已设为 %@——下次启动游戏时生效。";
 "Audio" = "音频";
 "Output" = "输出";

@@ -2015,7 +2015,7 @@ struct GameView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX the renderer is MTLd3D and only the game icon is patched.")
+                        Text("Takes effect at the next game start. Rosetta 2 is Apple's translator and the proven default; FEX is an open-source x86 emulator inside an arm64 Wine, with Windows settings of its own. It needs no Rosetta 2; under FEX MTLd3D is the default renderer and only the game icon is patched.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -2385,7 +2385,7 @@ struct DisplayView: View {
                 .disabled(store.onFEX && !store.fexDXVK)
                 Group {
                     if store.onFEX && !store.fexDXVK {
-                        Text("Under FEX the renderer is MTLd3D for now: DXVK does not run on that runtime yet.")
+                        Text("This copy was built without DXVK for FEX, so under FEX the renderer is MTLd3D. To make DXVK an option there, run make build FEX=1 again in the launcher's source folder.")
                     } else if store.onFEX {
                         Text("Takes effect at the next game start. Under FEX, MTLd3D is the default: it draws through Metal directly, runs the smoothest and can output HDR. DXVK draws through Vulkan instead — worth a try if something looks wrong with MTLd3D.")
                     } else {
